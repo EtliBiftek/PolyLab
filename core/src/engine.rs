@@ -21,6 +21,8 @@ use crate::tokens::{estimate, Usage};
 const MAX_HISTORY_MESSAGES: usize = 40;
 /// Messages shorter than this are dropped from the assistant context (UI events).
 const AUTO_TITLE_MAX_CHARS: usize = 40;
+/// Soft token budget for replayed history (newest-first until exceeded).
+pub const HISTORY_TOKEN_BUDGET: u64 = 16_000;
 
 pub struct ChatEngine {
     db: SqlitePool,
@@ -144,13 +146,21 @@ impl ChatEngine {
         // --- persist the user message -----------------------------------------
         let user_message_id = uuid::Uuid::new_v4().to_string();
         let now = storage::now_rfc3339();
+        // Persist attachment metadata (name/mime/text; base64 data for images) so
+        // history reloads can re-render the attachment chips (MessageItem).
+        let attachments_json = if attachments.is_empty() {
+            None
+        } else {
+            Some(serde_json::to_string(&attachments)?)
+        };
         sqlx::query(
-            "INSERT INTO messages (id, conversation_id, role, content, created_at)
-             VALUES (?, ?, 'user', ?, ?)",
+            "INSERT INTO messages (id, conversation_id, role, content, attachments_json, created_at)
+             VALUES (?, ?, 'user', ?, ?, ?)",
         )
         .bind(&user_message_id)
         .bind(conversation_id)
         .bind(&content)
+        .bind(&attachments_json)
         .bind(&now)
         .execute(&self.db)
         .await?;
@@ -159,12 +169,14 @@ impl ChatEngine {
         // replace it later).
         if conversation.title.as_deref().unwrap_or("").is_empty() {
             let title: String = content.chars().take(AUTO_TITLE_MAX_CHARS).collect();
-            sqlx::query("UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?")
-                .bind(title.trim().to_string())
-                .bind(&now)
-                .bind(conversation_id)
-                .execute(&self.db)
-                .await?;
+            sqlx::query(
+                "UPDATE conversations SET title = ?, auto_title = 1, updated_at = ? WHERE id = ?",
+            )
+            .bind(title.trim().to_string())
+            .bind(&now)
+            .bind(conversation_id)
+            .execute(&self.db)
+            .await?;
         }
 
         // --- group send → debate engine (plan §5.2) -----------------------------
@@ -206,19 +218,19 @@ impl ChatEngine {
             .bind(conversation_id)
             .fetch_all(&self.db)
             .await?;
-            let history: Vec<ChatMessage> = history
-                .into_iter()
-                .rev()
-                .take(MAX_HISTORY_MESSAGES)
-                .rev()
-                .map(|(role, content)| ChatMessage {
-                    role: match role.as_str() {
-                        "assistant" => Role::Assistant,
-                        _ => Role::User,
-                    },
-                    content,
-                })
-                .collect();
+            let history: Vec<ChatMessage> = crate::trim_history(
+                history
+                    .into_iter()
+                    .map(|(role, content)| ChatMessage {
+                        role: match role.as_str() {
+                            "assistant" => Role::Assistant,
+                            _ => Role::User,
+                        },
+                        content,
+                    })
+                    .collect(),
+                HISTORY_TOKEN_BUDGET,
+            );
             return agent::run_agent(
                 &self.db,
                 self.hub.clone(),
@@ -261,6 +273,7 @@ impl ChatEngine {
             };
             messages.push(ChatMessage { role, content: text });
         }
+        let mut images: Vec<providers::InputImage> = Vec::new();
         if !attachments.is_empty() {
             if let Some(last_user) = messages
                 .iter_mut()
@@ -268,18 +281,26 @@ impl ChatEngine {
                 .find(|message| matches!(message.role, Role::User))
             {
                 for attachment in &attachments {
-                    last_user.content.push_str(&format!(
-                        "\n\n[Dosya eki: {}]\n{}",
-                        attachment.name, attachment.text
-                    ));
+                    if let Some(data_uri) = attachment.data_uri() {
+                        // Images travel as vision content parts, not prompt text.
+                        images.push(providers::InputImage { data_uri });
+                    } else {
+                        last_user.content.push_str(&format!(
+                            "\n\n[Dosya eki: {}]\n{}",
+                            attachment.name, attachment.text
+                        ));
+                    }
                 }
             }
         }
+        let history_budget_tokens = HISTORY_TOKEN_BUDGET;
+        let messages = crate::trim_history(messages, history_budget_tokens);
         let request = ChatRequest {
             model: model.model_id.clone(),
             messages,
             temperature: model.temperature.map(|t| t as f32),
             max_tokens: model.max_tokens.map(|t| t as u32),
+            images,
         };
 
         // --- assistant row + start event ---------------------------------------
@@ -412,7 +433,66 @@ impl ChatEngine {
             message_id,
             status,
         });
+
+        // Replace the cheap auto title with a model-generated one (best effort).
+        if status == MessageStatus::Done && conversation.auto_title {
+            self.generate_title(conversation_id, provider_impl.as_ref(), &model, &content).await;
+        }
         Ok(())
+    }
+
+    /// Asks the model for a 3–6 word conversation title; replaces auto titles.
+    async fn generate_title(
+        &self,
+        conversation_id: &str,
+        provider: &dyn providers::Provider,
+        model: &ModelRow,
+        first_user_message: &str,
+    ) {
+        let request = ChatRequest {
+            model: model.model_id.clone(),
+            messages: vec![
+                ChatMessage {
+                    role: Role::System,
+                    content: "Sohbet başlığı üreticisisin. Yalnızca başlığı yaz.".into(),
+                },
+                ChatMessage {
+                    role: Role::User,
+                    content: format!(
+                        "Aşağıdaki ilk mesaj için en fazla 6 kelimelik, tırnaksız, noktalama\
+                         içermeyen kısa bir başlık yaz. Sadece başlık:\n\n{first_user_message}"
+                    ),
+                },
+            ],
+            temperature: Some(0.3),
+            max_tokens: Some(48),
+            images: Vec::new(),
+        };
+        let Ok(mut stream) = provider.stream_chat(request).await else { return };
+        let mut title = String::new();
+        use futures_util::StreamExt;
+        while let Some(event) = stream.next().await {
+            if let providers::ChatEvent::TextDelta(delta) = event {
+                title.push_str(&delta);
+            }
+        }
+        let title: String = title.lines().next().unwrap_or("").trim().chars().take(60).collect();
+        if title.len() < 2 {
+            return;
+        }
+        let updated = sqlx::query(
+            "UPDATE conversations SET title = ?, auto_title = 0 WHERE id = ? AND auto_title = 1",
+        )
+        .bind(&title)
+        .bind(conversation_id)
+        .execute(&self.db)
+        .await;
+        match updated {
+            Ok(result) if result.rows_affected() > 0 => {
+                tracing::info!(conversation_id, %title, "model-generated title applied");
+            }
+            _ => {}
+        }
     }
 
     /// Group send → debate engine (plan §5.2).

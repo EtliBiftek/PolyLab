@@ -22,6 +22,8 @@ pub struct AppState {
     pub secrets: Arc<dyn SecretStore>,
     pub prompts: Arc<PromptLibrary>,
     pub engine: Arc<ChatEngine>,
+    /// Persistent interactive shells, one per conversation (Phase 5).
+    pub terminals: crate::terminal::Terminals,
     /// Serialized `ServerEvent` JSON broadcast to every connected renderer.
     pub hub: broadcast::Sender<String>,
 }
@@ -42,6 +44,7 @@ impl AppState {
             Arc::clone(&secrets),
         ));
         Self {
+            terminals: crate::terminal::Terminals::default(),
             token: Arc::from(token.as_str()),
             name: Arc::from(crate::NAME),
             version: Arc::from(crate::VERSION),

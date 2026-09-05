@@ -100,8 +100,8 @@ pub async fn create(
     sqlx::query(
         "INSERT INTO conversations (id, mode, selection_type, model_id, group_id,
                                     debate_settings_json, project_path,
-                                    agent_auto_approve, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                    agent_auto_approve, auto_title, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
     )
     .bind(&id)
     .bind(mode)
@@ -187,6 +187,7 @@ pub async fn update(
             return Err(ApiError::bad_request(format!("unknown selection_type {other}")))
         }
     };
+    let title_was_user_set = body.title.is_some();
     let title = body.title.or(row.title);
     let mode = body.mode.unwrap_or(row.mode);
     let pinned = body.pinned.unwrap_or(row.pinned);
@@ -225,11 +226,13 @@ pub async fn update(
     };
     let agent_auto_approve = body.agent_auto_approve.unwrap_or(row.agent_auto_approve);
     let project_path = body.project_path.clone().or(row.project_path.clone());
+    // A user-supplied title is final — model title generation must not touch it.
+    let auto_title = !title_was_user_set && row.auto_title;
 
     sqlx::query(
         "UPDATE conversations SET title = ?, model_id = ?, mode = ?, pinned = ?, folder_id = ?,
                 selection_type = ?, group_id = ?, debate_settings_json = ?,
-                agent_auto_approve = ?, project_path = ?, updated_at = ?
+                agent_auto_approve = ?, project_path = ?, auto_title = ?, updated_at = ?
          WHERE id = ?",
     )
     .bind(&title)
@@ -242,6 +245,7 @@ pub async fn update(
     .bind(&debate_settings_json)
     .bind(agent_auto_approve)
     .bind(&project_path)
+    .bind(auto_title)
     .bind(now_rfc3339())
     .bind(&id)
     .execute(&state.db)

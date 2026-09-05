@@ -9,6 +9,10 @@ export function TopBar() {
   const mode = useSettings((state) => state.mode);
   const setMode = useSettings((state) => state.setMode);
   const updateConversationMode = useChat((state) => state.updateMode);
+  const setAutoApprove = useChat((state) => state.setAutoApprove);
+  const activeConversation = useChat((state) =>
+    state.conversations.find((conversation) => conversation.id === state.activeId),
+  );
   const rightPanelOpen = useSettings((state) => state.rightPanelOpen);
   const toggleRightPanel = useSettings((state) => state.toggleRightPanel);
 
@@ -58,6 +62,22 @@ export function TopBar() {
       </div>
 
       <div className="flex-1" />
+
+      {/* Agent auto-approve (coding conversations only) */}
+      {activeConversation?.mode === "coding" && (
+        <label
+          className="mr-2 flex cursor-pointer items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-[11.5px] text-txt-1"
+          title={t("agent.autoApproveHint")}
+        >
+          <input
+            type="checkbox"
+            checked={activeConversation.agent_auto_approve}
+            onChange={(event) => void setAutoApprove(event.target.checked)}
+            className="h-3 w-3 accent-[var(--accent)]"
+          />
+          {t("agent.autoApprove")}
+        </label>
+      )}
 
       {/* Right panel toggle */}
       <button

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { fsList, fsRead, gitOp } from "../../lib/api";
+import { fsList, fsRead, getConversation, gitCommit, gitOp } from "../../lib/api";
 import { useChat } from "../../stores/chat";
-import { useArtifacts } from "../../stores/artifacts";
+import { extractCodeBlocks, useArtifacts } from "../../stores/artifacts";
 import { useSettings } from "../../stores/settings";
 import { CloseIcon, RefreshIcon } from "../ui/Icons";
 
@@ -89,6 +89,28 @@ function ArtifactsTab() {
   const artifacts = useArtifacts((s) => s.artifacts);
   const activeId = useArtifacts((s) => s.activeId);
   const open = useArtifacts((s) => s.open);
+  const register = useArtifacts((s) => s.register);
+  const conversationId = useChat((s) => s.activeId);
+
+  // Artifacts survive reloads: re-extract code blocks from persisted messages.
+  useEffect(() => {
+    if (conversationId == null) return;
+    let cancelled = false;
+    void getConversation(conversationId)
+      .then((detail) => {
+        if (cancelled) return;
+        for (const message of detail.messages) {
+          if (message.role === "assistant" && message.content.includes("```")) {
+            register(message.id, extractCodeBlocks(message.content));
+          }
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, register]);
+
   const active = artifacts.find((artifact) => artifact.id === activeId) ?? artifacts[0];
 
   if (artifacts.length === 0) {
@@ -227,12 +249,33 @@ function GitTab({ conversationId }: { conversationId: string }) {
   const { t } = useTranslation();
   const [op, setOp] = useState<"status" | "diff" | "log">("status");
   const [state, setState] = useState<{ repo: boolean; output: string } | null>(null);
+  const [commitMessage, setCommitMessage] = useState("");
+  const [committing, setCommitting] = useState(false);
 
-  useEffect(() => {
-    void gitOp(conversationId, op)
+  const reload = (nextOp: "status" | "diff" | "log") => {
+    void gitOp(conversationId, nextOp)
       .then(setState)
       .catch((caught) => setState({ repo: false, output: String(caught) }));
+  };
+
+  useEffect(() => {
+    reload(op);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId, op]);
+
+  const dirty = state?.repo === true && !(state.output.includes("(clean)") || state.output.trim() === "");
+
+  const commit = async () => {
+    if (commitMessage.trim().length === 0) return;
+    setCommitting(true);
+    try {
+      await gitCommit(conversationId, commitMessage.trim());
+      setCommitMessage("");
+      reload(op);
+    } finally {
+      setCommitting(false);
+    }
+  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -253,6 +296,27 @@ function GitTab({ conversationId }: { conversationId: string }) {
       <pre className="min-h-0 flex-1 overflow-auto bg-bg-0 px-3 py-2 font-mono text-[11.5px] leading-relaxed text-txt-1">
         {state == null ? "…" : state.repo ? state.output : t("git.notRepo")}
       </pre>
+      {dirty && (
+        <div className="flex items-center gap-1.5 border-t border-border p-2">
+          <input
+            value={commitMessage}
+            onChange={(event) => setCommitMessage(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void commit();
+            }}
+            placeholder={t("git.commitPlaceholder")}
+            className="h-8 min-w-0 flex-1 rounded-md border border-border bg-surface px-2 text-[12px] text-txt-0 placeholder:text-txt-2 focus:outline-none"
+          />
+          <button
+            type="button"
+            disabled={committing || commitMessage.trim().length === 0}
+            onClick={() => void commit()}
+            className="h-8 shrink-0 rounded-full bg-bg-invert px-3 text-[12px] font-medium text-txt-invert transition hover:bg-invert-hover disabled:opacity-40"
+          >
+            {committing ? "…" : t("git.commit")}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -264,6 +328,7 @@ function TerminalTab() {
   const activeId = useChat((s) => s.activeId);
   const terminal = useChat((s) => (activeId != null ? s.terminal[activeId] : undefined));
   const runCommand = useChat((s) => s.runCommand);
+  const killTerminal = useChat((s) => s.killTerminal);
   const [command, setCommand] = useState("");
 
   return (
@@ -281,6 +346,16 @@ function TerminalTab() {
       </div>
       <div className="flex items-center gap-2 border-t border-border p-2">
         <span className="font-mono text-[12px] text-accent">$</span>
+        {terminal?.started === true && (
+          <button
+            type="button"
+            onClick={killTerminal}
+            title={t("terminal.kill")}
+            className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[11px] text-txt-2 transition hover:text-danger"
+          >
+            ⏹
+          </button>
+        )}
         <input
           value={command}
           onChange={(event) => setCommand(event.target.value)}

@@ -100,6 +100,8 @@ pub struct Conversation {
     pub folder_id: Option<String>,
     pub pinned: bool,
     pub agent_auto_approve: bool,
+    /// 1 while the title is the cheap auto-generated one (model may replace it).
+    pub auto_title: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -279,6 +281,7 @@ impl<'r> sqlx::FromRow<'r, SqliteRow> for Conversation {
             folder_id: row.try_get("folder_id")?,
             pinned: bool_col(row, "pinned")?,
             agent_auto_approve: bool_col(row, "agent_auto_approve")?,
+            auto_title: bool_col(row, "auto_title")?,
             created_at: row.try_get("created_at")?,
             updated_at: row.try_get("updated_at")?,
         })

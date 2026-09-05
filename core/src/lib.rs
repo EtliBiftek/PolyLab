@@ -69,6 +69,31 @@ pub fn data_dir() -> std::path::PathBuf {
 }
 
 /// Assemble state (db, secrets, prompts, hub, engine). Exposed for tests.
+/// Keeps the system message + as many newest turns as fit the token budget
+/// (chars/4 estimate). Used by the single-model and agent history builders.
+pub fn trim_history(messages: Vec<providers::ChatMessage>, budget_tokens: u64) -> Vec<providers::ChatMessage> {
+    let mut kept: Vec<providers::ChatMessage> = Vec::new();
+    let mut used: u64 = 0;
+    let system = messages.first().filter(|m| matches!(m.role, providers::Role::System)).cloned();
+    let rest = match system.is_some() {
+        true => &messages[1..],
+        false => &messages[..],
+    };
+    for message in rest.iter().rev() {
+        let cost = crate::tokens::estimate(&message.content);
+        if used + cost > budget_tokens && !kept.is_empty() {
+            break;
+        }
+        used += cost;
+        kept.push(message.clone());
+    }
+    kept.reverse();
+    match system {
+        Some(system) => std::iter::once(system).chain(kept).collect(),
+        None => kept,
+    }
+}
+
 pub async fn build_state(token: String, data_dir: &std::path::Path) -> anyhow::Result<AppState> {
     std::fs::create_dir_all(data_dir.join("workspace"))?;
     let db = storage::open(data_dir).await?;

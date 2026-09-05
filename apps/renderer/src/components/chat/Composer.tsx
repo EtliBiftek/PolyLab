@@ -8,7 +8,9 @@ import { ArrowUpIcon, PaperclipIcon, SquareIcon } from "../ui/Icons";
 export function Composer() {
   const { t } = useTranslation();
   const [value, setValue] = useState("");
-  const [attachments, setAttachments] = useState<Array<{ name: string; text: string }>>([]);
+  const [attachments, setAttachments] = useState<
+    Array<{ name: string; text?: string; mime_type?: string; data_base64?: string }>
+  >([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -23,16 +25,31 @@ export function Composer() {
     return () => window.removeEventListener("polylab:suggest", onSuggest);
   }, []);
 
+  const readFile = (file: File): Promise<{ name: string; text?: string; mime_type?: string; data_base64?: string } | null> =>
+    file.type.startsWith("image/")
+      ? new Promise((resolve) => {
+          if (file.size > 2 * 1024 * 1024) return resolve(null); // images ≤ 2 MB
+          const reader = new FileReader();
+          reader.onload = () =>
+            resolve({
+              name: file.name,
+              mime_type: file.type,
+              data_base64: String(reader.result).split(",")[1] ?? "",
+            });
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(file);
+        })
+      : file
+          .text()
+          .then((text) => (file.size > 512 * 1024 ? null : { name: file.name, text }))
+          .catch(() => null);
+
   const addFiles = async (files: FileList | null) => {
     if (files == null) return;
-    const next: Array<{ name: string; text: string }> = [];
+    const next: Array<{ name: string; text?: string; mime_type?: string; data_base64?: string }> = [];
     for (const file of Array.from(files).slice(0, 5)) {
-      if (file.size > 512 * 1024) continue; // text attachments only, capped
-      try {
-        next.push({ name: file.name, text: await file.text() });
-      } catch {
-        /* skip unreadable */
-      }
+      const parsed = await readFile(file);
+      if (parsed != null) next.push(parsed);
     }
     setAttachments((current) => [...current, ...next].slice(0, 5));
   };
@@ -78,7 +95,7 @@ export function Composer() {
                 key={`${attachment.name}-${index}`}
                 className="flex items-center gap-1 rounded-full border border-border bg-bg-0 px-2 py-0.5 text-[11px] text-txt-1"
               >
-                📎 {attachment.name}
+                {attachment.data_base64 != null ? "🖼" : "📎"} {attachment.name}
                 <button
                   type="button"
                   aria-label={t("common.remove")}

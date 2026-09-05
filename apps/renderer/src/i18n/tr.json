@@ -140,7 +140,9 @@
     "termination": "Bitiş",
     "terminationFixed": "Sabit tur sayısı",
     "terminationConsensus": "Uzlaşınca dur",
-    "maxRounds": "Maks tur"
+    "maxRounds": "Maks tur",
+    "leader": "Lider",
+    "leaderAuto": "Otomatik seçim"
   },
   "debate": {
     "round": "Tur {{n}}",
@@ -156,7 +158,9 @@
     "running": "çalışıyor…",
     "needsApproval": "onayınızı bekliyor",
     "approve": "Onayla",
-    "reject": "Reddet"
+    "reject": "Reddet",
+    "autoApprove": "Otomatik onay",
+    "autoApproveHint": "Ajanın dosya yazma/silme ve komut çalıştırma adımlarını onay istemeden uygular."
   },
   "files": {
     "tab": "Dosyalar",
@@ -167,10 +171,13 @@
     "status": "Durum",
     "diff": "Diff",
     "log": "Geçmiş",
-    "notRepo": "Bu çalışma alanı bir git deposu değil."
+    "notRepo": "Bu çalışma alanı bir git deposu değil.",
+    "commit": "Commit",
+    "commitPlaceholder": "Commit mesajı…"
   },
   "terminal": {
     "tab": "Terminal",
-    "placeholder": "komut yaz, Enter…"
+    "placeholder": "komut yaz, Enter…",
+    "kill": "Oturumu sonlandır"
   }
 }
