@@ -1,0 +1,38 @@
+# electron-builder configuration — Windows NSIS installer (primary target).
+# The Rust sidecar binary is expected at core/target/release/polylab-core(.exe)
+# and is copied into extraResources/bin/ so Electron main can spawn it in prod:
+#   process.resourcesPath/bin/polylab-core(.exe)
+appId: app.polylab.desktop
+productName: PolyLab
+copyright: Copyright © PolyLab
+
+directories:
+  output: release
+  buildResources: build
+
+# Root package.json "main" points at the compiled Electron main process.
+files:
+  - package.json
+  - apps/desktop/dist/**
+  - apps/renderer/dist/**
+
+extraResources:
+  - from: core/target/release/polylab-core.exe
+    to: bin/polylab-core.exe
+  - from: core/target/release/polylab-core
+    to: bin/polylab-core
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false

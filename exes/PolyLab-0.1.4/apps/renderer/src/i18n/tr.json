@@ -1,0 +1,183 @@
+{
+  "app": {
+    "name": "PolyLab",
+    "tagline": "Birden çok model, tek çalışma alanı"
+  },
+  "sidebar": {
+    "newChat": "Yeni sohbet",
+    "searchPlaceholder": "Sohbetlerde ara…",
+    "conversations": "Sohbetler",
+    "noConversations": "Henüz sohbet yok.\nYukarıdaki \"Yeni sohbet\" ile başlayın.",
+    "noMatches": "Eşleşen sohbet yok.",
+    "untitled": "Adsız sohbet",
+    "deleteChat": "Sohbeti sil",
+    "settings": "Ayarlar",
+    "language": "Dil",
+    "collapse": "Kenar çubuğunu daralt",
+    "expand": "Kenar çubuğunu genişlet",
+    "chatMenu": "Sohbet menüsü",
+    "rename": "Yeniden adlandır",
+    "pin": "Sabitle",
+    "unpin": "Sabitlemeyi kaldır"
+  },
+  "topbar": {
+    "workspace": "PolyLab",
+    "mode": {
+      "chat": "Sohbet",
+      "coding": "Kodlama",
+      "comingSoon": "{{mode}} modu yakında geliyor"
+    },
+    "model": {
+      "select": "Model seç",
+      "search": "Model ara…",
+      "noneYet": "Henüz model eklenmedi.\nAyarlar → Sağlayıcı ekle ile başlayın.",
+      "noMatches": "Eşleşen model yok.",
+      "notAvailableYet": "Model bağlama Faz 1'de geliyor"
+    }
+  },
+  "status": {
+    "connecting": "Bağlanıyor…",
+    "connected": "Backend bağlı ✓",
+    "offline": "Bağlantı yok",
+    "latency": "{{ms}} ms"
+  },
+  "chat": {
+    "emptyTitle": "PolyLab'e hoş geldiniz",
+    "greeting": {
+      "morning": "Günaydın",
+      "afternoon": "İyi günler",
+      "evening": "İyi akşamlar",
+      "night": "İyi geceler"
+    },
+    "emptyHint": "Üstten bir model seçin ve yazmaya başlayın. Model grupları ile tartışma ve kodlama modu sonraki fazlarda geliyor.",
+    "capabilities": {
+      "single": "Tek model sohbeti",
+      "groups": "Model grupları",
+      "coding": "Kodlama modu"
+    },
+    "composerPlaceholder": "Mesaj yaz…",
+    "send": "Gönder",
+    "sendHint": "Enter gönderir · Shift+Enter yeni satır",
+    "cancel": "Durdur",
+    "generating": "Üretiliyor… Durdur ile iptal edebilirsiniz.",
+    "attach": "Dosya ekle",
+    "usage": "{{in}} giriş · {{out}} çıkış token",
+    "providerError": "Sağlayıcı hatası",
+    "think.onHint": "{name} — think modu AÇIK, kapatmak için tıkla",
+    "think.offHint": "{name} — think modu KAPALI, açmak için tıkla"
+  },
+  "thinking": {
+    "title": "Düşünme süreci · {{chars}} karakter",
+    "inProgress": "Model düşünüyor…"
+  },
+  "artifacts": {
+    "title": "Artifacts",
+    "empty": "Kod önizlemeleri ve dosyalar burada görünecek.",
+    "tab": "Artifact",
+    "emptyHint": "Kod bloklarındaki “Panele aç” ile burada görünür.",
+    "copy": "Kopyala",
+    "openInPanel": "Panele aç"
+  },
+  "settings": {
+    "title": "Ayarlar",
+    "general": "Genel",
+    "providers": "Sağlayıcılar",
+    "addProvider": "Sağlayıcı ekle",
+    "emptyProviders": "Henüz sağlayıcı yok. LM Studio, Ollama veya bulut API'lerinden birini ekleyerek başlayın.",
+    "provider": {
+      "kind": "Sağlayıcı türü",
+      "name": "Görünen ad",
+      "baseUrl": "Temel URL",
+      "optionalDefault": "isteğe bağlı, varsayılan: {{url}}",
+      "defaultUrl": "varsayılan adres",
+      "apiKey": "API anahtarı",
+      "apiKeyOptional": "isteğe bağlı (yerel sunucular için)",
+      "keyStorage": "Anahtar yalnızca Windows Credential Manager'da saklanır; veritabanına veya loglara yazılmaz.",
+      "keyPresent": "anahtar kayıtlı",
+      "newKey": "Yeni API anahtarı…",
+      "saveKey": "Kaydet",
+      "saving": "Kaydediliyor…",
+      "save": "Sağlayıcıyı ekle",
+      "test": "Test et",
+      "testOk": "Bağlantı başarılı ✓ ({{count}} model)",
+      "testFail": "Bağlantı başarısız: {{detail}}",
+      "delete": "Sağlayıcıyı sil",
+      "confirmDelete": "Emin misiniz?",
+      "models": "Modeller",
+      "reload": "Yenile",
+      "noModels": "Model listesi alınamadı. Bağlantıyı test edin.",
+      "added": "ekli",
+      "add": "ekle"
+    },
+    "theme": "Görünüm",
+    "themeLight": "Beyaz",
+    "themeDark": "Siyah",
+    "models": "Model ayarları",
+    "model": {
+      "temperature": "Sıcaklık",
+      "maxTokens": "Maks token"
+    }
+  },
+  "common": {
+    "close": "Kapat",
+    "open": "Aç",
+    "cancel": "İptal",
+    "loading": "Yükleniyor…",
+    "comingSoonPhase1": "Faz 1'de geliyor",
+    "comingSoonPhase3": "Faz 3'te geliyor",
+    "remove": "Kaldır",
+    "refresh": "Yenile"
+  },
+  "groups": {
+    "tabModels": "Modeller",
+    "tabGroups": "Gruplar",
+    "select": "Grup seç",
+    "new": "Yeni tartışma grubu",
+    "namePlaceholder": "Grup adı",
+    "create": "Oluştur",
+    "delete": "Grubu sil",
+    "empty": "Henüz grup yok. Modeller sekmesinden ekleyin.",
+    "termination": "Bitiş",
+    "terminationFixed": "Sabit tur sayısı",
+    "terminationConsensus": "Uzlaşınca dur",
+    "maxRounds": "Maks tur",
+    "leader": "Lider",
+    "leaderAuto": "Otomatik seçim"
+  },
+  "debate": {
+    "round": "Tur {{n}}",
+    "phaseInitial": "İlk cevaplar",
+    "phaseCritique": "Eleştiri ve revizyon",
+    "phaseSynthesis": "Lider sentezi",
+    "consensusReached": "Uzlaşıldı",
+    "consensusNo": "Uzlaşma yok",
+    "transcript": "Tartışma dökümü · {{rounds}} tur · {{models}} model",
+    "totalTokens": "Toplam: {{in}} giriş / {{out}} çıkış token"
+  },
+  "agent": {
+    "running": "çalışıyor…",
+    "needsApproval": "onayınızı bekliyor",
+    "approve": "Onayla",
+    "reject": "Reddet",
+    "autoApprove": "Otomatik onay",
+    "autoApproveHint": "Ajanın dosya yazma/silme ve komut çalıştırma adımlarını onay istemeden uygular."
+  },
+  "files": {
+    "tab": "Dosyalar",
+    "workspace": "Çalışma alanı"
+  },
+  "git": {
+    "tab": "Git",
+    "status": "Durum",
+    "diff": "Diff",
+    "log": "Geçmiş",
+    "notRepo": "Bu çalışma alanı bir git deposu değil.",
+    "commit": "Commit",
+    "commitPlaceholder": "Commit mesajı…"
+  },
+  "terminal": {
+    "tab": "Terminal",
+    "placeholder": "komut yaz, Enter…",
+    "kill": "Oturumu sonlandır"
+  }
+}

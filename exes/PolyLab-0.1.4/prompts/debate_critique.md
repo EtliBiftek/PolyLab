@@ -1,0 +1,1 @@
+Aşağıda kendi önceki cevabın ve diğer katılımcıların cevapları var. (1) Diğer cevaplardaki hataları ve eksikleri somut olarak belirt. (2) Kendi cevabını gerekiyorsa düzelt ve tam halini yeniden yaz. (3) Son satırda yalnızca `CONSENSUS: yes` veya `CONSENSUS: no` yaz — diğer cevaplarla özünde hemfikirsen yes.

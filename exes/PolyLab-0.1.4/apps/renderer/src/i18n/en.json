@@ -1,0 +1,183 @@
+{
+  "app": {
+    "name": "PolyLab",
+    "tagline": "Many models, one workspace"
+  },
+  "sidebar": {
+    "newChat": "New chat",
+    "searchPlaceholder": "Search chats…",
+    "conversations": "Chats",
+    "noConversations": "No conversations yet.\nStart with “New chat” above.",
+    "noMatches": "No matching chats.",
+    "untitled": "Untitled chat",
+    "deleteChat": "Delete chat",
+    "settings": "Settings",
+    "language": "Language",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "chatMenu": "Chat menu",
+    "rename": "Rename",
+    "pin": "Pin",
+    "unpin": "Unpin"
+  },
+  "topbar": {
+    "workspace": "PolyLab",
+    "mode": {
+      "chat": "Chat",
+      "coding": "Coding",
+      "comingSoon": "{{mode}} mode is coming soon"
+    },
+    "model": {
+      "select": "Select model",
+      "search": "Search models…",
+      "noneYet": "No models yet.\nStart in Settings → Add provider.",
+      "noMatches": "No matching models.",
+      "notAvailableYet": "Connecting models arrives in Phase 1"
+    }
+  },
+  "status": {
+    "connecting": "Connecting…",
+    "connected": "Backend connected ✓",
+    "offline": "Offline",
+    "latency": "{{ms}} ms"
+  },
+  "chat": {
+    "emptyTitle": "Welcome to PolyLab",
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening",
+      "night": "Good night"
+    },
+    "emptyHint": "Pick a model above and start writing. Model-group debates and coding mode arrive in the next phases.",
+    "capabilities": {
+      "single": "Single-model chat",
+      "groups": "Model groups",
+      "coding": "Coding mode"
+    },
+    "composerPlaceholder": "Write a message…",
+    "send": "Send",
+    "sendHint": "Enter to send · Shift+Enter for a new line",
+    "cancel": "Stop",
+    "generating": "Generating… you can cancel with Stop.",
+    "attach": "Attach files",
+    "usage": "{{in}} in · {{out}} out tokens",
+    "providerError": "Provider error",
+    "think.onHint": "{name} — think mode ON, click to disable",
+    "think.offHint": "{name} — think mode OFF, click to enable"
+  },
+  "thinking": {
+    "title": "Thinking · {{chars}} characters",
+    "inProgress": "Model is thinking…"
+  },
+  "artifacts": {
+    "title": "Artifacts",
+    "empty": "Code previews and files will appear here.",
+    "tab": "Artifacts",
+    "emptyHint": "Code blocks appear here via “Open in panel”.",
+    "copy": "Copy",
+    "openInPanel": "Open in panel"
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "providers": "Providers",
+    "addProvider": "Add provider",
+    "emptyProviders": "No providers yet. Start by adding LM Studio, Ollama or a cloud API.",
+    "provider": {
+      "kind": "Provider kind",
+      "name": "Display name",
+      "baseUrl": "Base URL",
+      "optionalDefault": "optional, default: {{url}}",
+      "defaultUrl": "default endpoint",
+      "apiKey": "API key",
+      "apiKeyOptional": "optional (local servers)",
+      "keyStorage": "The key is stored only in Windows Credential Manager; never in the database or logs.",
+      "keyPresent": "key stored",
+      "newKey": "New API key…",
+      "saveKey": "Save",
+      "saving": "Saving…",
+      "save": "Add provider",
+      "test": "Test",
+      "testOk": "Connection OK ✓ ({{count}} models)",
+      "testFail": "Connection failed: {{detail}}",
+      "delete": "Delete provider",
+      "confirmDelete": "Are you sure?",
+      "models": "Models",
+      "reload": "Reload",
+      "noModels": "Could not fetch the model list. Test the connection.",
+      "added": "added",
+      "add": "add"
+    },
+    "theme": "Appearance",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "models": "Model settings",
+    "model": {
+      "temperature": "Temp",
+      "maxTokens": "Max tokens"
+    }
+  },
+  "common": {
+    "close": "Close",
+    "open": "Open",
+    "cancel": "Cancel",
+    "loading": "Loading…",
+    "comingSoonPhase1": "Coming in Phase 1",
+    "comingSoonPhase3": "Coming in Phase 3",
+    "remove": "Remove",
+    "refresh": "Refresh"
+  },
+  "groups": {
+    "tabModels": "Models",
+    "tabGroups": "Groups",
+    "select": "Select group",
+    "new": "New debate group",
+    "namePlaceholder": "Group name",
+    "create": "Create",
+    "delete": "Delete group",
+    "empty": "No groups yet — add one from the Models tab.",
+    "termination": "Termination",
+    "terminationFixed": "Fixed rounds",
+    "terminationConsensus": "Stop on consensus",
+    "maxRounds": "Max rounds",
+    "leader": "Leader",
+    "leaderAuto": "Automatic"
+  },
+  "debate": {
+    "round": "Round {{n}}",
+    "phaseInitial": "Opening answers",
+    "phaseCritique": "Critique & revise",
+    "phaseSynthesis": "Leader synthesis",
+    "consensusReached": "Consensus",
+    "consensusNo": "No consensus",
+    "transcript": "Debate transcript · {{rounds}} rounds · {{models}} models",
+    "totalTokens": "Total: {{in}} in / {{out}} out tokens"
+  },
+  "agent": {
+    "running": "running…",
+    "needsApproval": "needs your approval",
+    "approve": "Approve",
+    "reject": "Reject",
+    "autoApprove": "Auto-approve",
+    "autoApproveHint": "Apply file writes/deletes and commands without asking for approval."
+  },
+  "files": {
+    "tab": "Files",
+    "workspace": "Workspace"
+  },
+  "git": {
+    "tab": "Git",
+    "status": "Status",
+    "diff": "Diff",
+    "log": "Log",
+    "notRepo": "This workspace is not a git repo.",
+    "commit": "Commit",
+    "commitPlaceholder": "Commit message…"
+  },
+  "terminal": {
+    "tab": "Terminal",
+    "placeholder": "type a command, Enter…",
+    "kill": "End session"
+  }
+}

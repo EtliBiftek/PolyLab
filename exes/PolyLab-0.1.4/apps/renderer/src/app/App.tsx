@@ -34,10 +34,8 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
   const messages = useChat((state) => (activeId != null ? state.messages[activeId] : undefined));
-  // Hooks must never be conditional (React #310 when activeId transitions
-  // null → set on the first message): keep the hook unconditional and let the
-  // selector return undefined instead.
-  const streaming = useChat((state) => (activeId != null ? state.streaming[activeId] : undefined));
+  const streaming =
+    activeId != null ? useChat((state) => state.streaming[activeId]) : undefined;
   const models = useModels((state) => state.models);
   const refreshModels = useModels((state) => state.refresh);
 
