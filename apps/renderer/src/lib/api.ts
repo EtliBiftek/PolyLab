@@ -32,6 +32,8 @@ export interface Model {
   supports_vision: boolean;
   supports_tools: boolean;
   supports_reasoning: boolean;
+  /** Think toggle: null = auto (follows supports_reasoning). */
+  reasoning_enabled: boolean | null;
   enabled: boolean;
   provider_kind: string;
   provider_name: string;
@@ -179,7 +181,9 @@ export function upsertModel(body: {
 
 export function updateModel(
   id: string,
-  body: Partial<Pick<Model, "display_name" | "temperature" | "max_tokens" | "enabled">>,
+  body: Partial<
+    Pick<Model, "display_name" | "temperature" | "max_tokens" | "enabled" | "reasoning_enabled">
+  >,
 ): Promise<Model> {
   return request<Model>(`/api/models/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 }

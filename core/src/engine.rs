@@ -225,6 +225,11 @@ impl ChatEngine {
             mode: ChatMode::Single,
         });
 
+        // Think (reasoning) toggle: explicit per-model choice, else follow the
+        // capability flag. When off, reasoning deltas are dropped (not shown, not
+        // stored) — providers that think server-side simply hide the panel.
+        let think_mode = model.reasoning_enabled.unwrap_or(model.supports_reasoning);
+
         // --- stream -------------------------------------------------------------
         let prompt_texts: Vec<String> = request.messages.iter().map(|m| m.content.clone()).collect();
         let provider_impl = providers::build(kind, provider.base_url.as_deref(), api_key.as_deref())?;
@@ -245,7 +250,7 @@ impl ChatEngine {
                                         delta,
                                     });
                                 }
-                                ChatEvent::ReasoningDelta(delta) => {
+                                ChatEvent::ReasoningDelta(delta) if think_mode => {
                                     result.reasoning.push_str(&delta);
                                     self.emit(ServerEvent::ReasoningToken {
                                         conversation_id: conversation_id.to_string(),
@@ -254,6 +259,7 @@ impl ChatEngine {
                                         delta,
                                     });
                                 }
+                                ChatEvent::ReasoningDelta(_) => {}
                                 ChatEvent::Usage { tokens_in, tokens_out } => {
                                     result.usage = Some(Usage { tokens_in, tokens_out, estimated: false });
                                 }

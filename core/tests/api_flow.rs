@@ -153,6 +153,17 @@ async fn full_single_model_flow() {
     assert_eq!(model["model_id"], "mock-1");
     assert_eq!(model["provider_kind"], "custom");
 
+    // Think toggle on via the new PATCH field (auto state follows supports_reasoning).
+    let (status, patched) = request_json(
+        &app,
+        "PATCH",
+        &format!("/api/models/{model_id}"),
+        Some(json!({ "reasoning_enabled": true })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{patched}");
+    assert_eq!(patched["reasoning_enabled"], true);
+
     // Conversation with that model.
     let (status, conversation) = request_json(
         &app,

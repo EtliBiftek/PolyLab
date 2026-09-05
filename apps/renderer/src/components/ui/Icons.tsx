@@ -40,6 +40,25 @@ export function LogoMark({ className = "h-6 w-6" }: { className?: string }) {
   );
 }
 
+export function PanelLeftIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9.5 4v16" />
+    </svg>
+  );
+}
+
+// ✦-style sparkle — the per-model think toggle.
+export function SparkIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" />
+      <path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z" />
+    </svg>
+  );
+}
+
 export function PlusIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

@@ -9,6 +9,7 @@ export default {
         "bg-1": "var(--bg-1)",
         "bg-2": "var(--bg-2)",
         "bg-3": "var(--bg-3)",
+        surface: "var(--surface)",
         "bg-invert": "var(--bg-invert)",
         "txt-0": "var(--text-0)",
         "txt-1": "var(--text-1)",

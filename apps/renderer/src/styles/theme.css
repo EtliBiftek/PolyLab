@@ -1,11 +1,12 @@
-/* Claude.ai-style warm palette (light). Tokens keep their names; components
-   reference them via Tailwind (bg-0…3, txt-0…2, accent, border, …). */
+/* Claude.ai-style layout with gray surfaces and a red accent. Tokens keep their
+   names; components reference them via Tailwind (bg-0…3, txt-0…2, accent, …). */
 :root {
   /* surfaces */
   --bg-0: #f5f4ee; /* chat canvas (warm ivory) */
-  --bg-1: #f0eee6; /* sidebar, panels, pre blocks (oat) */
+  --bg-1: #f0eee6; /* sidebar, pre blocks (oat) */
   --bg-2: #e9e7de; /* hovers */
   --bg-3: #ddd9cc; /* selected rows */
+  --surface: #e1e0dc; /* gray: composer card, bubbles, popovers, modal */
   --bg-invert: #262624; /* dark charcoal (send button, active pills) */
 
   /* text */
@@ -15,11 +16,11 @@
   --text-invert: #ffffff;
 
   /* accents */
-  --accent: #d97757; /* Claude terracotta */
-  --accent-2: #c4633f; /* darker terracotta — links, hover */
-  --accent-grad: linear-gradient(135deg, #d97757, #c4633f);
+  --accent: #c84040; /* red */
+  --accent-2: #a83535; /* darker red — links, hover */
+  --accent-grad: linear-gradient(135deg, #c84040, #a83535);
 
-  --border: #e0ded4;
+  --border: #d8d6cf;
   --success: #3f8f5b;
   --warn: #c77d1e;
   --danger: #bf4d43;

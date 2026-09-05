@@ -52,7 +52,7 @@ export function SettingsModal() {
         if (event.target === event.currentTarget) setOpen(false);
       }}
     >
-      <div className="flex h-[min(680px,90vh)] w-[min(860px,96vw)] flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-[0_16px_50px_rgba(31,30,29,0.18)]">
+      <div className="flex h-[min(680px,90vh)] w-[min(860px,96vw)] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_16px_50px_rgba(31,30,29,0.18)]">
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-5">
           <h2 className="text-[15px] font-semibold">{t("settings.title")}</h2>
           <button

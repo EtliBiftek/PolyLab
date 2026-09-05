@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next";
 
 import { useSettings } from "../../stores/settings";
-import { ModelPicker } from "../models/ModelPicker";
 import { ChatIcon, ChevronDownIcon, CodeIcon, LogoMark, PanelRightIcon } from "../ui/Icons";
 
 export function TopBar() {
@@ -42,7 +41,7 @@ export function TopBar() {
               title={t("topbar.mode.comingSoon", { mode: label })}
               className={`flex h-8 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition ${
                 active
-                  ? "bg-white text-txt-0 shadow-[0_1px_3px_rgba(31,30,29,0.12)]"
+                  ? "bg-surface text-txt-0 shadow-[0_1px_3px_rgba(31,30,29,0.12)]"
                   : "text-txt-1 hover:text-txt-0"
               }`}
             >
@@ -55,8 +54,6 @@ export function TopBar() {
 
       <div className="flex-1" />
 
-      <ModelPicker />
-
       {/* Right panel toggle */}
       <button
         type="button"
@@ -65,7 +62,7 @@ export function TopBar() {
         title={t("artifacts.title")}
         className={`flex h-9 w-9 items-center justify-center rounded-lg border transition ${
           rightPanelOpen
-            ? "border-border bg-white text-txt-0 shadow-[0_1px_3px_rgba(31,30,29,0.12)]"
+            ? "border-border bg-surface text-txt-0 shadow-[0_1px_3px_rgba(31,30,29,0.12)]"
             : "border-transparent text-txt-2 hover:bg-bg-2 hover:text-txt-0"
         }`}
       >

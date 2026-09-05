@@ -12,7 +12,9 @@
     "untitled": "Adsız sohbet",
     "deleteChat": "Sohbeti sil",
     "settings": "Ayarlar",
-    "language": "Dil"
+    "language": "Dil",
+    "collapse": "Kenar çubuğunu daralt",
+    "expand": "Kenar çubuğunu genişlet"
   },
   "topbar": {
     "workspace": "PolyLab",
@@ -51,12 +53,14 @@
     },
     "composerPlaceholder": "Mesaj yaz…",
     "send": "Gönder",
-    "sendHint": "Ctrl+Enter ile gönder",
+    "sendHint": "Enter gönderir · Shift+Enter yeni satır",
     "cancel": "Durdur",
     "generating": "Üretiliyor… Durdur ile iptal edebilirsiniz.",
     "attach": "Dosya ekle",
     "usage": "{{in}} giriş · {{out}} çıkış token",
-    "providerError": "Sağlayıcı hatası"
+    "providerError": "Sağlayıcı hatası",
+    "think.onHint": "{name} — think modu AÇIK, kapatmak için tıkla",
+    "think.offHint": "{name} — think modu KAPALI, açmak için tıkla"
   },
   "thinking": {
     "title": "Düşünme süreci · {{chars}} karakter",

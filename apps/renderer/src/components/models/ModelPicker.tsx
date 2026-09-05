@@ -5,11 +5,17 @@ import type { Model } from "../../lib/api";
 import { useChat } from "../../stores/chat";
 import { useModels } from "../../stores/models";
 import { useSettings } from "../../stores/settings";
-import { ChevronDownIcon, SearchIcon } from "../ui/Icons";
+import { CheckIcon, ChevronDownIcon, SearchIcon, SparkIcon } from "../ui/Icons";
+
+/** Effective think state: explicit toggle wins, else the capability flag. */
+export function thinkEnabled(model: Model): boolean {
+  return model.reasoning_enabled ?? model.supports_reasoning;
+}
 
 /**
- * Model picker (Phase 1: single-model selection, grouped by provider).
- * Phase 2 adds a "Groups" tab next to "Models".
+ * claude.ai-style model picker living inside the composer. The dropdown opens
+ * upward from the composer's bottom bar; every model row carries its own think
+ * (reasoning) toggle.
  */
 export function ModelPicker() {
   const { t } = useTranslation();
@@ -19,6 +25,7 @@ export function ModelPicker() {
 
   const models = useModels((state) => state.models);
   const refresh = useModels((state) => state.refresh);
+  const setThink = useModels((state) => state.setThink);
   const activeId = useChat((state) => state.activeId);
   const activeModelId = useChat((state) =>
     state.conversations.find((conversation) => conversation.id === state.activeId)?.model_id ?? null,
@@ -28,7 +35,6 @@ export function ModelPicker() {
   const setLastModelId = useSettings((state) => state.setLastModelId);
 
   const selectedId = activeModelId ?? lastModelId;
-
   const selected = models.find((model) => model.id === selectedId);
 
   useEffect(() => {
@@ -50,6 +56,14 @@ export function ModelPicker() {
       void setActiveModel(model.id);
     }
     setOpen(false);
+  };
+
+  const toggleThink = async (model: Model) => {
+    try {
+      await setThink(model.id, !thinkEnabled(model));
+    } catch {
+      // store rolled back; keep the dropdown open
+    }
   };
 
   const groups = useMemo(() => {
@@ -76,17 +90,19 @@ export function ModelPicker() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex h-9 max-w-[240px] items-center gap-2 rounded-lg px-3 text-[13px] font-medium transition hover:bg-bg-2"
+        className="flex h-8 max-w-[220px] items-center gap-1.5 rounded-lg px-2 text-[12.5px] font-medium text-txt-1 transition hover:bg-bg-2 hover:text-txt-0"
       >
-        <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden />
-        <span className={`truncate ${selected ? "text-txt-0" : "text-txt-2"}`}>
+        {selected != null && thinkEnabled(selected) && (
+          <SparkIcon className="h-3.5 w-3.5 shrink-0 text-accent" />
+        )}
+        <span className="truncate">
           {selected ? selected.display_name : t("topbar.model.select")}
         </span>
-        <ChevronDownIcon className="h-4 w-4 shrink-0 text-txt-2" />
+        <ChevronDownIcon className="h-3.5 w-3.5 shrink-0 text-txt-2" />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 z-50 w-[320px] overflow-hidden rounded-xl border border-border bg-white shadow-[0_8px_30px_rgba(31,30,29,0.12)]">
+        <div className="absolute bottom-10 left-0 z-50 w-[340px] overflow-hidden rounded-xl border border-border bg-surface shadow-[0_8px_30px_rgba(31,30,29,0.16)]">
           <div className="border-b border-border p-2">
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-txt-2" />
@@ -100,7 +116,7 @@ export function ModelPicker() {
             </div>
           </div>
 
-          <div className="max-h-[340px] overflow-y-auto p-1.5">
+          <div className="max-h-[320px] overflow-y-auto p-1.5">
             {groups.length === 0 && (
               <div className="px-3 py-6 text-center text-[13px] leading-relaxed text-txt-2">
                 {models.length === 0
@@ -113,25 +129,45 @@ export function ModelPicker() {
                 <div className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-txt-2">
                   {providerName}
                 </div>
-                {groupModels.map((model) => (
-                  <button
-                    key={model.id}
-                    type="button"
-                    onClick={() => pick(model)}
-                    className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] transition ${
-                      model.id === selectedId
-                        ? "bg-bg-3 text-txt-0"
-                        : "text-txt-1 hover:bg-bg-2 hover:text-txt-0"
-                    }`}
-                  >
-                    <span className="truncate">{model.display_name}</span>
-                    {model.supports_reasoning && (
-                      <span className="ml-auto shrink-0 rounded bg-bg-3 px-1.5 py-0.5 text-[10px] text-txt-2">
-                        🧠
-                      </span>
-                    )}
-                  </button>
-                ))}
+                {groupModels.map((model) => {
+                  const think = thinkEnabled(model);
+                  return (
+                    <div
+                      key={model.id}
+                      className={`group/row flex items-center gap-1 rounded-lg pr-1 transition ${
+                        model.id === selectedId ? "bg-bg-3" : "hover:bg-bg-2"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => pick(model)}
+                        className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left text-[13px] text-txt-1 transition hover:text-txt-0"
+                      >
+                        <span className="truncate">{model.display_name}</span>
+                        {model.id === selectedId && (
+                          <CheckIcon className="ml-auto h-3.5 w-3.5 shrink-0 text-accent" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void toggleThink(model)}
+                        aria-pressed={think}
+                        title={
+                          think
+                            ? t("chat.think.onHint", { name: model.display_name })
+                            : t("chat.think.offHint", { name: model.display_name })
+                        }
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition ${
+                          think
+                            ? "text-accent hover:bg-accent/10"
+                            : "text-txt-2 hover:bg-bg-3 hover:text-txt-1"
+                        }`}
+                      >
+                        <SparkIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             ))}
           </div>

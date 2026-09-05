@@ -7,6 +7,7 @@ import {
   listModels,
   listProviders,
   testProvider,
+  updateModel,
   updateProvider,
   upsertModel,
   listRemoteModels,
@@ -34,6 +35,8 @@ interface ModelsState {
   fetchRemoteModels: (id: string) => Promise<RemoteModel[]>;
   addModel: (providerId: string, modelId: string) => Promise<void>;
   removeModel: (id: string) => Promise<void>;
+  /** Per-model think (reasoning) toggle; optimistic, rolled back on error. */
+  setThink: (id: string, enabled: boolean) => Promise<void>;
 }
 
 export const useModels = create<ModelsState>((set, get) => ({
@@ -80,5 +83,21 @@ export const useModels = create<ModelsState>((set, get) => ({
   removeModel: async (id) => {
     await deleteModel(id);
     await get().refresh();
+  },
+
+  setThink: async (id, enabled) => {
+    const before = get().models;
+    set({
+      models: before.map((model) =>
+        model.id === id ? { ...model, reasoning_enabled: enabled } : model,
+      ),
+    });
+    try {
+      const updated = await updateModel(id, { reasoning_enabled: enabled });
+      set({ models: get().models.map((m) => (m.id === id ? { ...m, ...updated } : m)) });
+    } catch (error) {
+      set({ models: before });
+      throw error;
+    }
   },
 }));

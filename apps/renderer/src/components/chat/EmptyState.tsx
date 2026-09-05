@@ -32,7 +32,7 @@ export function EmptyState() {
         {capabilities.map((capability) => (
           <span
             key={capability}
-            className="rounded-full border border-border bg-white px-3 py-1.5 shadow-[0_1px_2px_rgba(31,30,29,0.05)]"
+            className="rounded-full border border-border bg-surface px-3 py-1.5 shadow-[0_1px_2px_rgba(31,30,29,0.05)]"
           >
             {capability}
           </span>

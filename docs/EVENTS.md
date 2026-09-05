@@ -53,7 +53,7 @@ between the renderer and `polylab-core`. When the contract changes, update this 
 | `error` | `conversation_id?, message_id?, code, detail` | 0 |
 | `message_start` | `conversation_id, message_id, model_id, mode: single\|debate\|agent` | 1 |
 | `token` | `conversation_id, message_id, delta` (final answer stream) | 1 |
-| `reasoning_token` | `conversation_id, message_id, model_id, delta` | 1 |
+| `reasoning_token` | `conversation_id, message_id, model_id, delta` (only when the model's think toggle is on) | 1 |
 | `usage` | `conversation_id, message_id, tokens_in, tokens_out, estimated: bool` | 1 |
 | `message_done` | `conversation_id, message_id, status: done\|cancelled\|error` | 1 |
 | `debate_round_start` | `conversation_id, debate_id, round, phase` | 2 |

@@ -9,7 +9,7 @@ export function RightPanel() {
   const toggleRightPanel = useSettings((s) => s.toggleRightPanel);
 
   return (
-    <aside className="flex w-[380px] shrink-0 flex-col border-l border-border bg-white">
+    <aside className="flex w-[380px] shrink-0 flex-col border-l border-border bg-surface">
       <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-4">
         <span className="text-[13px] font-semibold text-txt-0">{t("artifacts.title")}</span>
         <button

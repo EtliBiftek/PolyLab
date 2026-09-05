@@ -19,6 +19,7 @@ use std::str::FromStr;
 const MIGRATIONS: &[(i64, &str)] = &[
     (1, include_str!("migrations/0001_phase1_init.sql")),
     (2, include_str!("migrations/0002_phase2_debates.sql")),
+    (3, include_str!("migrations/0003_model_think_toggle.sql")),
 ];
 
 /// Opens the pool at `<data_dir>/polylab.db`, creates the schema, returns the pool.
@@ -118,7 +119,7 @@ mod tests {
             .fetch_all(&pool)
             .await
             .unwrap();
-        assert_eq!(versions, vec![1, 2]);
+        assert_eq!(versions, vec![1, 2, 3]);
         pool.close().await;
         let _ = std::fs::remove_dir_all(dir);
     }

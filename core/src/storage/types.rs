@@ -82,6 +82,8 @@ pub struct ModelRow {
     pub supports_vision: bool,
     pub supports_tools: bool,
     pub supports_reasoning: bool,
+    /// Think (reasoning) toggle: None = auto (follows supports_reasoning).
+    pub reasoning_enabled: Option<bool>,
     pub enabled: bool,
 }
 
@@ -254,6 +256,9 @@ impl<'r> sqlx::FromRow<'r, SqliteRow> for ModelRow {
             supports_vision: bool_col(row, "supports_vision")?,
             supports_tools: bool_col(row, "supports_tools")?,
             supports_reasoning: bool_col(row, "supports_reasoning")?,
+            reasoning_enabled: row
+                .try_get::<Option<i64>, _>("reasoning_enabled")?
+                .map(|value| value != 0),
             enabled: bool_col(row, "enabled")?,
         })
     }

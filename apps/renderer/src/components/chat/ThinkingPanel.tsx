@@ -45,7 +45,7 @@ export function ThinkingPanel({
         </svg>
       </button>
       {open && (
-        <div className="mt-1 whitespace-pre-wrap rounded-xl border border-border bg-white/70 px-4 py-3 text-[13px] leading-relaxed text-txt-2">
+        <div className="mt-1 whitespace-pre-wrap rounded-xl border border-border bg-surface/70 px-4 py-3 text-[13px] leading-relaxed text-txt-2">
           {reasoning}
           {streaming && <span className="ml-0.5 animate-pulse">▍</span>}
         </div>

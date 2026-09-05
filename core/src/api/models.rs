@@ -48,6 +48,8 @@ pub struct UpdateModel {
     pub supports_vision: Option<bool>,
     pub supports_tools: Option<bool>,
     pub supports_reasoning: Option<bool>,
+    /// Think toggle. `Some(bool)` sets it; `None` keeps the current value.
+    pub reasoning_enabled: Option<bool>,
     pub enabled: Option<bool>,
 }
 
@@ -165,12 +167,13 @@ pub async fn update(
     let supports_vision = body.supports_vision.unwrap_or(row.supports_vision);
     let supports_tools = body.supports_tools.unwrap_or(row.supports_tools);
     let supports_reasoning = body.supports_reasoning.unwrap_or(row.supports_reasoning);
+    let reasoning_enabled = body.reasoning_enabled.or(row.reasoning_enabled);
     let enabled = body.enabled.unwrap_or(row.enabled);
 
     sqlx::query(
         "UPDATE models SET display_name = ?, color = ?, temperature = ?, max_tokens = ?,
                 system_prompt_override = ?, supports_vision = ?, supports_tools = ?,
-                supports_reasoning = ?, enabled = ? WHERE id = ?",
+                supports_reasoning = ?, reasoning_enabled = ?, enabled = ? WHERE id = ?",
     )
     .bind(&display_name)
     .bind(&color)
@@ -180,6 +183,7 @@ pub async fn update(
     .bind(supports_vision)
     .bind(supports_tools)
     .bind(supports_reasoning)
+    .bind(reasoning_enabled)
     .bind(enabled)
     .bind(&id)
     .execute(&state.db)

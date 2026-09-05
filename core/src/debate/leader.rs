@@ -80,6 +80,7 @@ mod tests {
                 supports_vision: false,
                 supports_tools: false,
                 supports_reasoning: reasoning,
+                reasoning_enabled: None,
                 enabled: true,
             },
             provider_row: ProviderRow {

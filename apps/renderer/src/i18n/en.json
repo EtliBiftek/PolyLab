@@ -12,7 +12,9 @@
     "untitled": "Untitled chat",
     "deleteChat": "Delete chat",
     "settings": "Settings",
-    "language": "Language"
+    "language": "Language",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar"
   },
   "topbar": {
     "workspace": "PolyLab",
@@ -51,12 +53,14 @@
     },
     "composerPlaceholder": "Write a message…",
     "send": "Send",
-    "sendHint": "Send with Ctrl+Enter",
+    "sendHint": "Enter to send · Shift+Enter for a new line",
     "cancel": "Stop",
     "generating": "Generating… you can cancel with Stop.",
     "attach": "Attach files",
     "usage": "{{in}} in · {{out}} out tokens",
-    "providerError": "Provider error"
+    "providerError": "Provider error",
+    "think.onHint": "{name} — think mode ON, click to disable",
+    "think.offHint": "{name} — think mode OFF, click to enable"
   },
   "thinking": {
     "title": "Thinking · {{chars}} characters",

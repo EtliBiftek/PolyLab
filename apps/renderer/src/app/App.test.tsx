@@ -115,7 +115,7 @@ describe("App (Phase 1 shell)", () => {
     expect(findButton("New chat")).toBeDefined();
     expect(text()).toContain("Single-model chat");
     expect(container.querySelector("textarea")).not.toBeNull();
-    expect(text()).toContain("Send with Ctrl+Enter");
+    expect(text()).toContain("Enter to send");
   });
 
   it("switches every UI string between TR and EN", async () => {

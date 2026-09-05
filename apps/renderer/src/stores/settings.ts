@@ -10,12 +10,14 @@ interface SettingsState {
   mode: Mode;
   rightPanelOpen: boolean;
   settingsOpen: boolean;
+  sidebarCollapsed: boolean;
   /** Model used for the next new conversation (single-model selection). */
   lastModelId: string | null;
   setLanguage: (language: AppLanguage) => void;
   setMode: (mode: Mode) => void;
   toggleRightPanel: () => void;
   setSettingsOpen: (open: boolean) => void;
+  toggleSidebar: () => void;
   setLastModelId: (modelId: string | null) => void;
 }
 
@@ -26,6 +28,7 @@ export const useSettings = create<SettingsState>()(
       mode: "chat",
       rightPanelOpen: false,
       settingsOpen: false,
+      sidebarCollapsed: false,
       lastModelId: null,
       setLanguage: (language) => {
         void i18n.changeLanguage(language);
@@ -34,6 +37,7 @@ export const useSettings = create<SettingsState>()(
       setMode: (mode) => set({ mode }),
       toggleRightPanel: () => set((state) => ({ rightPanelOpen: !state.rightPanelOpen })),
       setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+      toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setLastModelId: (lastModelId) => set({ lastModelId }),
     }),
     {
@@ -42,6 +46,7 @@ export const useSettings = create<SettingsState>()(
         language: state.language,
         mode: state.mode,
         lastModelId: state.lastModelId,
+        sidebarCollapsed: state.sidebarCollapsed,
       }),
     },
   ),
