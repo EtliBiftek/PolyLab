@@ -37,6 +37,12 @@
   },
   "chat": {
     "emptyTitle": "PolyLab'e hoş geldiniz",
+    "greeting": {
+      "morning": "Günaydın",
+      "afternoon": "İyi günler",
+      "evening": "İyi akşamlar",
+      "night": "İyi geceler"
+    },
     "emptyHint": "Üstten bir model seçin ve yazmaya başlayın. Model grupları ile tartışma ve kodlama modu sonraki fazlarda geliyor.",
     "capabilities": {
       "single": "Tek model sohbeti",

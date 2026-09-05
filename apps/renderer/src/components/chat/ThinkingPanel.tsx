@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { LogoMark } from "../ui/Icons";
+
 /**
- * Phase 1 Thinking panel (single model): collapsed bar above the answer, expandable
- * native-reasoning block. Hidden entirely when the model produced no reasoning.
+ * Thinking panel — claude.ai style: quiet bordered box, ✻ header, muted gray body.
+ * Collapsed by default; streams show "thinking…" state.
  */
 export function ThinkingPanel({
   reasoning,
@@ -26,9 +28,9 @@ export function ThinkingPanel({
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex items-center gap-2 rounded-lg border border-border bg-bg-1 px-3 py-1.5 text-[12.5px] text-txt-1 transition hover:text-txt-0"
+        className="flex items-center gap-2 rounded-lg px-1.5 py-1 text-[12.5px] text-txt-2 transition hover:text-txt-1"
       >
-        <span aria-hidden>🧠</span>
+        <LogoMark className="h-3.5 w-3.5 text-accent" />
         <span>{title}</span>
         <svg
           viewBox="0 0 24 24"
@@ -43,7 +45,7 @@ export function ThinkingPanel({
         </svg>
       </button>
       {open && (
-        <div className="mt-2 whitespace-pre-wrap rounded-lg border border-border bg-bg-1/60 px-4 py-3 text-[13px] italic leading-relaxed text-txt-2">
+        <div className="mt-1 whitespace-pre-wrap rounded-xl border border-border bg-white/70 px-4 py-3 text-[13px] leading-relaxed text-txt-2">
           {reasoning}
           {streaming && <span className="ml-0.5 animate-pulse">▍</span>}
         </div>

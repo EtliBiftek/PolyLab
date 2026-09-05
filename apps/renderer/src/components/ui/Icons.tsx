@@ -18,23 +18,24 @@ function base(props: IconProps): IconProps {
 }
 
 export function LogoMark({ className = "h-6 w-6" }: { className?: string }) {
+  // ✻-style starburst (alternating long/short rays), Claude-like mark.
+  const rays: Array<[number, number, number, number]> = [
+    [21, 16, 29.5, 16], [20.33, 18.5, 24.66, 21], [18.5, 20.33, 22.75, 27.69],
+    [16, 21, 16, 26], [13.5, 20.33, 9.25, 27.69], [11.67, 18.5, 7.34, 21],
+    [11, 16, 2.5, 16], [11.67, 13.5, 7.34, 11], [13.5, 11.67, 9.25, 4.31],
+    [16, 11, 16, 6], [18.5, 11.67, 22.75, 4.31], [20.33, 13.5, 24.66, 11],
+  ];
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden>
-      <defs>
-        <linearGradient id="polylab-grad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="var(--accent)" />
-          <stop offset="100%" stopColor="var(--accent-2)" />
-        </linearGradient>
-      </defs>
-      <rect width="32" height="32" rx="8" fill="url(#polylab-grad)" />
-      <path
-        d="M11 23V9h6.2c2.6 0 4.3 1.5 4.3 3.8 0 2.4-1.7 3.9-4.4 3.9H13.6"
-        stroke="white"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
+      {rays.map(([x1, y1, x2, y2]) => (
+        <line
+          key={`${x1}-${y1}`}
+          x1={x1} y1={y1} x2={x2} y2={y2}
+          stroke="currentColor"
+          strokeWidth="2.6"
+          strokeLinecap="round"
+        />
+      ))}
     </svg>
   );
 }

@@ -170,18 +170,23 @@ API keys are **not** in any table; they live in the credential manager under
 
 ## 7. Theme
 
-Dark theme (claude.ai-like spacing), red → purple accent gradient. Canonical variables in
-`apps/renderer/src/styles/theme.css`:
+claude.ai light theme: warm ivory canvas, oat sidebar, terracotta accent, charcoal
+pill buttons. Canonical variables in `apps/renderer/src/styles/theme.css`:
 
 ```css
-:root[data-theme="dark"] {
-  --bg-0: #0f0d13;  --bg-1: #17141d;  --bg-2: #1f1b27;  --bg-3: #2a2535;
-  --text-0: #ece8f1; --text-1: #b8b1c4; --text-2: #7e7690;
-  --accent: #c4314b;  --accent-2: #7c3aed;
-  --accent-grad: linear-gradient(135deg, #c4314b, #7c3aed);
-  --border: #2e2939; --success: #34d399; --warn: #fbbf24; --danger: #f87171;
+:root {
+  --bg-0: #f5f4ee;  --bg-1: #f0eee6;  --bg-2: #e9e7de;  --bg-3: #ddd9cc;
+  --bg-invert: #262624;                       /* charcoal: send btn, active pills */
+  --text-0: #1f1e1d; --text-1: #3d3d3a; --text-2: #83827d;
+  --accent: #d97757;  --accent-2: #c4633f;    /* Claude terracotta */
+  --border: #e0ded4; --success: #3f8f5b; --warn: #c77d1e; --danger: #bf4d43;
 }
 ```
+
+Layout notes: borderless top bar with a pill segmented Chat/Coding control (white
+active segment), white composer card with dark circular send button, user messages
+as white bubbles right-aligned, serif greeting on the empty state, ✻-style starburst
+logo mark.
 
 ## 8. Development
 

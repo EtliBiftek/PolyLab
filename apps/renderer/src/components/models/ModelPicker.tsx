@@ -76,9 +76,9 @@ export function ModelPicker() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex h-9 max-w-[240px] items-center gap-2 rounded-lg border border-border bg-bg-1 px-3 text-[13px] transition hover:bg-bg-2"
+        className="flex h-9 max-w-[240px] items-center gap-2 rounded-lg px-3 text-[13px] font-medium transition hover:bg-bg-2"
       >
-        <span className="h-2 w-2 shrink-0 rounded-full accent-gradient" aria-hidden />
+        <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden />
         <span className={`truncate ${selected ? "text-txt-0" : "text-txt-2"}`}>
           {selected ? selected.display_name : t("topbar.model.select")}
         </span>
@@ -86,7 +86,7 @@ export function ModelPicker() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 z-50 w-[320px] overflow-hidden rounded-xl border border-border bg-bg-1 shadow-2xl shadow-black/40">
+        <div className="absolute right-0 top-11 z-50 w-[320px] overflow-hidden rounded-xl border border-border bg-white shadow-[0_8px_30px_rgba(31,30,29,0.12)]">
           <div className="border-b border-border p-2">
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-txt-2" />
@@ -95,7 +95,7 @@ export function ModelPicker() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={t("topbar.model.search")}
-                className="h-8 w-full rounded-lg border border-border bg-bg-2 pl-8 pr-2 text-[13px] text-txt-0 placeholder:text-txt-2 focus:border-txt-2/40 focus:outline-none"
+                className="h-8 w-full rounded-lg border border-border bg-bg-0 pl-8 pr-2 text-[13px] text-txt-0 placeholder:text-txt-2 focus:border-txt-2/40 focus:outline-none"
               />
             </div>
           </div>

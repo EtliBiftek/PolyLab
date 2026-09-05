@@ -45,7 +45,7 @@ export function Sidebar() {
     <aside className="flex w-[264px] shrink-0 flex-col border-r border-border bg-bg-1">
       {/* Brand */}
       <div className="flex items-center gap-2.5 px-4 pb-2 pt-4">
-        <LogoMark className="h-7 w-7" />
+        <LogoMark className="h-7 w-7 text-accent" />
         <span className="flex-1 text-[15px] font-semibold tracking-tight">PolyLab</span>
         <button
           type="button"
@@ -77,7 +77,7 @@ export function Sidebar() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t("sidebar.searchPlaceholder")}
-            className="h-8 w-full rounded-lg border border-border bg-bg-2 pl-9 pr-3 text-[13px] text-txt-0
+            className="h-8 w-full rounded-lg border border-border bg-white pl-9 pr-3 text-[13px] text-txt-0
               placeholder:text-txt-2 focus:border-txt-2/40 focus:outline-none"
           />
         </div>
@@ -145,15 +145,15 @@ export function Sidebar() {
           <span className="text-[11px] font-semibold uppercase tracking-wider text-txt-2">
             {t("sidebar.language")}
           </span>
-          <div className="flex overflow-hidden rounded-md border border-border">
+          <div className="flex overflow-hidden rounded-full border border-border bg-white p-0.5">
             {SUPPORTED_LANGUAGES.map((code: AppLanguage) => (
               <button
                 key={code}
                 type="button"
                 onClick={() => setLanguage(code)}
                 aria-pressed={language === code}
-                className={`h-6 px-2.5 text-[11px] font-semibold uppercase transition ${
-                  language === code ? "accent-gradient text-white" : "bg-bg-2 text-txt-2 hover:text-txt-0"
+                className={`h-5 rounded-full px-2.5 text-[11px] font-semibold uppercase transition ${
+                  language === code ? "bg-bg-invert text-txt-invert" : "text-txt-2 hover:bg-bg-2 hover:text-txt-0"
                 }`}
               >
                 {code}

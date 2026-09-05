@@ -11,8 +11,9 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANT_CLASSES: Record<Variant, string> = {
-  primary: "accent-gradient text-white hover:brightness-110 disabled:brightness-100",
-  subtle: "bg-bg-2 text-txt-0 hover:bg-bg-3 border border-border",
+  // claude.ai vocabulary: primary = charcoal pill, subtle = white bordered pill.
+  primary: "bg-bg-invert text-txt-invert hover:bg-[#3d3d3a] disabled:bg-bg-invert",
+  subtle: "bg-white text-txt-0 hover:bg-bg-2 border border-border shadow-[0_1px_2px_rgba(31,30,29,0.05)]",
   ghost: "text-txt-1 hover:text-txt-0 hover:bg-bg-2",
 };
 
@@ -32,8 +33,8 @@ export function Button({
   return (
     <button
       type={type}
-      className={`inline-flex select-none items-center justify-center rounded-lg font-medium transition
-        focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-2
+      className={`inline-flex select-none items-center justify-center rounded-full font-medium transition
+        focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
         disabled:cursor-not-allowed disabled:opacity-45
         ${VARIANT_CLASSES[variant]} ${SIZE_CLASSES[size]} ${className}`}
       {...rest}

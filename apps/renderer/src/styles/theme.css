@@ -1,18 +1,26 @@
-/* Canonical PolyLab palette — docs/ARCHITECTURE.md §7. Light theme comes later. */
-:root,
-:root[data-theme="dark"] {
-  --bg-0: #0f0d13;
-  --bg-1: #17141d;
-  --bg-2: #1f1b27;
-  --bg-3: #2a2535;
-  --text-0: #ece8f1;
-  --text-1: #b8b1c4;
-  --text-2: #7e7690;
-  --accent: #c4314b; /* red */
-  --accent-2: #7c3aed; /* purple */
-  --accent-grad: linear-gradient(135deg, #c4314b, #7c3aed);
-  --border: #2e2939;
-  --success: #34d399;
-  --warn: #fbbf24;
-  --danger: #f87171;
+/* Claude.ai-style warm palette (light). Tokens keep their names; components
+   reference them via Tailwind (bg-0…3, txt-0…2, accent, border, …). */
+:root {
+  /* surfaces */
+  --bg-0: #f5f4ee; /* chat canvas (warm ivory) */
+  --bg-1: #f0eee6; /* sidebar, panels, pre blocks (oat) */
+  --bg-2: #e9e7de; /* hovers */
+  --bg-3: #ddd9cc; /* selected rows */
+  --bg-invert: #262624; /* dark charcoal (send button, active pills) */
+
+  /* text */
+  --text-0: #1f1e1d; /* near-black warm */
+  --text-1: #3d3d3a;
+  --text-2: #83827d; /* muted */
+  --text-invert: #ffffff;
+
+  /* accents */
+  --accent: #d97757; /* Claude terracotta */
+  --accent-2: #c4633f; /* darker terracotta — links, hover */
+  --accent-grad: linear-gradient(135deg, #d97757, #c4633f);
+
+  --border: #e0ded4;
+  --success: #3f8f5b;
+  --warn: #c77d1e;
+  --danger: #bf4d43;
 }

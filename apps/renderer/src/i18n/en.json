@@ -37,6 +37,12 @@
   },
   "chat": {
     "emptyTitle": "Welcome to PolyLab",
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening",
+      "night": "Good night"
+    },
     "emptyHint": "Pick a model above and start writing. Model-group debates and coding mode arrive in the next phases.",
     "capabilities": {
       "single": "Single-model chat",

@@ -12,19 +12,20 @@ export function TopBar() {
   const toggleRightPanel = useSettings((state) => state.toggleRightPanel);
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-bg-0 px-4">
+    // Borderless header over the cream canvas (claude.ai has no hard top rule).
+    <header className="flex h-14 shrink-0 items-center gap-3 bg-bg-0 px-4">
       {/* Workspace switcher (static for now) */}
       <button
         type="button"
         className="flex h-9 items-center gap-2 rounded-lg px-2.5 text-[15px] font-semibold text-txt-0 transition hover:bg-bg-2"
       >
-        <LogoMark className="h-6 w-6" />
+        <LogoMark className="h-6 w-6 text-accent" />
         {t("topbar.workspace")}
         <ChevronDownIcon className="h-4 w-4 text-txt-2" />
       </button>
 
-      {/* Chat / Coding segmented control */}
-      <div className="ml-4 flex h-9 items-center rounded-lg border border-border bg-bg-1 p-0.5">
+      {/* Chat / Coding segmented control — claude.ai pill: cream track, white active */}
+      <div className="ml-3 flex h-9 items-center rounded-full bg-bg-2 p-0.5">
         {(
           [
             { id: "chat", label: t("topbar.mode.chat"), Icon: ChatIcon },
@@ -39,11 +40,13 @@ export function TopBar() {
               onClick={() => setMode(id)}
               aria-pressed={active}
               title={t("topbar.mode.comingSoon", { mode: label })}
-              className={`flex h-8 items-center gap-1.5 rounded-[7px] px-3 text-[13px] font-medium transition ${
-                active ? "bg-bg-3 text-txt-0" : "text-txt-2 hover:text-txt-1"
+              className={`flex h-8 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition ${
+                active
+                  ? "bg-white text-txt-0 shadow-[0_1px_3px_rgba(31,30,29,0.12)]"
+                  : "text-txt-1 hover:text-txt-0"
               }`}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className={`h-4 w-4 ${active ? "text-accent" : ""}`} />
               {label}
             </button>
           );
@@ -60,8 +63,10 @@ export function TopBar() {
         onClick={toggleRightPanel}
         aria-pressed={rightPanelOpen}
         title={t("artifacts.title")}
-        className={`flex h-9 w-9 items-center justify-center rounded-lg border border-border transition ${
-          rightPanelOpen ? "bg-bg-3 text-txt-0" : "bg-bg-1 text-txt-2 hover:text-txt-0"
+        className={`flex h-9 w-9 items-center justify-center rounded-lg border transition ${
+          rightPanelOpen
+            ? "border-border bg-white text-txt-0 shadow-[0_1px_3px_rgba(31,30,29,0.12)]"
+            : "border-transparent text-txt-2 hover:bg-bg-2 hover:text-txt-0"
         }`}
       >
         <PanelRightIcon className="h-4 w-4" />

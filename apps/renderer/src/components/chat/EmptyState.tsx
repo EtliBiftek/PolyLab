@@ -2,6 +2,15 @@ import { useTranslation } from "react-i18next";
 
 import { LogoMark } from "../ui/Icons";
 
+function greetingKey(date: Date): string {
+  const hour = date.getHours();
+  if (hour < 6) return "chat.greeting.night";
+  if (hour < 12) return "chat.greeting.morning";
+  if (hour < 18) return "chat.greeting.afternoon";
+  return "chat.greeting.evening";
+}
+
+/** claude.ai-style welcome: terracotta ✻, serif greeting, quiet chips. */
 export function EmptyState() {
   const { t } = useTranslation();
 
@@ -13,15 +22,19 @@ export function EmptyState() {
 
   return (
     <div className="flex h-full flex-col items-center justify-center px-8 text-center">
-      <LogoMark className="mb-5 h-14 w-14 drop-shadow-[0_4px_24px_rgba(196,49,75,0.35)]" />
-      <h1 className="text-xl font-semibold tracking-tight">{t("chat.emptyTitle")}</h1>
-      <p className="mt-2 max-w-md text-sm leading-relaxed text-txt-1">{t("app.tagline")}</p>
+      <LogoMark className="mb-6 h-10 w-10 text-accent" />
+      <h1 className="font-serif text-[32px] font-normal leading-tight tracking-tight text-txt-0">
+        {t(greetingKey(new Date()))}
+      </h1>
+      <p className="mt-3 max-w-md text-[14px] leading-relaxed text-txt-1">{t("app.tagline")}</p>
 
-      <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-[12px] text-txt-2">
-        {capabilities.map((capability, index) => (
-          <span key={capability} className="flex items-center gap-2">
-            {index > 0 && <span className="h-1 w-1 rounded-full bg-txt-2/60" aria-hidden />}
-            <span className="rounded-full border border-border bg-bg-1 px-3 py-1">{capability}</span>
+      <div className="mt-7 flex flex-wrap items-center justify-center gap-2 text-[12px] text-txt-2">
+        {capabilities.map((capability) => (
+          <span
+            key={capability}
+            className="rounded-full border border-border bg-white px-3 py-1.5 shadow-[0_1px_2px_rgba(31,30,29,0.05)]"
+          >
+            {capability}
           </span>
         ))}
       </div>

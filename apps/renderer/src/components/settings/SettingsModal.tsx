@@ -47,12 +47,12 @@ export function SettingsModal() {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#1f1e1d]/35 p-6 backdrop-blur-[2px]"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) setOpen(false);
       }}
     >
-      <div className="flex h-[min(680px,90vh)] w-[min(860px,96vw)] flex-col overflow-hidden rounded-2xl border border-border bg-bg-1 shadow-2xl shadow-black/50">
+      <div className="flex h-[min(680px,90vh)] w-[min(860px,96vw)] flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-[0_16px_50px_rgba(31,30,29,0.18)]">
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-5">
           <h2 className="text-[15px] font-semibold">{t("settings.title")}</h2>
           <button
@@ -78,7 +78,7 @@ export function SettingsModal() {
                   type="button"
                   onClick={() => setLanguage(code)}
                   className={`h-8 flex-1 text-[12px] font-semibold uppercase transition ${
-                    language === code ? "accent-gradient text-white" : "bg-bg-2 text-txt-2"
+                    language === code ? "bg-bg-invert text-txt-invert" : "text-txt-2 hover:bg-bg-2"
                   }`}
                 >
                   {code}
@@ -304,10 +304,10 @@ function ProviderCard({ provider }: { provider: Provider }) {
   };
 
   return (
-    <div className="rounded-xl border border-border bg-bg-2/40">
+    <div className="rounded-xl border border-border bg-bg-0">
       <div className="flex items-center gap-3 px-4 py-3">
         <button type="button" onClick={toggleExpand} className="flex min-w-0 flex-1 items-center gap-3 text-left">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg accent-gradient text-[11px] font-bold uppercase text-white">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-[11px] font-bold uppercase text-white">
             {provider.kind.slice(0, 2)}
           </span>
           <span className="min-w-0">
