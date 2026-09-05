@@ -55,7 +55,7 @@ pub fn router() -> Router<AppState> {
         )
         .route("/fs", get(fs_git::fs_op))
         .route("/agent-steps", get(fs_git::agent_steps))
-        .route("/git", get(fs_git::git_op))
+        .route("/git", get(fs_git::git_op).post(fs_git::git_commit))
         .route("/settings", get(settings::list).put(settings::put))
 }
 

@@ -317,6 +317,25 @@ export function ModelPicker() {
                           </select>
                         </label>
                         <label className="flex items-center justify-between text-[11.5px] text-txt-1">
+                          {t("groups.leader")}
+                          <select
+                            value={debateSettings.leader_model_id ?? ""}
+                            onChange={(event) =>
+                              void patchDebateSettings({
+                                leader_model_id: event.target.value || null,
+                              })
+                            }
+                            className="h-6 max-w-[150px] rounded-md border border-border bg-bg-0 px-1 text-[11.5px]"
+                          >
+                            <option value="">{t("groups.leaderAuto")}</option>
+                            {group.models.map((model) => (
+                              <option key={model.id} value={model.id}>
+                                {model.display_name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="flex items-center justify-between text-[11.5px] text-txt-1">
                           {t("groups.maxRounds")}
                           <input
                             type="number"

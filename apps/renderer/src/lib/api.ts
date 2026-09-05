@@ -405,3 +405,10 @@ export function createFolder(name: string): Promise<Folder> {
 export function deleteFolder(id: string): Promise<void> {
   return request<void>(`/api/folders/${id}`, { method: "DELETE" });
 }
+
+export function gitCommit(conversationId: string, message: string): Promise<{ ok: boolean; output: string }> {
+  return request<{ ok: boolean; output: string }>("/api/git", {
+    method: "POST",
+    body: JSON.stringify({ conversation_id: conversationId, message }),
+  });
+}

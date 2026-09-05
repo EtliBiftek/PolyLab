@@ -61,6 +61,7 @@ export interface StreamingMessage {
 export interface TerminalState {
   lines: string[];
   running: boolean;
+  started: boolean;
   lastCommand: string | null;
 }
 
@@ -84,9 +85,14 @@ interface ChatState {
   setActiveGroup: (groupId: string) => Promise<void>;
   updateMode: (mode: "chat" | "coding") => Promise<void>;
   setAutoApprove: (enabled: boolean) => Promise<void>;
-  send: (text: string, attachments?: Array<{ name: string; text: string }>) => Promise<void>;
+  send: (
+    text: string,
+    attachments?: Array<{ name: string; text?: string; mime_type?: string; data_base64?: string }>,
+  ) => Promise<void>;
   cancel: () => void;
   runCommand: (command: string) => void;
+  startTerminal: () => void;
+  killTerminal: () => void;
   resolveApproval: (approved: boolean) => void;
   wireEvents: () => () => void;
 }
@@ -265,17 +271,40 @@ export const useChat = create<ChatState>((set, get) => ({
   runCommand: (command) => {
     const { activeId } = get();
     if (activeId == null) return;
+    const started = get().terminal[activeId]?.started ?? false;
     set((state) => ({
       terminal: {
         ...state.terminal,
         [activeId]: {
-          lines: [`$ ${command}`],
+          lines: [...(state.terminal[activeId]?.lines ?? []), `$ ${command}`],
           running: true,
+          started: true,
           lastCommand: command,
         },
       },
     }));
-    wsClient().send("terminal_run", { conversation_id: activeId, command });
+    // Session terminal: ensure the shell exists, then feed the command line.
+    if (!started) wsClient().send("terminal_start", { conversation_id: activeId });
+    wsClient().send("terminal_input", { conversation_id: activeId, data: `${command}
+` });
+  },
+
+  startTerminal: () => {
+    const { activeId } = get();
+    if (activeId == null) return;
+    wsClient().send("terminal_start", { conversation_id: activeId });
+  },
+
+  killTerminal: () => {
+    const { activeId } = get();
+    if (activeId == null) return;
+    wsClient().send("terminal_kill", { conversation_id: activeId });
+    set((state) => ({
+      terminal: {
+        ...state.terminal,
+        [activeId]: { lines: state.terminal[activeId]?.lines ?? [], running: false, started: false, lastCommand: null },
+      },
+    }));
   },
 
   resolveApproval: (approved) => {
@@ -527,6 +556,7 @@ export const useChat = create<ChatState>((set, get) => ({
           const current = state.terminal[event.conversation_id] ?? {
             lines: [],
             running: true,
+            started: true,
             lastCommand: null,
           };
           return {
@@ -548,6 +578,7 @@ export const useChat = create<ChatState>((set, get) => ({
           const current = state.terminal[event.conversation_id] ?? {
             lines: [],
             running: true,
+            started: true,
             lastCommand: null,
           };
           return {

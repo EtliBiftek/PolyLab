@@ -44,6 +44,15 @@ pub struct ChatRequest {
     pub messages: Vec<ChatMessage>,
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
+    /// Vision attachments (data URIs). OpenAI-compatible providers attach them as
+    /// image_url content parts on the final user turn; other providers ignore them.
+    pub images: Vec<InputImage>,
+}
+
+/// A base64-encoded image attachment (`data:{mime};base64,{data}`).
+#[derive(Debug, Clone)]
+pub struct InputImage {
+    pub data_uri: String,
 }
 
 /// Normalized streaming events. `Error` carries a mid-stream failure (connection

@@ -1,0 +1,55 @@
+name: Build Windows (setup + portable)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+
+      - name: Install JS dependencies (incl. Electron binary)
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore vendor-only optional deps (keyring, tiktoken)
+        run: node scripts/enable-optional-deps.mjs
+
+      - name: Build core (release; keyring default + tiktoken)
+        working-directory: core
+        run: cargo build --release --features tiktoken
+
+      - name: Build renderer + desktop
+        run: pnpm build
+
+      - name: Package (NSIS setup + portable exe)
+        run: pnpm exec electron-builder --win nsis portable
+        env:
+          # avoid CodeSign attempts on unsigned CI builds
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: polylab-windows-x64
+          path: |
+            release/*.exe
+          if-no-files-found: error

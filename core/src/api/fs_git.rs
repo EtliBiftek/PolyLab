@@ -127,3 +127,24 @@ pub async fn agent_steps(
     .await?;
     Ok(Json(rows))
 }
+
+#[derive(Deserialize)]
+pub struct GitCommitBody {
+    pub conversation_id: String,
+    pub message: String,
+}
+
+/// `POST /api/git` — commits all changes in the conversation workspace.
+pub async fn git_commit(
+    State(state): State<AppState>,
+    Json(body): Json<GitCommitBody>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let message = body.message.trim();
+    if message.is_empty() {
+        return Err(ApiError::bad_request("commit message cannot be empty"));
+    }
+    let conversation = workspace_conversation(&state, &body.conversation_id).await?;
+    let root = crate::terminal::workspace_root(&conversation);
+    let output = crate::git::commit(&root, message).await?;
+    Ok(Json(json!({ "ok": true, "output": output })))
+}

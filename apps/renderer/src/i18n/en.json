@@ -140,7 +140,9 @@
     "termination": "Termination",
     "terminationFixed": "Fixed rounds",
     "terminationConsensus": "Stop on consensus",
-    "maxRounds": "Max rounds"
+    "maxRounds": "Max rounds",
+    "leader": "Leader",
+    "leaderAuto": "Automatic"
   },
   "debate": {
     "round": "Round {{n}}",
@@ -156,7 +158,9 @@
     "running": "running…",
     "needsApproval": "needs your approval",
     "approve": "Approve",
-    "reject": "Reject"
+    "reject": "Reject",
+    "autoApprove": "Auto-approve",
+    "autoApproveHint": "Apply file writes/deletes and commands without asking for approval."
   },
   "files": {
     "tab": "Files",
@@ -167,10 +171,13 @@
     "status": "Status",
     "diff": "Diff",
     "log": "Log",
-    "notRepo": "This workspace is not a git repo."
+    "notRepo": "This workspace is not a git repo.",
+    "commit": "Commit",
+    "commitPlaceholder": "Commit message…"
   },
   "terminal": {
     "tab": "Terminal",
-    "placeholder": "type a command, Enter…"
+    "placeholder": "type a command, Enter…",
+    "kill": "End session"
   }
 }

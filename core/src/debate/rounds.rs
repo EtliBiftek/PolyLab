@@ -289,6 +289,7 @@ pub async fn run_debate(
                 ],
                 temperature: leader.model.temperature.map(|t| t as f32),
                 max_tokens: leader.model.max_tokens.map(|t| t as u32),
+                images: Vec::new(),
             };
             let result = run_one_turn(&ctx, leader, request, round, &cancel).await;
             synthesis_text = result.text.clone();
@@ -510,6 +511,7 @@ fn build_turn_request(
             messages,
             temperature: participant.model.temperature.map(|t| t as f32),
             max_tokens: participant.model.max_tokens.map(|t| t as u32),
+            images: Vec::new(),
         };
         return (prompt_text, request);
     }
@@ -550,6 +552,7 @@ fn build_turn_request(
         messages,
         temperature: participant.model.temperature.map(|t| t as f32),
         max_tokens: participant.model.max_tokens.map(|t| t as u32),
+        images: Vec::new(),
     };
     (prompt_text, request)
 }

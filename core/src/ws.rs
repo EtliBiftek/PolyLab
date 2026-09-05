@@ -125,6 +125,41 @@ async fn handle_client_event(state: &AppState, raw: &str) -> Option<ServerEvent>
                 }),
             }
         }
+        Ok(ClientEvent::TerminalStart { conversation_id }) => {
+            match sqlx::query_as::<_, crate::storage::Conversation>(
+                "SELECT * FROM conversations WHERE id = ?",
+            )
+            .bind(&conversation_id)
+            .fetch_optional(&state.db)
+            .await
+            {
+                Ok(Some(conversation)) => {
+                    state.terminals.start(state.hub.clone(), &conversation);
+                    None
+                }
+                _ => Some(ServerEvent::Error {
+                    conversation_id: Some(conversation_id),
+                    message_id: None,
+                    code: ErrorCode::NotFound,
+                    detail: "conversation not found".into(),
+                }),
+            }
+        }
+        Ok(ClientEvent::TerminalInput { conversation_id, data }) => {
+            if !state.terminals.input(&conversation_id, &data).await {
+                return Some(ServerEvent::Error {
+                    conversation_id: Some(conversation_id),
+                    message_id: None,
+                    code: ErrorCode::BadRequest,
+                    detail: "no terminal session for this conversation".into(),
+                });
+            }
+            None
+        }
+        Ok(ClientEvent::TerminalKill { conversation_id }) => {
+            state.terminals.kill(state.hub.clone(), &conversation_id);
+            None
+        }
         Ok(ClientEvent::Cancel { conversation_id }) => {
             state.engine.cancel(&conversation_id).await;
             None

@@ -23,15 +23,29 @@ async fn models() -> Json<Value> {
     json!({ "data": [ { "id": "mock-1" }, { "id": "mock-2" } ] }).into()
 }
 
-async fn chat_completions() -> axum::response::Response {
-    let sse = concat!(
-        "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"düşünüyorum\"}}]}\n\n",
-        "data: {\"choices\":[{\"delta\":{\"content\":\"Mer\"}}]}\n\n",
-        "data: {\"choices\":[{\"delta\":{\"content\":\"<think>gizli</think>haba\"}}]}\n\n",
-        "data: {\"choices\":[{\"delta\":{\"content\":\" dünya\"}}]}\n\n",
-        "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":17,\"completion_tokens\":5}}\n\n",
-        "data: [DONE]\n\n",
-    );
+async fn chat_completions(axum::Json(body): axum::Json<serde_json::Value>) -> axum::response::Response {
+    // The engine asks for a model-generated title in a separate request whose
+    // system prompt announces itself; answer those with a short title so the
+    // auto-title path is distinguishable from the normal chat answer.
+    let is_title_request = body["messages"][0]["content"]
+        .as_str()
+        .is_some_and(|s| s.contains("başlığı üreticisisin"));
+    let sse = if is_title_request {
+        concat!(
+            "data: {\"choices\":[{\"delta\":{\"content\":\"Selam, kısa bir başlık\"}}]}\n\n",
+            "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":9,\"completion_tokens\":4}}\n\n",
+            "data: [DONE]\n\n",
+        )
+    } else {
+        concat!(
+            "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"düşünüyorum\"}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"Mer\"}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"<think>gizli</think>haba\"}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\" dünya\"}}]}\n\n",
+            "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":17,\"completion_tokens\":5}}\n\n",
+            "data: [DONE]\n\n",
+        )
+    };
     (
         [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
         sse,
@@ -318,6 +332,7 @@ async fn openai_compat_stream_normalizes_reasoning_and_usage() {
     .unwrap();
 
     let request = polylab_core::providers::ChatRequest {
+        images: Vec::new(),
         model: "mock-1".into(),
         messages: vec![polylab_core::providers::ChatMessage {
             role: polylab_core::providers::Role::User,

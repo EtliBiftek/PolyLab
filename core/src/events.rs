@@ -36,13 +36,48 @@ pub enum ClientEvent {
         conversation_id: String,
         command: String,
     },
+    /// Start a persistent interactive shell session for a conversation
+    /// (cwd/env survive between inputs; one session per conversation).
+    TerminalStart {
+        conversation_id: String,
+    },
+    /// Write raw characters (a full command line ending in \n) to the session.
+    TerminalInput {
+        conversation_id: String,
+        data: String,
+    },
+    /// Kill the session (there is no TTY, so Ctrl+C semantics do not apply).
+    TerminalKill {
+        conversation_id: String,
+    },
 }
 
-/// A text attachment sent with a message (Phase 3).
+/// An attachment sent with a message: plain text (appended to the prompt) or a
+/// base64 image (vision content parts). Exactly one of `text` / `data_base64`
+/// is set for a given kind.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AttachmentIn {
     pub name: String,
+    #[serde(default)]
     pub text: String,
+    /// e.g. "image/png" — required when `data_base64` is present.
+    #[serde(default)]
+    pub mime_type: Option<String>,
+    #[serde(default)]
+    pub data_base64: Option<String>,
+}
+
+impl AttachmentIn {
+    /// `data:{mime};base64,{data}` when this is an image attachment.
+    pub fn data_uri(&self) -> Option<String> {
+        let mime = self.mime_type.as_deref()?;
+        if !mime.starts_with("image/") {
+            return None;
+        }
+        self.data_base64
+            .as_deref()
+            .map(|data| format!("data:{mime};base64,{data}"))
+    }
 }
 
 /// Server → client events.
@@ -167,6 +202,9 @@ pub enum ServerEvent {
         conversation_id: String,
         code: Option<i64>,
     },
+    TerminalStarted {
+        conversation_id: String,
+    },
 }
 
 /// Debate phases. The critique+revise step of plan §5.2 is one round on the wire.
@@ -253,6 +291,8 @@ mod tests {
                 attachments: vec![AttachmentIn {
                     name: "a.txt".into(),
                     text: "içerik".into(),
+                    mime_type: None,
+                    data_base64: None,
                 }],
             }
         );
@@ -267,6 +307,22 @@ mod tests {
         assert!(matches!(
             parse_client_event(term).unwrap(),
             ClientEvent::TerminalRun { .. }
+        ));
+
+        let start = r#"{"type":"terminal_start","conversation_id":"c1"}"#;
+        assert!(matches!(
+            parse_client_event(start).unwrap(),
+            ClientEvent::TerminalStart { .. }
+        ));
+        let input = r#"{"type":"terminal_input","conversation_id":"c1","data":"ls\n"}"#;
+        assert!(matches!(
+            parse_client_event(input).unwrap(),
+            ClientEvent::TerminalInput { .. }
+        ));
+        let kill = r#"{"type":"terminal_kill","conversation_id":"c1"}"#;
+        assert!(matches!(
+            parse_client_event(kill).unwrap(),
+            ClientEvent::TerminalKill { .. }
         ));
     }
 

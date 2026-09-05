@@ -63,12 +63,13 @@ function usageLabel(
   });
 }
 
-function attachmentNames(message: Message): string[] {
+function attachmentNames(message: Message): Array<{ name: string; image: boolean }> {
   if (message.attachments_json == null) return [];
   try {
-    return (JSON.parse(message.attachments_json) as Array<{ name: string }>).map(
-      (entry) => entry.name,
-    );
+    return (JSON.parse(message.attachments_json) as Array<{
+      name: string;
+      data_base64?: string;
+    }>).map((entry) => ({ name: entry.name, image: entry.data_base64 != null }));
   } catch {
     return [];
   }
@@ -99,12 +100,12 @@ export const MessageItem = memo(function MessageItem({
           {message.content}
           {attachments.length > 0 && (
             <span className="mt-1.5 flex flex-wrap gap-1.5">
-              {attachments.map((name) => (
+              {attachments.map((attachment) => (
                 <span
-                  key={name}
+                  key={attachment.name}
                   className="rounded-full border border-border bg-bg-0 px-2 py-0.5 text-[11px] text-txt-2"
                 >
-                  📎 {name}
+                  {attachment.image ? "🖼" : "📎"} {attachment.name}
                 </span>
               ))}
             </span>

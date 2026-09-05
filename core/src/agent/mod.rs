@@ -123,6 +123,7 @@ pub async fn run_agent(
             messages: messages.clone(),
             temperature: model.temperature.map(|t| t as f32),
             max_tokens: model.max_tokens.map(|t| t as u32),
+            images: Vec::new(),
         };
         let prompt_chars: u64 =
             messages.iter().map(|m| estimate(&m.content)).sum::<u64>().max(1);
