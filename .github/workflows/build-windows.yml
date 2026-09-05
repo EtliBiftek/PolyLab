@@ -6,6 +6,9 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+
 jobs:
   windows:
     runs-on: windows-latest
@@ -41,10 +44,13 @@ jobs:
         run: pnpm build
 
       - name: Package (NSIS setup + portable exe)
-        run: pnpm exec electron-builder --win nsis portable --publish never --publish never
+        run: pnpm exec electron-builder --win nsis portable --publish never
         env:
           # avoid CodeSign attempts on unsigned CI builds
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          # belt & suspenders: if a tag build still resolves to publish,
+          # use the workflow's built-in token (creates a Release w/ both exes)
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
