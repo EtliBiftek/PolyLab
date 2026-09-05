@@ -1,0 +1,26 @@
+{
+  "name": "polylab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PolyLab — multi-model AI workspace (single chat + model debates + coding agent)",
+  "main": "apps/desktop/dist/main.js",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r --if-present build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test && cd core && cargo test",
+    "dev": "concurrently -n renderer,electron -c magenta,yellow \"pnpm dev:renderer\" \"wait-on tcp:5173 && pnpm dev:electron\"",
+    "dev:renderer": "pnpm --filter @polylab/renderer dev",
+    "dev:electron": "pnpm --filter @polylab/desktop start",
+    "dev:core": "node scripts/dev-core.mjs",
+    "package": "pnpm build && electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "concurrently": "9.1.0",
+    "electron-builder": "25.1.8",
+    "wait-on": "8.0.1"
+  }
+}
