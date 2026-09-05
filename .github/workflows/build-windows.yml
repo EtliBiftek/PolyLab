@@ -41,7 +41,7 @@ jobs:
         run: pnpm build
 
       - name: Package (NSIS setup + portable exe)
-        run: pnpm exec electron-builder --win nsis portable
+        run: pnpm exec electron-builder --win nsis portable --publish never --publish never
         env:
           # avoid CodeSign attempts on unsigned CI builds
           CSC_IDENTITY_AUTO_DISCOVERY: "false"

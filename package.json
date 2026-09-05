@@ -17,7 +17,7 @@
     "dev:renderer": "pnpm --filter @polylab/renderer dev",
     "dev:electron": "pnpm --filter @polylab/desktop start",
     "dev:core": "node scripts/dev-core.mjs",
-    "package": "pnpm build && electron-builder --win nsis portable"
+    "package": "pnpm build && electron-builder --win nsis portable --publish never --publish never"
   },
   "devDependencies": {
     "concurrently": "9.1.0",
