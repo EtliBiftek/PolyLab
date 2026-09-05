@@ -18,6 +18,7 @@ pub struct AppState {
     pub version: Arc<str>,
     started_at: Instant,
     pub db: SqlitePool,
+    pub data_dir: std::path::PathBuf,
     pub secrets: Arc<dyn SecretStore>,
     pub prompts: Arc<PromptLibrary>,
     pub engine: Arc<ChatEngine>,
@@ -28,6 +29,7 @@ pub struct AppState {
 impl AppState {
     pub fn new(
         token: String,
+        data_dir: &std::path::Path,
         db: SqlitePool,
         secrets: Arc<dyn SecretStore>,
         prompts: Arc<PromptLibrary>,
@@ -45,6 +47,7 @@ impl AppState {
             version: Arc::from(crate::VERSION),
             started_at: Instant::now(),
             db,
+            data_dir: data_dir.to_path_buf(),
             secrets,
             prompts,
             engine,

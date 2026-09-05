@@ -4,17 +4,21 @@
 //! Electron main process (bearer header for REST, `?token=` for the WebSocket upgrade).
 //! The wire contract lives in `docs/EVENTS.md`.
 
+pub mod agent;
 pub mod api;
 pub mod auth;
 pub mod config;
 pub mod debate;
 pub mod engine;
 pub mod events;
+pub mod fs;
+pub mod git;
 pub mod prompts;
 pub mod providers;
 pub mod secrets;
 pub mod state;
 pub mod storage;
+pub mod terminal;
 pub mod tokens;
 pub mod ws;
 
@@ -66,11 +70,12 @@ pub fn data_dir() -> std::path::PathBuf {
 
 /// Assemble state (db, secrets, prompts, hub, engine). Exposed for tests.
 pub async fn build_state(token: String, data_dir: &std::path::Path) -> anyhow::Result<AppState> {
+    std::fs::create_dir_all(data_dir.join("workspace"))?;
     let db = storage::open(data_dir).await?;
     let secrets: Arc<dyn secrets::SecretStore> = Arc::from(secrets::new_store(data_dir)?);
     let prompts = Arc::new(prompts::PromptLibrary::load());
     let (hub, _rx) = tokio::sync::broadcast::channel(4096);
-    Ok(AppState::new(token, db, secrets, prompts, hub))
+    Ok(AppState::new(token, data_dir, db, secrets, prompts, hub))
 }
 
 /// Bind and serve until interrupted. Returns the address actually bound (useful when

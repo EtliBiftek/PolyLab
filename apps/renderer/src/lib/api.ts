@@ -50,6 +50,7 @@ export interface Conversation {
   project_path: string | null;
   folder_id: string | null;
   pinned: boolean;
+  agent_auto_approve: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -116,7 +117,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError(response.status, code, detail);
   }
-  return (await response.json()) as T;
+  const text = await response.text();
+  if (text.length === 0) return undefined as T;
+  return JSON.parse(text) as T;
 }
 
 /* ---------------------------------------------------------------- health -- */
@@ -201,6 +204,9 @@ export function listConversations(): Promise<Conversation[]> {
 export function createConversation(body: {
   mode?: "chat" | "coding";
   model_id?: string | null;
+  selection_type?: "single" | "group";
+  group_id?: string | null;
+  debate_settings?: DebateSettings;
 }): Promise<Conversation> {
   return request<Conversation>("/api/conversations", { method: "POST", body: JSON.stringify(body) });
 }
@@ -215,7 +221,18 @@ export function getConversation(id: string): Promise<ConversationDetail> {
 
 export function updateConversation(
   id: string,
-  body: { title?: string; model_id?: string | null; pinned?: boolean },
+  body: {
+    title?: string;
+    model_id?: string | null;
+    pinned?: boolean;
+    folder_id?: string | null;
+    mode?: "chat" | "coding";
+    selection_type?: "single" | "group";
+    group_id?: string | null;
+    debate_settings?: DebateSettings;
+    agent_auto_approve?: boolean;
+    project_path?: string;
+  },
 ): Promise<Conversation> {
   return request<Conversation>(`/api/conversations/${id}`, {
     method: "PATCH",
@@ -238,4 +255,153 @@ export function putSetting(key: string, value: unknown): Promise<unknown> {
     method: "PUT",
     body: JSON.stringify({ key, value }),
   });
+}
+
+/* ------------------------------------------------------------------ Phase 2+ */
+
+export interface DebateSettings {
+  termination: "fixed" | "consensus";
+  max_rounds: number;
+  leader_model_id: string | null;
+  show_names_to_models: boolean;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+}
+
+export interface GroupDetail extends Group {
+  models: Model[];
+}
+
+export function listGroups(): Promise<GroupDetail[]> {
+  return request<GroupDetail[]>("/api/groups");
+}
+
+export function createGroup(body: {
+  name: string;
+  description?: string;
+  model_ids: string[];
+}): Promise<GroupDetail> {
+  return request<GroupDetail>("/api/groups", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function updateGroup(
+  id: string,
+  body: { name?: string; description?: string; model_ids?: string[] },
+): Promise<GroupDetail> {
+  return request<GroupDetail>(`/api/groups/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+
+export function deleteGroup(id: string): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/api/groups/${id}`, { method: "DELETE" });
+}
+
+export interface DebateTurn {
+  id: string;
+  debate_id: string;
+  round: number;
+  model_id: string;
+  anon_label: string;
+  content: string;
+  reasoning: string | null;
+  tokens_in: number | null;
+  tokens_out: number | null;
+  phase: "initial" | "critique" | "synthesis";
+  consensus: boolean | null;
+  created_at: string;
+}
+
+export interface DebateReplay {
+  id: string;
+  message_id: string;
+  conversation_id: string;
+  status: string;
+  rounds_total: number;
+  consensus_reached: boolean | null;
+  leader_model_id: string | null;
+  settings_json: string | null;
+  total_tokens_in: number;
+  total_tokens_out: number;
+  started_at: string;
+  ended_at: string | null;
+  turns: DebateTurn[];
+}
+
+export function listDebates(query: {
+  message_id?: string;
+  conversation_id?: string;
+}): Promise<DebateReplay[]> {
+  const params = new URLSearchParams(
+    Object.entries(query).filter((entry): entry is [string, string] => entry[1] != null),
+  );
+  return request<DebateReplay[]>(`/api/debates?${params.toString()}`);
+}
+
+/* --------------------------------------------------------- workspace (F4/F5) */
+
+export interface FsResponse {
+  root: string;
+  path: string;
+  content: string;
+}
+
+export function fsList(conversationId: string, path = ""): Promise<FsResponse> {
+  return request<FsResponse>(
+    `/api/fs?conversation_id=${encodeURIComponent(conversationId)}&op=list&path=${encodeURIComponent(path)}`,
+  );
+}
+
+export function fsRead(conversationId: string, path: string): Promise<FsResponse> {
+  return request<FsResponse>(
+    `/api/fs?conversation_id=${encodeURIComponent(conversationId)}&op=read&path=${encodeURIComponent(path)}`,
+  );
+}
+
+export interface GitResponse {
+  repo: boolean;
+  output: string;
+}
+
+export function gitOp(conversationId: string, op: "status" | "diff" | "log"): Promise<GitResponse> {
+  return request<GitResponse>(
+    `/api/git?conversation_id=${encodeURIComponent(conversationId)}&op=${op}`,
+  );
+}
+
+/* ------------------------------------------------------- agent steps / folders */
+
+export interface AgentStep {
+  id: string;
+  message_id: string;
+  seq: number;
+  tool: string;
+  args_json: string;
+  result: string | null;
+  ok: boolean;
+}
+
+export function listAgentSteps(messageId: string): Promise<AgentStep[]> {
+  return request<AgentStep[]>(`/api/agent-steps?message_id=${encodeURIComponent(messageId)}`);
+}
+
+export interface Folder {
+  id: string;
+  name: string;
+  position: number;
+}
+
+export function listFolders(): Promise<Folder[]> {
+  return request<Folder[]>("/api/folders");
+}
+
+export function createFolder(name: string): Promise<Folder> {
+  return request<Folder>("/api/folders", { method: "POST", body: JSON.stringify({ name }) });
+}
+
+export function deleteFolder(id: string): Promise<void> {
+  return request<void>(`/api/folders/${id}`, { method: "DELETE" });
 }

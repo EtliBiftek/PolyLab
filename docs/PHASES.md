@@ -97,3 +97,88 @@ Known gaps (deliberate, per plan):
   for later polish).
 - `keyring` (Credential Manager) path compiles only on machines with crates.io
   access; the sandbox/CI fallback store is used here and clearly warns.
+
+## Phase 2 — Model groups + debate engine + debate UI
+
+**Status:** done ✓ (2026-09-05)
+
+- Core: migration 0002 (model_groups, model_group_items, debates, debate_turns);
+  debate engine (`core/src/debate/`) — shuffled anon labels, parallel rounds,
+  `CONSENSUS: yes|no` vote parsing, fixed vs early-consensus termination, leader
+  synthesis, per-turn + total usage, cancellation, persistence; groups CRUD +
+  `/api/debates` replay; conversations accept `group_id` + `debate_settings`.
+- Renderer: composer model picker gains a **Groups** tab (create/delete groups,
+  per-group debate settings: termination, max rounds); live debate visualization
+  (round headers, anonymous participant cards with real model names, consensus
+  badge, streaming cursors) + replay transcript per assistant message.
+- Verified end-to-end against the mock provider: 3-model group debate streamed
+  r1 initial → r2 critique → consensus check (max rounds, leader decided) →
+  r3 synthesis; 7 turns persisted and replayed via `GET /api/debates`.
+
+## Phase 3 — Chat polish (attachments, artifacts, rename/pin, model editor)
+
+**Status:** done ✓ (2026-09-05)
+
+- Attachments: composer 📎 attaches text files (≤512 KB each, ≤5); sent with
+  `send_message`, persisted as `attachments_json`, appended to the prompt;
+  chips shown on user bubbles.
+- Artifacts: fenced code blocks render with a header (language, copy,
+  "open in panel"); the right panel's Artifacts tab lists/edits extracted
+  blocks.
+- Conversations: rename (⋯ menu or double-click), pin/unpin, folders REST
+  (`/api/folders`) + sidebar menu assignment.
+- Model editor in settings: display name, color swatches, temperature,
+  max tokens per model; per-model think toggle in the composer picker
+  (migration 0003, persisted, gates reasoning streaming/storage).
+- UI: claude.ai-style light layout (gray surfaces + red accent), black/white
+  theme switch (settings → Görünüm), Enter sends / Shift+Enter newline,
+  collapsible sidebar (60px rail), 3 rotating mode-aware composer suggestions
+  seeded from the user's history.
+
+## Phase 4 — Coding agent
+
+**Status:** done ✓ (2026-09-05)
+
+- `core/src/agent/`: tool loop (max 8 steps) over a ```tool JSON protocol
+  (no native tool-calling needed); tools: fs_list/fs_read/fs_write/fs_delete
+  (workspace-sandboxed, size-capped), exec (45s timeout), git_status/git_diff/
+  git_commit. Mutating tools require approval (`agent_approval_request` +
+  `agent_approve`) unless the conversation sets `agent_auto_approve`.
+- Migration 0004: `agent_steps` table + `conversations.agent_auto_approve`;
+  steps persisted and replayed via `GET /api/agent-steps`.
+- Coding conversations get a workspace dir (`<data>/workspace/<id>`, or a
+  custom `project_path`); `GET /api/fs` browses it sandboxed.
+- Renderer: agent steps render as tool chips (expandable output); approval
+  toast with Onayla/Reddet; coding mode activates via the top bar Chat/Coding
+  switch (patches the active conversation's mode).
+- Verified E2E with `mock-agent` (tool-protocol mock): fs_list executed
+  against the seeded workspace, result fed back, final answer streamed, step
+  replayed via REST.
+
+## Phase 5 — Git + terminal
+
+**Status:** done ✓ (2026-09-05)
+
+- `core/src/git.rs`: status/diff/log/commit via the git CLI (async, capped
+  output; diff includes untracked files); `GET /api/git` surfaces them.
+- `core/src/terminal.rs`: `terminal_run` executes a one-shot command in the
+  conversation workspace; output streams as `terminal_output` chunks +
+  `terminal_exit` (not a full interactive PTY — documented gap).
+- Renderer right panel: Files (sandboxed browser + file viewer), Git
+  (status/diff/log), Terminal tabs.
+
+## Phase 7 — Robustness
+
+**Status:** done ✓ (2026-09-05, packaging partial)
+
+- Electron main: sidecar crash-restart with capped exponential backoff (max 5
+  restarts/min window) via `SidecarHandle.onCrash`; renderer heals through the
+  existing WS reconnect + /health polling.
+- History replay stays capped at 40 messages; token-budget trimming and
+  model-generated titles remain open polish items.
+- Packaging: `electron-builder.yml` unchanged; Windows build (keyring +
+  tiktoken features, `polylab-core.exe`) requires a crates.io-capable machine.
+- Known debt: optional `keyring`/`tiktoken` deps are not vendorable offline
+  (features declared empty; file-backed secrets + estimated tokens in use);
+  one stale sqlx row panic was observed on the pre-0004 binary during a live
+  session (not reproduced on the current build; watch on upgrade).

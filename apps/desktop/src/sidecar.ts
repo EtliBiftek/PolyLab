@@ -27,6 +27,8 @@ export interface SidecarInfo {
 
 export interface SidecarHandle extends SidecarInfo {
   dispose(): void;
+  /** Fires when the process dies on its own (crash) — not on dispose(). */
+  onCrash(cb: (code: number | null) => void): void;
 }
 
 /** Resolve the repo root (…/polylab) from the compiled file location in dev. */
@@ -135,11 +137,15 @@ export async function startSidecar(): Promise<SidecarHandle> {
   };
   forward(child.stdout, "[sidecar]");
   forward(child.stderr, "[sidecar]");
+  const crashListeners: Array<(code: number | null) => void> = [];
+  let disposed = false;
   child.on("exit", (code, signal) => {
     console.log(`[sidecar] exited code=${code} signal=${signal ?? ""}`);
+    if (!disposed) for (const listener of crashListeners) listener(code);
   });
 
   const dispose = () => {
+    disposed = true;
     if (child.killed || child.exitCode != null) return;
     // Ask politely first (graceful shutdown), then hard-kill.
     child.kill();
@@ -154,5 +160,5 @@ export async function startSidecar(): Promise<SidecarHandle> {
     throw error;
   }
   console.log(`[sidecar] healthy on ${info.baseUrl}`);
-  return { ...info, dispose };
+  return { ...info, dispose, onCrash: (cb) => crashListeners.push(cb) };
 }

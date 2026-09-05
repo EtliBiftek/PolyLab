@@ -11,6 +11,7 @@ export default {
         "bg-3": "var(--bg-3)",
         surface: "var(--surface)",
         "bg-invert": "var(--bg-invert)",
+        "invert-hover": "var(--invert-hover)",
         "txt-0": "var(--text-0)",
         "txt-1": "var(--text-1)",
         "txt-2": "var(--text-2)",

@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useChat } from "../../stores/chat";
@@ -8,7 +8,34 @@ import { ArrowUpIcon, PaperclipIcon, SquareIcon } from "../ui/Icons";
 export function Composer() {
   const { t } = useTranslation();
   const [value, setValue] = useState("");
+  const [attachments, setAttachments] = useState<Array<{ name: string; text: string }>>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Suggestion chips (empty state) fill the composer.
+  useEffect(() => {
+    const onSuggest = (event: Event) => {
+      const detail = (event as CustomEvent<string>).detail;
+      setValue(detail);
+      textareaRef.current?.focus();
+    };
+    window.addEventListener("polylab:suggest", onSuggest);
+    return () => window.removeEventListener("polylab:suggest", onSuggest);
+  }, []);
+
+  const addFiles = async (files: FileList | null) => {
+    if (files == null) return;
+    const next: Array<{ name: string; text: string }> = [];
+    for (const file of Array.from(files).slice(0, 5)) {
+      if (file.size > 512 * 1024) continue; // text attachments only, capped
+      try {
+        next.push({ name: file.name, text: await file.text() });
+      } catch {
+        /* skip unreadable */
+      }
+    }
+    setAttachments((current) => [...current, ...next].slice(0, 5));
+  };
   const sending = useChat((state) => state.sending);
   const send = useChat((state) => state.send);
   const cancel = useChat((state) => state.cancel);
@@ -23,8 +50,9 @@ export function Composer() {
   const submit = () => {
     const text = value.trim();
     if (text.length === 0 || sending) return;
-    void send(text);
+    void send(text, attachments.length > 0 ? attachments : undefined);
     setValue("");
+    setAttachments([]);
     requestAnimationFrame(() => {
       if (textareaRef.current) textareaRef.current.style.height = "auto";
     });
@@ -42,7 +70,29 @@ export function Composer() {
     <div className="shrink-0 px-4 pb-4 pt-1">
       {/* claude.ai composer: gray card, hairline border, soft shadow. Bottom bar
           carries the model picker (with per-model think) and the send button. */}
-      <div className="mx-auto max-w-3xl rounded-2xl border border-border bg-surface p-2.5 shadow-[0_2px_14px_rgba(31,30,29,0.07)] transition focus-within:border-[#c9c6b8]">
+      <div className="mx-auto max-w-3xl rounded-2xl border border-border bg-surface p-2.5 shadow-[var(--shadow-card)] transition focus-within:border-txt-2/40">
+        {attachments.length > 0 && (
+          <div className="mb-1 flex flex-wrap gap-1.5 px-1">
+            {attachments.map((attachment, index) => (
+              <span
+                key={`${attachment.name}-${index}`}
+                className="flex items-center gap-1 rounded-full border border-border bg-bg-0 px-2 py-0.5 text-[11px] text-txt-1"
+              >
+                📎 {attachment.name}
+                <button
+                  type="button"
+                  aria-label={t("common.remove")}
+                  onClick={() =>
+                    setAttachments((current) => current.filter((_, i) => i !== index))
+                  }
+                  className="text-txt-2 transition hover:text-danger"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         <textarea
           ref={textareaRef}
           rows={1}
@@ -63,13 +113,23 @@ export function Composer() {
 
           <button
             type="button"
-            disabled
-            title={t("common.comingSoonPhase3")}
+            onClick={() => fileInputRef.current?.click()}
+            title={t("chat.attach")}
             aria-label={t("chat.attach")}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-txt-2 transition hover:bg-bg-2 hover:text-txt-1 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-txt-2 transition hover:bg-bg-2 hover:text-txt-1"
           >
             <PaperclipIcon className="h-4 w-4" />
           </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(event) => {
+              void addFiles(event.target.files);
+              event.target.value = "";
+            }}
+          />
 
           {sending ? (
             <button
@@ -77,7 +137,7 @@ export function Composer() {
               onClick={cancel}
               aria-label={t("chat.cancel")}
               title={t("chat.cancel")}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg-invert text-txt-invert transition hover:bg-[#3d3d3a]"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg-invert text-txt-invert transition hover:bg-invert-hover"
             >
               <SquareIcon className="h-3 w-3" />
             </button>
@@ -89,7 +149,7 @@ export function Composer() {
               aria-label={t("chat.send")}
               title={t("chat.send")}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg-invert text-txt-invert
-                transition hover:bg-[#3d3d3a] disabled:cursor-not-allowed disabled:bg-[#c9c6b8]"
+                transition hover:bg-invert-hover disabled:cursor-not-allowed disabled:bg-bg-3"
             >
               <ArrowUpIcon className="h-4 w-4" />
             </button>

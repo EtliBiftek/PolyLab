@@ -113,7 +113,14 @@ describe("App (Phase 1 shell)", () => {
     await flush();
 
     expect(findButton("New chat")).toBeDefined();
-    expect(text()).toContain("Single-model chat");
+    // Empty state shows exactly 3 rotating suggestion chips.
+    const suggestionButtons = container.querySelectorAll(
+      '[data-testid="suggestions"] button',
+    );
+    expect(suggestionButtons.length).toBe(3);
+    for (const button of suggestionButtons) {
+      expect(button.textContent?.length ?? 0).toBeGreaterThan(5);
+    }
     expect(container.querySelector("textarea")).not.toBeNull();
     expect(text()).toContain("Enter to send");
   });

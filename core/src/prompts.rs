@@ -17,6 +17,7 @@ pub const PROMPT_NAMES: &[&str] = &[
     "debate_critique",
     "debate_leader",
     "code_reviewer",
+    "agent",
 ];
 
 impl PromptLibrary {
@@ -68,6 +69,7 @@ fn embedded_defaults() -> HashMap<String, String> {
             "debate_leader",
             include_str!("../../prompts/debate_leader.md"),
         ),
+        ("agent", include_str!("../../prompts/agent.md")),
         (
             "code_reviewer",
             include_str!("../../prompts/code_reviewer.md"),

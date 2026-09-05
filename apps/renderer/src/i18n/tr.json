@@ -14,7 +14,11 @@
     "settings": "Ayarlar",
     "language": "Dil",
     "collapse": "Kenar çubuğunu daralt",
-    "expand": "Kenar çubuğunu genişlet"
+    "expand": "Kenar çubuğunu genişlet",
+    "chatMenu": "Sohbet menüsü",
+    "rename": "Yeniden adlandır",
+    "pin": "Sabitle",
+    "unpin": "Sabitlemeyi kaldır"
   },
   "topbar": {
     "workspace": "PolyLab",
@@ -68,7 +72,11 @@
   },
   "artifacts": {
     "title": "Artifacts",
-    "empty": "Kod önizlemeleri ve dosyalar burada görünecek."
+    "empty": "Kod önizlemeleri ve dosyalar burada görünecek.",
+    "tab": "Artifact",
+    "emptyHint": "Kod bloklarındaki “Panele aç” ile burada görünür.",
+    "copy": "Kopyala",
+    "openInPanel": "Panele aç"
   },
   "settings": {
     "title": "Ayarlar",
@@ -100,6 +108,14 @@
       "noModels": "Model listesi alınamadı. Bağlantıyı test edin.",
       "added": "ekli",
       "add": "ekle"
+    },
+    "theme": "Görünüm",
+    "themeLight": "Beyaz",
+    "themeDark": "Siyah",
+    "models": "Model ayarları",
+    "model": {
+      "temperature": "Sıcaklık",
+      "maxTokens": "Maks token"
     }
   },
   "common": {
@@ -108,6 +124,53 @@
     "cancel": "İptal",
     "loading": "Yükleniyor…",
     "comingSoonPhase1": "Faz 1'de geliyor",
-    "comingSoonPhase3": "Faz 3'te geliyor"
+    "comingSoonPhase3": "Faz 3'te geliyor",
+    "remove": "Kaldır",
+    "refresh": "Yenile"
+  },
+  "groups": {
+    "tabModels": "Modeller",
+    "tabGroups": "Gruplar",
+    "select": "Grup seç",
+    "new": "Yeni tartışma grubu",
+    "namePlaceholder": "Grup adı",
+    "create": "Oluştur",
+    "delete": "Grubu sil",
+    "empty": "Henüz grup yok. Modeller sekmesinden ekleyin.",
+    "termination": "Bitiş",
+    "terminationFixed": "Sabit tur sayısı",
+    "terminationConsensus": "Uzlaşınca dur",
+    "maxRounds": "Maks tur"
+  },
+  "debate": {
+    "round": "Tur {{n}}",
+    "phaseInitial": "İlk cevaplar",
+    "phaseCritique": "Eleştiri ve revizyon",
+    "phaseSynthesis": "Lider sentezi",
+    "consensusReached": "Uzlaşıldı",
+    "consensusNo": "Uzlaşma yok",
+    "transcript": "Tartışma dökümü · {{rounds}} tur · {{models}} model",
+    "totalTokens": "Toplam: {{in}} giriş / {{out}} çıkış token"
+  },
+  "agent": {
+    "running": "çalışıyor…",
+    "needsApproval": "onayınızı bekliyor",
+    "approve": "Onayla",
+    "reject": "Reddet"
+  },
+  "files": {
+    "tab": "Dosyalar",
+    "workspace": "Çalışma alanı"
+  },
+  "git": {
+    "tab": "Git",
+    "status": "Durum",
+    "diff": "Diff",
+    "log": "Geçmiş",
+    "notRepo": "Bu çalışma alanı bir git deposu değil."
+  },
+  "terminal": {
+    "tab": "Terminal",
+    "placeholder": "komut yaz, Enter…"
   }
 }

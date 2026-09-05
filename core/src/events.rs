@@ -19,10 +19,30 @@ pub enum ClientEvent {
     SendMessage {
         conversation_id: String,
         content: String,
+        #[serde(default)]
+        attachments: Vec<AttachmentIn>,
     },
     Cancel {
         conversation_id: String,
     },
+    /// Answer to an `agent_approval_request` (Phase 4).
+    AgentApprove {
+        approval_id: String,
+        approved: bool,
+    },
+    /// Run a shell command in the conversation's workspace; output streams back
+    /// as `terminal_output` events (Phase 5).
+    TerminalRun {
+        conversation_id: String,
+        command: String,
+    },
+}
+
+/// A text attachment sent with a message (Phase 3).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AttachmentIn {
+    pub name: String,
+    pub text: String,
 }
 
 /// Server → client events.
@@ -115,6 +135,38 @@ pub enum ServerEvent {
         total_tokens_in: u64,
         total_tokens_out: u64,
     },
+    AgentToolStart {
+        conversation_id: String,
+        message_id: String,
+        step: u32,
+        tool: String,
+        args_json: String,
+    },
+    AgentToolResult {
+        conversation_id: String,
+        message_id: String,
+        step: u32,
+        tool: String,
+        ok: bool,
+        output: String,
+    },
+    AgentApprovalRequest {
+        conversation_id: String,
+        message_id: String,
+        approval_id: String,
+        tool: String,
+        args_json: String,
+        timeout_secs: u64,
+    },
+    TerminalOutput {
+        conversation_id: String,
+        seq: u64,
+        chunk: String,
+    },
+    TerminalExit {
+        conversation_id: String,
+        code: Option<i64>,
+    },
 }
 
 /// Debate phases. The critique+revise step of plan §5.2 is one round on the wire.
@@ -187,8 +239,35 @@ mod tests {
             ClientEvent::SendMessage {
                 conversation_id: "c1".into(),
                 content: "selam".into(),
+                attachments: Vec::new(),
             }
         );
+
+        let send_att = r#"{"type":"send_message","conversation_id":"c1","content":"selam",
+            "attachments":[{"name":"a.txt","text":"içerik"}]}"#;
+        assert_eq!(
+            parse_client_event(send_att).unwrap(),
+            ClientEvent::SendMessage {
+                conversation_id: "c1".into(),
+                content: "selam".into(),
+                attachments: vec![AttachmentIn {
+                    name: "a.txt".into(),
+                    text: "içerik".into(),
+                }],
+            }
+        );
+
+        let approve = r#"{"type":"agent_approve","approval_id":"ap1","approved":true}"#;
+        assert_eq!(
+            parse_client_event(approve).unwrap(),
+            ClientEvent::AgentApprove { approval_id: "ap1".into(), approved: true }
+        );
+
+        let term = r#"{"type":"terminal_run","conversation_id":"c1","command":"ls"}"#;
+        assert!(matches!(
+            parse_client_event(term).unwrap(),
+            ClientEvent::TerminalRun { .. }
+        ));
     }
 
     #[test]

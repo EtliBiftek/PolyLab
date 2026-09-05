@@ -82,7 +82,7 @@ async fn handle_client_event(state: &AppState, raw: &str) -> Option<ServerEvent>
     match events::parse_client_event(raw) {
         Ok(ClientEvent::Ping) => Some(ServerEvent::Pong),
         Ok(ClientEvent::Echo { text }) => Some(ServerEvent::Echo { text }),
-        Ok(ClientEvent::SendMessage { conversation_id, content }) => {
+        Ok(ClientEvent::SendMessage { conversation_id, content, attachments }) => {
             if content.trim().is_empty() {
                 return Some(ServerEvent::Error {
                     conversation_id: Some(conversation_id),
@@ -91,8 +91,39 @@ async fn handle_client_event(state: &AppState, raw: &str) -> Option<ServerEvent>
                     detail: "message content is empty".into(),
                 });
             }
-            state.engine.dispatch_send(conversation_id, content);
+            state.engine.dispatch_send(conversation_id, content, attachments);
             None
+        }
+        Ok(ClientEvent::AgentApprove { approval_id, approved }) => {
+            state.engine.resolve_approval(&approval_id, approved);
+            None
+        }
+        Ok(ClientEvent::TerminalRun { conversation_id, command }) => {
+            let conversation: Option<crate::storage::Conversation> = sqlx::query_as(
+                "SELECT * FROM conversations WHERE id = ?",
+            )
+            .bind(&conversation_id)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten();
+            match conversation {
+                Some(conversation) => {
+                    crate::terminal::spawn_run(
+                        state.db.clone(),
+                        state.hub.clone(),
+                        conversation,
+                        command,
+                    );
+                    None
+                }
+                None => Some(ServerEvent::Error {
+                    conversation_id: Some(conversation_id),
+                    message_id: None,
+                    code: ErrorCode::NotFound,
+                    detail: "conversation not found".into(),
+                }),
+            }
         }
         Ok(ClientEvent::Cancel { conversation_id }) => {
             state.engine.cancel(&conversation_id).await;

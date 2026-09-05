@@ -4,6 +4,10 @@ import {
   createProvider,
   deleteProvider,
   deleteModel,
+  createGroup,
+  deleteGroup,
+  listGroups,
+  updateGroup,
   listModels,
   listProviders,
   testProvider,
@@ -11,6 +15,7 @@ import {
   updateProvider,
   upsertModel,
   listRemoteModels,
+  type GroupDetail,
   type Model,
   type Provider,
   type RemoteModel,
@@ -20,6 +25,7 @@ import {
 interface ModelsState {
   providers: Provider[];
   models: Model[];
+  groups: GroupDetail[];
   loaded: boolean;
   loading: boolean;
   refresh: () => Promise<void>;
@@ -35,24 +41,52 @@ interface ModelsState {
   fetchRemoteModels: (id: string) => Promise<RemoteModel[]>;
   addModel: (providerId: string, modelId: string) => Promise<void>;
   removeModel: (id: string) => Promise<void>;
+  addGroup: (body: { name: string; description?: string; model_ids: string[] }) => Promise<void>;
+  editGroup: (id: string, body: { name?: string; model_ids?: string[] }) => Promise<void>;
+  removeGroup: (id: string) => Promise<void>;
   /** Per-model think (reasoning) toggle; optimistic, rolled back on error. */
   setThink: (id: string, enabled: boolean) => Promise<void>;
+  /** Model settings editor (name/color/temperature/max tokens/enabled). */
+  patchModel: (
+    id: string,
+    body: Partial<Pick<Model, "display_name" | "color" | "temperature" | "max_tokens" | "enabled">>,
+  ) => Promise<void>;
 }
 
 export const useModels = create<ModelsState>((set, get) => ({
   providers: [],
   models: [],
+  groups: [],
   loaded: false,
   loading: false,
 
   refresh: async () => {
     set({ loading: true });
     try {
-      const [providers, models] = await Promise.all([listProviders(), listModels()]);
-      set({ providers, models, loaded: true });
+      const [providers, models, groups] = await Promise.all([
+        listProviders(),
+        listModels(),
+        listGroups().catch(() => []),
+      ]);
+      set({ providers, models, groups, loaded: true });
     } finally {
       set({ loading: false });
     }
+  },
+
+  addGroup: async (body) => {
+    await createGroup(body);
+    await get().refresh();
+  },
+
+  editGroup: async (id, body) => {
+    await updateGroup(id, body);
+    await get().refresh();
+  },
+
+  removeGroup: async (id) => {
+    await deleteGroup(id);
+    await get().refresh();
   },
 
   addProvider: async (body) => {
@@ -82,6 +116,11 @@ export const useModels = create<ModelsState>((set, get) => ({
 
   removeModel: async (id) => {
     await deleteModel(id);
+    await get().refresh();
+  },
+
+  patchModel: async (id, body) => {
+    await updateModel(id, body);
     await get().refresh();
   },
 

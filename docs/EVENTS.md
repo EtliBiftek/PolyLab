@@ -39,9 +39,8 @@ between the renderer and `polylab-core`. When the contract changes, update this 
 | `echo` | `text: string` (loopback test event) | 0 |
 | `send_message` | `conversation_id, content, attachments[]` | 1 |
 | `cancel` | `conversation_id` | 1 |
-| `approve_change` | `change_id, accept: bool` | 4 |
-| `approve_tool` | `run_id, step_id, accept: bool` (terminal approval) | 5 |
-| `terminal_input` | `session_id, data` | 5 |
+| `agent_approve` | `approval_id, approved: bool` — answers an `agent_approval_request` | 4 |
+| `terminal_run` | `conversation_id, command` — one-shot command in the conversation workspace; output streams as `terminal_output` | 5 |
 
 ## 4. Server → Client
 
@@ -61,9 +60,11 @@ between the renderer and `polylab-core`. When the contract changes, update this 
 | `debate_turn_done` | `conversation_id, debate_id, round, model_id, tokens_in, tokens_out` | 2 |
 | `debate_consensus` | `conversation_id, debate_id, reached: bool, reason` | 2 |
 | `debate_done` | `conversation_id, debate_id, total_tokens_in, total_tokens_out` | 2 |
-| `agent_step` | `conversation_id, run_id, step_id, tool, args, status: running\|done\|error\|needs_approval` | 4 |
-| `file_change_proposed` | `conversation_id, change_id, path, diff` | 4 |
-| `terminal_output` | `conversation_id, session_id, data` | 5 |
+| `agent_tool_start` | `conversation_id, message_id, step, tool, args_json` | 4 |
+| `agent_tool_result` | `conversation_id, message_id, step, tool, ok, output` | 4 |
+| `agent_approval_request` | `conversation_id, message_id, approval_id, tool, args_json, timeout_secs` | 4 |
+| `terminal_output` | `conversation_id, seq, chunk` | 5 |
+| `terminal_exit` | `conversation_id, code` | 5 |
 
 Debate `phase` values: `initial` · `critique` · `revise` · `synthesis`.
 (Plan §5.2 folds critique+revise into one round step; the wire format distinguishes them so

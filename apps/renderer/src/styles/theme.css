@@ -1,6 +1,7 @@
-/* Claude.ai-style layout with gray surfaces and a red accent. Tokens keep their
-   names; components reference them via Tailwind (bg-0…3, txt-0…2, accent, …). */
-:root {
+/* Claude.ai-style layout: gray surfaces, red accent, ivory canvas.
+   Settings → Appearance toggles the black (dark) variant below. */
+:root,
+:root[data-theme="light"] {
   /* surfaces */
   --bg-0: #f5f4ee; /* chat canvas (warm ivory) */
   --bg-1: #f0eee6; /* sidebar, pre blocks (oat) */
@@ -8,6 +9,7 @@
   --bg-3: #ddd9cc; /* selected rows */
   --surface: #e1e0dc; /* gray: composer card, bubbles, popovers, modal */
   --bg-invert: #262624; /* dark charcoal (send button, active pills) */
+  --invert-hover: #3d3d3a;
 
   /* text */
   --text-0: #1f1e1d; /* near-black warm */
@@ -24,4 +26,39 @@
   --success: #3f8f5b;
   --warn: #c77d1e;
   --danger: #bf4d43;
+
+  --code-bg: #f0eee6;
+  --shadow-card: 0 2px 14px rgba(31, 30, 29, 0.07);
+  --shadow-pop: 0 8px 30px rgba(31, 30, 29, 0.16);
+}
+
+:root[data-theme="dark"] {
+  /* surfaces — claude.ai dark: near-black warm charcoal */
+  --bg-0: #1f1e1d; /* chat canvas */
+  --bg-1: #191918; /* sidebar */
+  --bg-2: #2e2e2c; /* hovers */
+  --bg-3: #3d3d3a; /* selected rows */
+  --surface: #2a2a28; /* cards, bubbles, popovers */
+  --bg-invert: #f5f4ee; /* inverted: light buttons in dark mode */
+  --invert-hover: #e9e7de;
+
+  /* text */
+  --text-0: #f5f4ee;
+  --text-1: #d8d6cf;
+  --text-2: #83827d;
+  --text-invert: #1f1e1d;
+
+  /* accents */
+  --accent: #d9635a; /* red, brighter for contrast */
+  --accent-2: #e07a72;
+  --accent-grad: linear-gradient(135deg, #d9635a, #b84a42);
+
+  --border: #33332f;
+  --success: #6fbf8a;
+  --warn: #dfae5f;
+  --danger: #e07a72;
+
+  --code-bg: #191918;
+  --shadow-card: 0 2px 14px rgba(0, 0, 0, 0.35);
+  --shadow-pop: 0 8px 30px rgba(0, 0, 0, 0.5);
 }

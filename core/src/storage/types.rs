@@ -99,6 +99,7 @@ pub struct Conversation {
     pub project_path: Option<String>,
     pub folder_id: Option<String>,
     pub pinned: bool,
+    pub agent_auto_approve: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -277,6 +278,7 @@ impl<'r> sqlx::FromRow<'r, SqliteRow> for Conversation {
             project_path: row.try_get("project_path")?,
             folder_id: row.try_get("folder_id")?,
             pinned: bool_col(row, "pinned")?,
+            agent_auto_approve: bool_col(row, "agent_auto_approve")?,
             created_at: row.try_get("created_at")?,
             updated_at: row.try_get("updated_at")?,
         })

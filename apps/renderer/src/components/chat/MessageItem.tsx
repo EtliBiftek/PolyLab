@@ -1,10 +1,54 @@
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 
 import type { Message, Model } from "../../lib/api";
+import { MarkdownBody } from "./MarkdownBody";
 import { ThinkingPanel } from "./ThinkingPanel";
+import { AgentSteps } from "./AgentView";
+import { DebateTranscript } from "./DebateView";
+import type { AgentStepState } from "../../stores/chat";
+
+interface AgentStepDto {
+  id: string;
+  message_id: string;
+  seq: number;
+  tool: string;
+  args_json: string;
+  result: string | null;
+  ok: boolean;
+}
+
+/** Loads persisted agent steps for a finished assistant message (coding mode). */
+function useAgentSteps(message: Message, coding: boolean): AgentStepState[] {
+  const [steps, setSteps] = useState<AgentStepState[]>([]);
+  useEffect(() => {
+    if (!coding || message.role !== "assistant" || message.id.startsWith("local-")) {
+      setSteps([]);
+      return;
+    }
+    let cancelled = false;
+    void import("../../lib/api")
+      .then(({ listAgentSteps }) => listAgentSteps(message.id))
+      .then((rows: AgentStepDto[]) => {
+        if (cancelled) return;
+        setSteps(
+          rows.map((row) => ({
+            step: row.seq,
+            tool: row.tool,
+            args: row.args_json,
+            output: row.result ?? "",
+            ok: row.ok,
+            running: false,
+          })),
+        );
+      })
+      .catch(() => setSteps([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [message.id, message.role, coding]);
+  return steps;
+}
 
 function usageLabel(
   message: { tokens_in: number | null; tokens_out: number | null; tokens_estimated: boolean | null },
@@ -19,21 +63,52 @@ function usageLabel(
   });
 }
 
+function attachmentNames(message: Message): string[] {
+  if (message.attachments_json == null) return [];
+  try {
+    return (JSON.parse(message.attachments_json) as Array<{ name: string }>).map(
+      (entry) => entry.name,
+    );
+  } catch {
+    return [];
+  }
+}
+
 /** Persisted message (history or finalized). */
 export const MessageItem = memo(function MessageItem({
   message,
   model,
+  models,
+  group,
+  coding,
 }: {
   message: Message;
   model: Model | undefined;
+  models: Model[];
+  group: boolean;
+  coding: boolean;
 }) {
   const { t } = useTranslation();
+  const steps = useAgentSteps(message, coding);
 
   if (message.role === "user") {
+    const attachments = attachmentNames(message);
     return (
       <div className="flex justify-end">
         <div className="max-w-[75%] whitespace-pre-wrap rounded-2xl rounded-br-md border border-border bg-surface px-4 py-2.5 text-[14px] leading-relaxed text-txt-0">
           {message.content}
+          {attachments.length > 0 && (
+            <span className="mt-1.5 flex flex-wrap gap-1.5">
+              {attachments.map((name) => (
+                <span
+                  key={name}
+                  className="rounded-full border border-border bg-bg-0 px-2 py-0.5 text-[11px] text-txt-2"
+                >
+                  📎 {name}
+                </span>
+              ))}
+            </span>
+          )}
         </div>
       </div>
     );
@@ -45,9 +120,9 @@ export const MessageItem = memo(function MessageItem({
       {message.reasoning != null && message.reasoning.length > 0 && (
         <ThinkingPanel reasoning={message.reasoning} streaming={false} />
       )}
-      <div className="max-w-none text-[14.5px] leading-relaxed text-txt-0 [&_a]:text-accent-2 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-txt-1 [&_code]:rounded [&_code]:bg-bg-2 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[13px] [&_code]:text-[#8b5a3c] [&_h1]:mb-2 [&_h1]:mt-4 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:mt-4 [&_h2]:font-semibold [&_h3]:mb-1 [&_h3]:mt-3 [&_h3]:font-semibold [&_li]:my-0.5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-border [&_pre]:bg-bg-1 [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:text-[12.5px] [&_strong]:font-semibold [&_table]:my-2 [&_table]:w-full [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-      </div>
+      {group && <DebateTranscript messageId={message.id} models={models} />}
+      {steps.length > 0 && <AgentSteps steps={steps} />}
+      <MarkdownBody content={message.content} />
       {(usage != null || model != null) && (
         <div className="mt-1.5 flex items-center gap-3 text-[11.5px] text-txt-2">
           {model != null && <span>{model.display_name}</span>}

@@ -15,6 +15,7 @@ const MODELS = [
   { id: "mock-fast", display_name: "Mock Fast" },
   { id: "mock-thinker", display_name: "Mock Thinker (native reasoning)" },
   { id: "mock-tagged", display_name: "Mock Tagged (<think> stream)" },
+  { id: "mock-agent", display_name: "Mock Agent (tool protocol)" },
 ];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -50,6 +51,34 @@ const server = http.createServer(async (req, res) => {
     const model = body.model ?? "mock-fast";
     const lastUser = [...(body.messages ?? [])].reverse().find((m) => m.role === "user");
     const question = String(lastUser?.content ?? "").slice(0, 160);
+
+    // Tool-protocol agent: first call asks for fs_list, after a tool result it
+    // answers normally — lets the Phase 4 loop be exercised end-to-end.
+    if (model.includes("agent")) {
+      const sawToolResult = String(lastUser?.content ?? "").includes("[ARAÇ SONUCU");
+      const reply = sawToolResult
+        ? "Görev tamamlandı.\n\nÇalışma alanını listeledim ve birkaç dosya oluşturdum.\n\n```ts\nconst done = true;\n```"
+        : "Çalışma alanını inceleyeyim.\n\n```tool\n{\"tool\": \"fs_list\", \"args\": {\"path\": \"\"}}\n```";
+      res.writeHead(200, {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache",
+        connection: "keep-alive",
+      });
+      for (const chunk of tokenChunks(reply, 7)) {
+        sse(res, { choices: [{ delta: { content: chunk } }] });
+        await sleep(15);
+      }
+      const tokensIn = Math.ceil(
+        (body.messages ?? []).reduce((n, m) => n + String(m.content ?? "").length, 0) / 4,
+      );
+      sse(res, {
+        choices: [],
+        usage: { prompt_tokens: tokensIn, completion_tokens: Math.ceil(reply.length / 4) },
+      });
+      res.write("data: [DONE]\n\n");
+      res.end();
+      return;
+    }
     const answer =
       `**${model}** yanıtlıyor:\n\n` +
       `> ${question || "(boş)"}\n\n` +

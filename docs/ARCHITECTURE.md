@@ -93,9 +93,9 @@ polylab/
 │  ├─ src/api/                   # REST handlers
 │  ├─ src/providers/             # Provider trait + implementations (Phase 1+)
 │  ├─ src/debate/                # debate engine (Phase 2+)
-│  ├─ src/agent/                 # coding agent loop (Phase 4+)
-│  ├─ src/fs/                    # sandboxed file ops (Phase 4)
-│  ├─ src/git/  src/terminal/    # Phase 5
+│  ├─ src/agent/                 # coding agent loop (tool protocol, approvals)
+│  ├─ src/fs.rs                  # sandboxed workspace file ops
+│  ├─ src/git.rs  src/terminal.rs # git CLI wrapper + one-shot terminal
 │  ├─ src/storage/               # SQLite via sqlx (Phase 1)
 │  ├─ src/secrets.rs             # keyring (Phase 1)
 │  └─ src/tokens.rs              # token counting

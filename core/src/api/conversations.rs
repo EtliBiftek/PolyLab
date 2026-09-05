@@ -20,6 +20,7 @@ pub struct CreateConversation {
     pub selection_type: Option<String>,
     pub group_id: Option<String>,
     pub debate_settings: Option<serde_json::Value>,
+    pub agent_auto_approve: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -32,6 +33,8 @@ pub struct UpdateConversation {
     pub selection_type: Option<String>,
     pub group_id: Option<String>,
     pub debate_settings: Option<serde_json::Value>,
+    pub agent_auto_approve: Option<bool>,
+    pub project_path: Option<String>,
 }
 
 pub async fn list(
@@ -86,11 +89,19 @@ pub async fn create(
     }
 
     let id = uuid::Uuid::new_v4().to_string();
+    let project_path = if mode == "coding" {
+        let path = state.data_dir.join("workspace").join(&id);
+        std::fs::create_dir_all(&path).ok();
+        Some(path.display().to_string())
+    } else {
+        None
+    };
     let now = now_rfc3339();
     sqlx::query(
         "INSERT INTO conversations (id, mode, selection_type, model_id, group_id,
-                                    debate_settings_json, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                                    debate_settings_json, project_path,
+                                    agent_auto_approve, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&id)
     .bind(mode)
@@ -98,6 +109,8 @@ pub async fn create(
     .bind(if selection_type == "group" { None } else { body.model_id })
     .bind(if selection_type == "group" { body.group_id } else { None })
     .bind(&debate_settings_json)
+    .bind(&project_path)
+    .bind(body.agent_auto_approve.unwrap_or(false))
     .bind(&now)
     .bind(&now)
     .execute(&state.db)
@@ -210,10 +223,13 @@ pub async fn update(
         (Some(value), _) => store_debate_settings(&Some(value.clone()))?,
         (None, existing) => existing,
     };
+    let agent_auto_approve = body.agent_auto_approve.unwrap_or(row.agent_auto_approve);
+    let project_path = body.project_path.clone().or(row.project_path.clone());
 
     sqlx::query(
         "UPDATE conversations SET title = ?, model_id = ?, mode = ?, pinned = ?, folder_id = ?,
-                selection_type = ?, group_id = ?, debate_settings_json = ?, updated_at = ?
+                selection_type = ?, group_id = ?, debate_settings_json = ?,
+                agent_auto_approve = ?, project_path = ?, updated_at = ?
          WHERE id = ?",
     )
     .bind(&title)
@@ -224,6 +240,8 @@ pub async fn update(
     .bind(&selection_type)
     .bind(&group_id)
     .bind(&debate_settings_json)
+    .bind(agent_auto_approve)
+    .bind(&project_path)
     .bind(now_rfc3339())
     .bind(&id)
     .execute(&state.db)

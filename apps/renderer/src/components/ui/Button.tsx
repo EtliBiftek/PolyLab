@@ -12,8 +12,8 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANT_CLASSES: Record<Variant, string> = {
   // claude.ai vocabulary: primary = charcoal pill, subtle = white bordered pill.
-  primary: "bg-bg-invert text-txt-invert hover:bg-[#3d3d3a] disabled:bg-bg-invert",
-  subtle: "bg-surface text-txt-0 hover:bg-bg-2 border border-border shadow-[0_1px_2px_rgba(31,30,29,0.05)]",
+  primary: "bg-bg-invert text-txt-invert hover:bg-invert-hover disabled:bg-bg-invert",
+  subtle: "bg-surface text-txt-0 hover:bg-bg-2 border border-border shadow-[var(--shadow-card)]",
   ghost: "text-txt-1 hover:text-txt-0 hover:bg-bg-2",
 };
 

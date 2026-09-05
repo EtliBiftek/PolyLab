@@ -9,7 +9,8 @@ use sqlx::SqlitePool;
 use tokio::sync::{broadcast, Mutex};
 use tokio_util::sync::CancellationToken;
 
-use crate::events::{ChatMode, ErrorCode, MessageStatus, ServerEvent};
+use crate::agent;
+use crate::events::{AttachmentIn, ChatMode, ErrorCode, MessageStatus, ServerEvent};
 use crate::prompts::PromptLibrary;
 use crate::providers::{self, ChatEvent, ChatMessage, ChatRequest, Role};
 use crate::secrets::{provider_key, SecretStore};
@@ -27,6 +28,8 @@ pub struct ChatEngine {
     prompts: Arc<PromptLibrary>,
     secrets: Arc<dyn SecretStore>,
     cancels: Mutex<HashMap<String, CancellationToken>>,
+    /// Pending agent approvals: id → oneshot verdict sender.
+    approvals: agent::Approvals,
 }
 
 impl ChatEngine {
@@ -36,7 +39,21 @@ impl ChatEngine {
         prompts: Arc<PromptLibrary>,
         secrets: Arc<dyn SecretStore>,
     ) -> Self {
-        Self { db, hub, prompts, secrets, cancels: Mutex::new(HashMap::new()) }
+        Self {
+            db,
+            hub,
+            prompts,
+            secrets,
+            cancels: Mutex::new(HashMap::new()),
+            approvals: std::sync::Arc::new(std::sync::Mutex::new(HashMap::new())),
+        }
+    }
+
+    /// Answers a pending `agent_approval_request`.
+    pub fn resolve_approval(&self, approval_id: &str, approved: bool) {
+        if let Some(sender) = self.approvals.lock().unwrap().remove(approval_id) {
+            let _ = sender.send(approved);
+        }
     }
 
     fn emit(&self, event: ServerEvent) {
@@ -52,17 +69,22 @@ impl ChatEngine {
     }
 
     /// Entry point for `send_message`. Spawns the run so the WS loop stays free.
-    pub fn dispatch_send(self: &Arc<Self>, conversation_id: String, content: String) {
+    pub fn dispatch_send(
+        self: &Arc<Self>,
+        conversation_id: String,
+        content: String,
+        attachments: Vec<AttachmentIn>,
+    ) {
         let engine = Arc::clone(self);
-        tokio::spawn(async move { engine.run(conversation_id, content).await });
+        tokio::spawn(async move { engine.run(conversation_id, content, attachments).await });
     }
 
     /// Synchronous variant used by tests and future internal callers.
     pub async fn send_message(&self, conversation_id: String, content: String) {
-        self.run(conversation_id, content).await;
+        self.run(conversation_id, content, Vec::new()).await;
     }
 
-    async fn run(&self, conversation_id: String, content: String) {
+    async fn run(&self, conversation_id: String, content: String, attachments: Vec<AttachmentIn>) {
         let token = CancellationToken::new();
         {
             let mut cancels = self.cancels.lock().await;
@@ -78,7 +100,7 @@ impl ChatEngine {
             cancels.insert(conversation_id.clone(), token.clone());
         }
 
-        self.run_guarded(conversation_id.clone(), content, token).await;
+        self.run_guarded(conversation_id.clone(), content, attachments, token).await;
 
         self.cancels.lock().await.remove(&conversation_id);
     }
@@ -87,9 +109,10 @@ impl ChatEngine {
         &self,
         conversation_id: String,
         content: String,
+        attachments: Vec<AttachmentIn>,
         cancel: CancellationToken,
     ) {
-        match self.run_inner(&conversation_id, content, cancel).await {
+        match self.run_inner(&conversation_id, content, attachments, cancel).await {
             Ok(()) => {}
             Err(error) => {
                 tracing::error!(%error, conversation_id, "send_message failed");
@@ -107,6 +130,7 @@ impl ChatEngine {
         &self,
         conversation_id: &str,
         content: String,
+        attachments: Vec<AttachmentIn>,
         cancel: CancellationToken,
     ) -> anyhow::Result<()> {
         let conversation: Conversation = sqlx::query_as(
@@ -171,6 +195,45 @@ impl ChatEngine {
                 None
             });
 
+        // Coding mode (single model) → tool-using agent (plan §5.3).
+        if conversation.mode == "coding" {
+            let provider_impl =
+                providers::build(kind, provider.base_url.as_deref(), api_key.as_deref())?;
+            let history: Vec<(String, String)> = sqlx::query_as(
+                "SELECT role, content FROM messages
+                 WHERE conversation_id = ? ORDER BY created_at ASC, rowid ASC",
+            )
+            .bind(conversation_id)
+            .fetch_all(&self.db)
+            .await?;
+            let history: Vec<ChatMessage> = history
+                .into_iter()
+                .rev()
+                .take(MAX_HISTORY_MESSAGES)
+                .rev()
+                .map(|(role, content)| ChatMessage {
+                    role: match role.as_str() {
+                        "assistant" => Role::Assistant,
+                        _ => Role::User,
+                    },
+                    content,
+                })
+                .collect();
+            return agent::run_agent(
+                &self.db,
+                self.hub.clone(),
+                self.prompts.get("agent"),
+                &conversation,
+                &model,
+                provider_impl.as_ref(),
+                &history,
+                &content,
+                cancel,
+                self.approvals.clone(),
+            )
+            .await;
+        }
+
         // --- build the request --------------------------------------------------
         let base_prompt = if conversation.mode == "coding" {
             self.prompts.get("coding")
@@ -197,6 +260,20 @@ impl ChatEngine {
                 _ => Role::User,
             };
             messages.push(ChatMessage { role, content: text });
+        }
+        if !attachments.is_empty() {
+            if let Some(last_user) = messages
+                .iter_mut()
+                .rev()
+                .find(|message| matches!(message.role, Role::User))
+            {
+                for attachment in &attachments {
+                    last_user.content.push_str(&format!(
+                        "\n\n[Dosya eki: {}]\n{}",
+                        attachment.name, attachment.text
+                    ));
+                }
+            }
         }
         let request = ChatRequest {
             model: model.model_id.clone(),

@@ -34,6 +34,8 @@ export function SettingsModal() {
   const setOpen = useSettings((state) => state.setSettingsOpen);
   const language = useSettings((state) => state.language);
   const setLanguage = useSettings((state) => state.setLanguage);
+  const theme = useSettings((state) => state.theme);
+  const setTheme = useSettings((state) => state.setTheme);
 
   const models = useModels();
   const [adding, setAdding] = useState(false);
@@ -52,7 +54,7 @@ export function SettingsModal() {
         if (event.target === event.currentTarget) setOpen(false);
       }}
     >
-      <div className="flex h-[min(680px,90vh)] w-[min(860px,96vw)] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_16px_50px_rgba(31,30,29,0.18)]">
+      <div className="flex h-[min(680px,90vh)] w-[min(860px,96vw)] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow-pop)]">
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-5">
           <h2 className="text-[15px] font-semibold">{t("settings.title")}</h2>
           <button
@@ -71,22 +73,50 @@ export function SettingsModal() {
             <div className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-txt-2">
               {t("settings.general")}
             </div>
-            <div className="mb-4 mt-1 flex overflow-hidden rounded-lg border border-border">
-              {(["tr", "en"] as const).map((code) => (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => setLanguage(code)}
-                  className={`h-8 flex-1 text-[12px] font-semibold uppercase transition ${
-                    language === code ? "bg-bg-invert text-txt-invert" : "text-txt-2 hover:bg-bg-2"
-                  }`}
-                >
-                  {code}
-                </button>
-              ))}
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-txt-2">
+                {t("settings.theme")}
+              </span>
+              <div className="flex overflow-hidden rounded-full border border-border bg-bg-0 p-0.5">
+                {(["light", "dark"] as const).map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setTheme(value)}
+                    aria-pressed={theme === value}
+                    className={`h-5 rounded-full px-2.5 text-[11px] font-semibold transition ${
+                      theme === value
+                        ? "bg-bg-invert text-txt-invert"
+                        : "text-txt-2 hover:bg-bg-2 hover:text-txt-0"
+                    }`}
+                  >
+                    {value === "light" ? t("settings.themeLight") : t("settings.themeDark")}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-txt-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-txt-2">
+                {t("sidebar.language")}
+              </span>
+              <div className="flex overflow-hidden rounded-full border border-border bg-bg-0 p-0.5">
+                {(["tr", "en"] as const).map((code) => (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => setLanguage(code)}
+                    className={`h-5 rounded-full px-2.5 text-[11px] font-semibold uppercase transition ${
+                      language === code ? "bg-bg-invert text-txt-invert" : "text-txt-2 hover:bg-bg-2"
+                    }`}
+                  >
+                    {code}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-txt-2">
               {t("settings.providers")}
             </div>
             <div className="mt-1 space-y-1">
@@ -263,6 +293,9 @@ function AddProviderForm({ onDone }: { onDone: () => void }) {
 
 function ProviderCard({ provider }: { provider: Provider }) {
   const { t } = useTranslation();
+  const localModels = useModels((state) =>
+    state.models.filter((model) => model.provider_id === provider.id),
+  );
   const test = useModels((state) => state.test);
   const removeProvider = useModels((state) => state.removeProvider);
   const setProviderKey = useModels((state) => state.setProviderKey);
@@ -374,6 +407,18 @@ function ProviderCard({ provider }: { provider: Provider }) {
             </Button>
           </div>
 
+          {/* local model editor rows */}
+          {localModels.length > 0 && (
+            <div className="mb-4 space-y-1.5" data-testid="model-editor">
+              <div className="px-0.5 pb-0.5 text-[11px] font-semibold uppercase tracking-wider text-txt-2">
+                {t("settings.models")}
+              </div>
+              {localModels.map((model) => (
+                <ModelEditorRow key={model.id} modelId={model.id} />
+              ))}
+            </div>
+          )}
+
           {/* remote models */}
           <div className="mb-2 flex items-center justify-between">
             <span className="text-[11.5px] font-semibold uppercase tracking-wider text-txt-2">
@@ -447,5 +492,77 @@ function RemoteModelRow({ providerId, model }: { providerId: string; model: Remo
         {model.added ? t("settings.provider.added") : t("settings.provider.add")}
       </span>
     </button>
+  );
+}
+
+/* --------------------------------------------------------- model editor row */
+
+const MODEL_COLORS = ["#c84040", "#3f8f5b", "#4263c8", "#8f3fc8", "#c77d1e", "#0f8f8f", "#83827d"];
+
+function ModelEditorRow({ modelId }: { modelId: string }) {
+  const { t } = useTranslation();
+  const model = useModels((state) => state.models.find((entry) => entry.id === modelId));
+  const patchModel = useModels((state) => state.patchModel);
+  if (model == null) return null;
+  return (
+    <div className="rounded-lg border border-border bg-bg-2/50 px-3 py-2">
+      <div className="flex items-center gap-2">
+        <span className="flex gap-1">
+          {MODEL_COLORS.map((color) => (
+            <button
+              key={color}
+              type="button"
+              aria-label={color}
+              onClick={() => void patchModel(model.id, { color })}
+              className={`h-3.5 w-3.5 rounded-full border transition ${
+                (model.color ?? MODEL_COLORS[0]) === color ? "border-txt-0" : "border-transparent"
+              }`}
+              style={{ backgroundColor: color }}
+            />
+          ))}
+        </span>
+        <input
+          defaultValue={model.display_name}
+          onBlur={(event) => {
+            const value = event.target.value.trim();
+            if (value.length > 0 && value !== model.display_name) {
+              void patchModel(model.id, { display_name: value });
+            }
+          }}
+          className="h-6 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 text-[12.5px] text-txt-0 hover:border-border focus:border-txt-2/40 focus:outline-none"
+        />
+        <label className="flex items-center gap-1 text-[11px] text-txt-2">
+          {t("settings.model.temperature")}
+          <input
+            type="number"
+            min={0}
+            max={2}
+            step={0.1}
+            defaultValue={model.temperature ?? ""}
+            onBlur={(event) => {
+              const raw = event.target.value.trim();
+              void patchModel(model.id, {
+                temperature: raw.length === 0 ? null : Number(raw),
+              });
+            }}
+            className="h-6 w-12 rounded-md border border-border bg-bg-0 px-1 text-[11px] tabular-nums text-txt-0"
+          />
+        </label>
+        <label className="flex items-center gap-1 text-[11px] text-txt-2">
+          {t("settings.model.maxTokens")}
+          <input
+            type="number"
+            min={128}
+            step={128}
+            defaultValue={model.max_tokens ?? ""}
+            onBlur={(event) => {
+              const raw = event.target.value.trim();
+              void patchModel(model.id, { max_tokens: raw.length === 0 ? null : Number(raw) });
+            }}
+            className="h-6 w-16 rounded-md border border-border bg-bg-0 px-1 text-[11px] tabular-nums text-txt-0"
+          />
+        </label>
+      </div>
+    </div>
   );
 }

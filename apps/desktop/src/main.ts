@@ -88,14 +88,54 @@ if (!singleInstance) {
     }
   });
 
-  app.whenReady().then(async () => {
+  // Phase 7: crash-restart with capped backoff. The renderer reconnects on
+  // its own (WS retry + /health polling), so a respawn heals the whole UI.
+  let restarting = false;
+  const MAX_RESTARTS = 5;
+  const restartsInWindow = { count: 0, resetAt: 0 };
+
+  const startSidecarGuarded = async (attempt = 0): Promise<void> => {
     try {
-      sidecar = await startSidecar();
+      const previous = sidecar;
+      sidecar = null;
+      previous?.dispose();
+      const handle = await startSidecar();
+      sidecar = handle;
+      restarting = false;
+      console.log("[main] sidecar started");
+      handle.onCrash(() => {
+        if (sidecar === handle) sidecar = null;
+        scheduleRestart(1);
+      });
     } catch (error) {
       console.error("[main] sidecar failed to start:", error);
-      // Keep going with a degraded UI; the renderer will show the offline state.
-      // TODO(phase-7): restart with backoff + user notification.
+      scheduleRestart(attempt + 1);
     }
+  };
+
+  const scheduleRestart = (attempt: number): void => {
+    if (restarting) return;
+    const now = Date.now();
+    if (now > restartsInWindow.resetAt) {
+      restartsInWindow.count = 0;
+      restartsInWindow.resetAt = now + 60_000;
+    }
+    if (restartsInWindow.count >= MAX_RESTARTS) {
+      console.error("[main] sidecar restart budget exhausted; staying down");
+      return;
+    }
+    restarting = true;
+    restartsInWindow.count += 1;
+    const backoffMs = Math.min(1000 * 2 ** (attempt - 1), 15_000);
+    console.warn(`[main] restarting sidecar in ${backoffMs}ms (attempt ${attempt})`);
+    setTimeout(() => {
+      restarting = false;
+      void startSidecarGuarded(attempt);
+    }, backoffMs);
+  };
+
+  app.whenReady().then(async () => {
+    await startSidecarGuarded();
     await createWindow();
 
     app.on("activate", () => {

@@ -4,6 +4,7 @@ import { Composer } from "../components/chat/Composer";
 import { EmptyState } from "../components/chat/EmptyState";
 import { MessageList } from "../components/chat/MessageList";
 import { RightPanel } from "../components/layout/RightPanel";
+import { ApprovalToast } from "../components/chat/AgentView";
 import { Sidebar } from "../components/layout/Sidebar";
 import { TopBar } from "../components/layout/TopBar";
 import { SettingsModal } from "../components/settings/SettingsModal";
@@ -20,7 +21,18 @@ export default function App() {
   useBackendConnection();
 
   const rightPanelOpen = useSettings((state) => state.rightPanelOpen);
+  const theme = useSettings((state) => state.theme);
   const activeId = useChat((state) => state.activeId);
+  const activeConversation = useChat((state) =>
+    state.conversations.find((conversation) => conversation.id === state.activeId),
+  );
+  const pendingApproval = useChat((state) => state.pendingApproval);
+  const resolveApproval = useChat((state) => state.resolveApproval);
+
+  // Apply the black/white theme on mount + change (settings → appearance).
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
   const messages = useChat((state) => (activeId != null ? state.messages[activeId] : undefined));
   const streaming =
     activeId != null ? useChat((state) => state.streaming[activeId]) : undefined;
@@ -45,6 +57,8 @@ export default function App() {
                   messages={messages ?? []}
                   streaming={streaming}
                   models={models}
+                  group={activeConversation?.selection_type === "group"}
+                  coding={activeConversation?.mode === "coding"}
                 />
               </div>
               <Composer />
@@ -61,6 +75,9 @@ export default function App() {
       </div>
 
       {rightPanelOpen && <RightPanel />}
+      {pendingApproval != null && (
+        <ApprovalToast approval={pendingApproval} onResolve={resolveApproval} />
+      )}
       <SettingsModal />
     </div>
   );

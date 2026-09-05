@@ -7,7 +7,7 @@ import { useModels } from "../../stores/models";
 import { useSettings } from "../../stores/settings";
 import { SUPPORTED_LANGUAGES, type AppLanguage } from "../../i18n";
 import { Button } from "../ui/Button";
-import { GearIcon, LogoMark, PanelLeftIcon, PlusIcon, SearchIcon, TrashIcon } from "../ui/Icons";
+import { GearIcon, LogoMark, PanelLeftIcon, PlusIcon, SearchIcon } from "../ui/Icons";
 import { StatusBadge } from "../ui/StatusBadge";
 
 export function Sidebar() {
@@ -28,13 +28,30 @@ export function Sidebar() {
   const newConversation = useChat((state) => state.newConversation);
   const open = useChat((state) => state.open);
   const remove = useChat((state) => state.remove);
+  const rename = useChat((state) => state.rename);
+  const setPinned = useChat((state) => state.setPinned);
+  const refreshConversations = useChat((state) => state.refresh);
   const models = useModels((state) => state.models);
 
   const [query, setQuery] = useState("");
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (menuFor == null) return;
+    const close = () => setMenuFor(null);
+    window.addEventListener("mousedown", (close as EventListener), { once: true });
+    return () => window.removeEventListener("mousedown", close as EventListener);
+  }, [menuFor]);
+
+  useEffect(() => {
+    void refreshConversations();
+  }, [refreshConversations]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -152,33 +169,94 @@ export function Sidebar() {
                   active ? "bg-bg-3" : "hover:bg-bg-2"
                 }`}
               >
-                <button
-                  type="button"
-                  onClick={() => void open(conversation.id)}
-                  className="min-w-0 flex-1 px-2.5 py-2 text-left"
-                >
-                  <span
-                    className={`block truncate text-[13px] ${
-                      active ? "text-txt-0" : "text-txt-1"
-                    }`}
-                  >
-                    {conversation.title ?? t("sidebar.untitled")}
-                  </span>
-                  {model != null && (
-                    <span className="block truncate text-[11px] text-txt-2">
-                      {model.display_name}
-                    </span>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  title={t("sidebar.deleteChat")}
-                  aria-label={t("sidebar.deleteChat")}
-                  onClick={() => void remove(conversation.id)}
-                  className="mr-1.5 hidden h-7 w-7 items-center justify-center rounded-md text-txt-2 transition hover:bg-border hover:text-danger group-hover:flex"
-                >
-                  <TrashIcon className="h-3.5 w-3.5" />
-                </button>
+                {renaming === conversation.id ? (
+                  <input
+                    autoFocus
+                    value={renameValue}
+                    onChange={(event) => setRenameValue(event.target.value)}
+                    onBlur={() => {
+                      if (renameValue.trim().length > 0) void rename(conversation.id, renameValue.trim());
+                      setRenaming(null);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") event.currentTarget.blur();
+                      if (event.key === "Escape") setRenaming(null);
+                    }}
+                    className="my-1 w-full rounded-md border border-accent/50 bg-bg-0 px-2 py-1 text-[13px] text-txt-0 focus:outline-none"
+                  />
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => void open(conversation.id)}
+                      onDoubleClick={() => {
+                        setRenaming(conversation.id);
+                        setRenameValue(conversation.title ?? "");
+                      }}
+                      className="min-w-0 flex-1 px-2.5 py-2 text-left"
+                    >
+                      <span
+                        className={`block truncate text-[13px] ${
+                          active ? "text-txt-0" : "text-txt-1"
+                        }`}
+                      >
+                        {conversation.pinned && "📌 "}
+                        {conversation.title ?? t("sidebar.untitled")}
+                      </span>
+                      {model != null && (
+                        <span className="block truncate text-[11px] text-txt-2">
+                          {model.display_name}
+                        </span>
+                      )}
+                    </button>
+                    <div className="relative mr-1.5">
+                      <button
+                        type="button"
+                        title={t("sidebar.chatMenu")}
+                        aria-label={t("sidebar.chatMenu")}
+                        onClick={() => setMenuFor(menuFor === conversation.id ? null : conversation.id)}
+                        className="hidden h-7 w-7 items-center justify-center rounded-md text-txt-2 transition hover:bg-border group-hover:flex"
+                      >
+                        ⋯
+                      </button>
+                      {menuFor === conversation.id && (
+                        <div className="absolute right-0 top-8 z-50 w-40 overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-[var(--shadow-pop)]">
+                          <button
+                            type="button"
+                            className="block w-full px-3 py-1.5 text-left text-[12.5px] text-txt-1 hover:bg-bg-2"
+                            onClick={() => {
+                              setRenaming(conversation.id);
+                              setRenameValue(conversation.title ?? "");
+                              setMenuFor(null);
+                            }}
+                          >
+                            {t("sidebar.rename")}
+                          </button>
+                          <button
+                            type="button"
+                            className="block w-full px-3 py-1.5 text-left text-[12.5px] text-txt-1 hover:bg-bg-2"
+                            onClick={() => {
+                              void setPinned(conversation.id, !conversation.pinned);
+                              setMenuFor(null);
+                            }}
+                          >
+                            {conversation.pinned ? t("sidebar.unpin") : t("sidebar.pin")}
+                          </button>
+                          <button
+                            type="button"
+                            className="block w-full px-3 py-1.5 text-left text-[12.5px] text-danger hover:bg-bg-2"
+                            onClick={() => {
+                              void remove(conversation.id);
+                              setMenuFor(null);
+                            }}
+                          >
+                            {t("sidebar.deleteChat")}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             );
           })}

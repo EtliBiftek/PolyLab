@@ -14,7 +14,11 @@
     "settings": "Settings",
     "language": "Language",
     "collapse": "Collapse sidebar",
-    "expand": "Expand sidebar"
+    "expand": "Expand sidebar",
+    "chatMenu": "Chat menu",
+    "rename": "Rename",
+    "pin": "Pin",
+    "unpin": "Unpin"
   },
   "topbar": {
     "workspace": "PolyLab",
@@ -68,7 +72,11 @@
   },
   "artifacts": {
     "title": "Artifacts",
-    "empty": "Code previews and files will appear here."
+    "empty": "Code previews and files will appear here.",
+    "tab": "Artifacts",
+    "emptyHint": "Code blocks appear here via “Open in panel”.",
+    "copy": "Copy",
+    "openInPanel": "Open in panel"
   },
   "settings": {
     "title": "Settings",
@@ -100,6 +108,14 @@
       "noModels": "Could not fetch the model list. Test the connection.",
       "added": "added",
       "add": "add"
+    },
+    "theme": "Appearance",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "models": "Model settings",
+    "model": {
+      "temperature": "Temp",
+      "maxTokens": "Max tokens"
     }
   },
   "common": {
@@ -108,6 +124,53 @@
     "cancel": "Cancel",
     "loading": "Loading…",
     "comingSoonPhase1": "Coming in Phase 1",
-    "comingSoonPhase3": "Coming in Phase 3"
+    "comingSoonPhase3": "Coming in Phase 3",
+    "remove": "Remove",
+    "refresh": "Refresh"
+  },
+  "groups": {
+    "tabModels": "Models",
+    "tabGroups": "Groups",
+    "select": "Select group",
+    "new": "New debate group",
+    "namePlaceholder": "Group name",
+    "create": "Create",
+    "delete": "Delete group",
+    "empty": "No groups yet — add one from the Models tab.",
+    "termination": "Termination",
+    "terminationFixed": "Fixed rounds",
+    "terminationConsensus": "Stop on consensus",
+    "maxRounds": "Max rounds"
+  },
+  "debate": {
+    "round": "Round {{n}}",
+    "phaseInitial": "Opening answers",
+    "phaseCritique": "Critique & revise",
+    "phaseSynthesis": "Leader synthesis",
+    "consensusReached": "Consensus",
+    "consensusNo": "No consensus",
+    "transcript": "Debate transcript · {{rounds}} rounds · {{models}} models",
+    "totalTokens": "Total: {{in}} in / {{out}} out tokens"
+  },
+  "agent": {
+    "running": "running…",
+    "needsApproval": "needs your approval",
+    "approve": "Approve",
+    "reject": "Reject"
+  },
+  "files": {
+    "tab": "Files",
+    "workspace": "Workspace"
+  },
+  "git": {
+    "tab": "Git",
+    "status": "Status",
+    "diff": "Diff",
+    "log": "Log",
+    "notRepo": "This workspace is not a git repo."
+  },
+  "terminal": {
+    "tab": "Terminal",
+    "placeholder": "type a command, Enter…"
   }
 }

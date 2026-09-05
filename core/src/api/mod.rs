@@ -2,6 +2,8 @@
 
 pub mod conversations;
 pub mod error;
+pub mod folders;
+pub mod fs_git;
 pub mod groups;
 pub mod models;
 pub mod providers;
@@ -46,6 +48,14 @@ pub fn router() -> Router<AppState> {
             get(groups::get_one).patch(groups::update).delete(groups::delete),
         )
         .route("/debates", get(groups::list_debates))
+        .route("/folders", get(folders::list).post(folders::create))
+        .route(
+            "/folders/{id}",
+            axum::routing::patch(folders::update).delete(folders::delete),
+        )
+        .route("/fs", get(fs_git::fs_op))
+        .route("/agent-steps", get(fs_git::agent_steps))
+        .route("/git", get(fs_git::git_op))
         .route("/settings", get(settings::list).put(settings::put))
 }
 
