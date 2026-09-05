@@ -1,0 +1,18 @@
+/* Canonical PolyLab palette — docs/ARCHITECTURE.md §7. Light theme comes later. */
+:root,
+:root[data-theme="dark"] {
+  --bg-0: #0f0d13;
+  --bg-1: #17141d;
+  --bg-2: #1f1b27;
+  --bg-3: #2a2535;
+  --text-0: #ece8f1;
+  --text-1: #b8b1c4;
+  --text-2: #7e7690;
+  --accent: #c4314b; /* red */
+  --accent-2: #7c3aed; /* purple */
+  --accent-grad: linear-gradient(135deg, #c4314b, #7c3aed);
+  --border: #2e2939;
+  --success: #34d399;
+  --warn: #fbbf24;
+  --danger: #f87171;
+}

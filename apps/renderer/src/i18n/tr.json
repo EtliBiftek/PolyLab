@@ -1,0 +1,103 @@
+{
+  "app": {
+    "name": "PolyLab",
+    "tagline": "Birden çok model, tek çalışma alanı"
+  },
+  "sidebar": {
+    "newChat": "Yeni sohbet",
+    "searchPlaceholder": "Sohbetlerde ara…",
+    "conversations": "Sohbetler",
+    "noConversations": "Henüz sohbet yok.\nYukarıdaki \"Yeni sohbet\" ile başlayın.",
+    "noMatches": "Eşleşen sohbet yok.",
+    "untitled": "Adsız sohbet",
+    "deleteChat": "Sohbeti sil",
+    "settings": "Ayarlar",
+    "language": "Dil"
+  },
+  "topbar": {
+    "workspace": "PolyLab",
+    "mode": {
+      "chat": "Sohbet",
+      "coding": "Kodlama",
+      "comingSoon": "{{mode}} modu yakında geliyor"
+    },
+    "model": {
+      "select": "Model seç",
+      "search": "Model ara…",
+      "noneYet": "Henüz model eklenmedi.\nAyarlar → Sağlayıcı ekle ile başlayın.",
+      "noMatches": "Eşleşen model yok.",
+      "notAvailableYet": "Model bağlama Faz 1'de geliyor"
+    }
+  },
+  "status": {
+    "connecting": "Bağlanıyor…",
+    "connected": "Backend bağlı ✓",
+    "offline": "Bağlantı yok",
+    "latency": "{{ms}} ms"
+  },
+  "chat": {
+    "emptyTitle": "PolyLab'e hoş geldiniz",
+    "emptyHint": "Üstten bir model seçin ve yazmaya başlayın. Model grupları ile tartışma ve kodlama modu sonraki fazlarda geliyor.",
+    "capabilities": {
+      "single": "Tek model sohbeti",
+      "groups": "Model grupları",
+      "coding": "Kodlama modu"
+    },
+    "composerPlaceholder": "Mesaj yaz…",
+    "send": "Gönder",
+    "sendHint": "Ctrl+Enter ile gönder",
+    "cancel": "Durdur",
+    "generating": "Üretiliyor… Durdur ile iptal edebilirsiniz.",
+    "attach": "Dosya ekle",
+    "usage": "{{in}} giriş · {{out}} çıkış token",
+    "providerError": "Sağlayıcı hatası"
+  },
+  "thinking": {
+    "title": "Düşünme süreci · {{chars}} karakter",
+    "inProgress": "Model düşünüyor…"
+  },
+  "artifacts": {
+    "title": "Artifacts",
+    "empty": "Kod önizlemeleri ve dosyalar burada görünecek."
+  },
+  "settings": {
+    "title": "Ayarlar",
+    "general": "Genel",
+    "providers": "Sağlayıcılar",
+    "addProvider": "Sağlayıcı ekle",
+    "emptyProviders": "Henüz sağlayıcı yok. LM Studio, Ollama veya bulut API'lerinden birini ekleyerek başlayın.",
+    "provider": {
+      "kind": "Sağlayıcı türü",
+      "name": "Görünen ad",
+      "baseUrl": "Temel URL",
+      "optionalDefault": "isteğe bağlı, varsayılan: {{url}}",
+      "defaultUrl": "varsayılan adres",
+      "apiKey": "API anahtarı",
+      "apiKeyOptional": "isteğe bağlı (yerel sunucular için)",
+      "keyStorage": "Anahtar yalnızca Windows Credential Manager'da saklanır; veritabanına veya loglara yazılmaz.",
+      "keyPresent": "anahtar kayıtlı",
+      "newKey": "Yeni API anahtarı…",
+      "saveKey": "Kaydet",
+      "saving": "Kaydediliyor…",
+      "save": "Sağlayıcıyı ekle",
+      "test": "Test et",
+      "testOk": "Bağlantı başarılı ✓ ({{count}} model)",
+      "testFail": "Bağlantı başarısız: {{detail}}",
+      "delete": "Sağlayıcıyı sil",
+      "confirmDelete": "Emin misiniz?",
+      "models": "Modeller",
+      "reload": "Yenile",
+      "noModels": "Model listesi alınamadı. Bağlantıyı test edin.",
+      "added": "ekli",
+      "add": "ekle"
+    }
+  },
+  "common": {
+    "close": "Kapat",
+    "open": "Aç",
+    "cancel": "İptal",
+    "loading": "Yükleniyor…",
+    "comingSoonPhase1": "Faz 1'de geliyor",
+    "comingSoonPhase3": "Faz 3'te geliyor"
+  }
+}

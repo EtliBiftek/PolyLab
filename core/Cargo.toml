@@ -1,0 +1,41 @@
+[package]
+name = "polylab-core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+description = "PolyLab sidecar: model providers, debate engine, coding agent, storage"
+license = "Proprietary"
+
+[features]
+# NOTE: the optional `keyring` (Windows Credential Manager) and `tiktoken` (exact
+# token counts) dependencies were removed: the offline vendored registry does not
+# carry them. The file-backed secret store (secrets.json under the data dir, with a
+# loud warning) and the chars-based token estimate are used instead. Re-add both
+# deps when a full registry is available; the cfg-gated code paths remain in
+# secrets.rs / tokens.rs. The names stay declared (empty) so those cfgs keep
+# compiling; enabling them without the deps would change nothing.
+keyring = []
+tiktoken = []
+
+[dependencies]
+axum = { version = "=0.8.9", features = ["ws"] }
+tokio = { version = "=1.53.1", features = ["full"] }
+tokio-util = "=0.7.19"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+uuid = { version = "=1.24.0", features = ["v4"] }
+thiserror = "=2.0.19"
+anyhow = "=1.0.104"
+tracing = "=0.1.44"
+rand = "=0.9.5"
+tracing-subscriber = { version = "=0.3.23", default-features = false, features = ["fmt", "ansi", "registry"] }
+futures-util = "=0.3.33"
+chrono = { version = "=0.4.45", features = ["serde"] }
+sqlx = { version = "=0.8.6", default-features = false, features = ["runtime-tokio", "sqlite"] }
+reqwest = { version = "=0.13.4", default-features = false, features = ["rustls", "json", "stream"] }
+eventsource-stream = "=0.2.3"
+async-trait = "=0.1.91"
+
+[dev-dependencies]
+tower = { version = "=0.5.3", features = ["util"] }
+tokio-tungstenite = "=0.29.0"

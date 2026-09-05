@@ -1,0 +1,103 @@
+{
+  "app": {
+    "name": "PolyLab",
+    "tagline": "Many models, one workspace"
+  },
+  "sidebar": {
+    "newChat": "New chat",
+    "searchPlaceholder": "Search chats…",
+    "conversations": "Chats",
+    "noConversations": "No conversations yet.\nStart with “New chat” above.",
+    "noMatches": "No matching chats.",
+    "untitled": "Untitled chat",
+    "deleteChat": "Delete chat",
+    "settings": "Settings",
+    "language": "Language"
+  },
+  "topbar": {
+    "workspace": "PolyLab",
+    "mode": {
+      "chat": "Chat",
+      "coding": "Coding",
+      "comingSoon": "{{mode}} mode is coming soon"
+    },
+    "model": {
+      "select": "Select model",
+      "search": "Search models…",
+      "noneYet": "No models yet.\nStart in Settings → Add provider.",
+      "noMatches": "No matching models.",
+      "notAvailableYet": "Connecting models arrives in Phase 1"
+    }
+  },
+  "status": {
+    "connecting": "Connecting…",
+    "connected": "Backend connected ✓",
+    "offline": "Offline",
+    "latency": "{{ms}} ms"
+  },
+  "chat": {
+    "emptyTitle": "Welcome to PolyLab",
+    "emptyHint": "Pick a model above and start writing. Model-group debates and coding mode arrive in the next phases.",
+    "capabilities": {
+      "single": "Single-model chat",
+      "groups": "Model groups",
+      "coding": "Coding mode"
+    },
+    "composerPlaceholder": "Write a message…",
+    "send": "Send",
+    "sendHint": "Send with Ctrl+Enter",
+    "cancel": "Stop",
+    "generating": "Generating… you can cancel with Stop.",
+    "attach": "Attach files",
+    "usage": "{{in}} in · {{out}} out tokens",
+    "providerError": "Provider error"
+  },
+  "thinking": {
+    "title": "Thinking · {{chars}} characters",
+    "inProgress": "Model is thinking…"
+  },
+  "artifacts": {
+    "title": "Artifacts",
+    "empty": "Code previews and files will appear here."
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "providers": "Providers",
+    "addProvider": "Add provider",
+    "emptyProviders": "No providers yet. Start by adding LM Studio, Ollama or a cloud API.",
+    "provider": {
+      "kind": "Provider kind",
+      "name": "Display name",
+      "baseUrl": "Base URL",
+      "optionalDefault": "optional, default: {{url}}",
+      "defaultUrl": "default endpoint",
+      "apiKey": "API key",
+      "apiKeyOptional": "optional (local servers)",
+      "keyStorage": "The key is stored only in Windows Credential Manager; never in the database or logs.",
+      "keyPresent": "key stored",
+      "newKey": "New API key…",
+      "saveKey": "Save",
+      "saving": "Saving…",
+      "save": "Add provider",
+      "test": "Test",
+      "testOk": "Connection OK ✓ ({{count}} models)",
+      "testFail": "Connection failed: {{detail}}",
+      "delete": "Delete provider",
+      "confirmDelete": "Are you sure?",
+      "models": "Models",
+      "reload": "Reload",
+      "noModels": "Could not fetch the model list. Test the connection.",
+      "added": "added",
+      "add": "add"
+    }
+  },
+  "common": {
+    "close": "Close",
+    "open": "Open",
+    "cancel": "Cancel",
+    "loading": "Loading…",
+    "comingSoonPhase1": "Coming in Phase 1",
+    "comingSoonPhase3": "Coming in Phase 3"
+  }
+}
