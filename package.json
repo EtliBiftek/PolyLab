@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "PolyLab — multi-model AI workspace (single chat + model debates + coding agent)",
+  "author": "EtliBiftek",
   "main": "apps/desktop/dist/main.js",
   "packageManager": "pnpm@9.15.0",
   "engines": {
