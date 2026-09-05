@@ -1,0 +1,35 @@
+name: Promote build artifacts to Release
+
+# Downloads the artifact from the latest successful Build Windows run and
+# attaches the exes to the given tag's GitHub Release. No recompile.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (must exist, e.g. v0.1.4)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download latest build artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUN_ID=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow build-windows.yml --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          echo "Using build run: $RUN_ID"
+          mkdir -p release
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" -n polylab-windows-x64 -D release
+          ls -la release
+
+      - name: Create release and attach exes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "PolyLab $TAG" --generate-notes release/*.exe || gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" release/*.exe --clobber
