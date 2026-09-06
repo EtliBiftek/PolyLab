@@ -29,12 +29,7 @@ interface ModelsState {
   loaded: boolean;
   loading: boolean;
   refresh: () => Promise<void>;
-  addProvider: (body: {
-    kind: string;
-    name?: string;
-    base_url?: string;
-    api_key?: string;
-  }) => Promise<Provider>;
+  addProvider: (body: { kind: string; name?: string; base_url?: string; api_key?: string }) => Promise<Provider>;
   removeProvider: (id: string) => Promise<void>;
   setProviderKey: (id: string, apiKey: string) => Promise<void>;
   test: (id: string) => Promise<TestResult>;
@@ -44,9 +39,7 @@ interface ModelsState {
   addGroup: (body: { name: string; description?: string; model_ids: string[] }) => Promise<void>;
   editGroup: (id: string, body: { name?: string; model_ids?: string[] }) => Promise<void>;
   removeGroup: (id: string) => Promise<void>;
-  /** Per-model think (reasoning) toggle; optimistic, rolled back on error. */
   setThink: (id: string, enabled: boolean) => Promise<void>;
-  /** Model settings editor (name/color/temperature/max tokens/enabled). */
   patchModel: (
     id: string,
     body: Partial<Pick<Model, "display_name" | "color" | "temperature" | "max_tokens" | "enabled">>,
@@ -106,7 +99,6 @@ export const useModels = create<ModelsState>((set, get) => ({
   },
 
   test: (id) => testProvider(id),
-
   fetchRemoteModels: (id) => listRemoteModels(id),
 
   addModel: async (providerId, modelId) => {
