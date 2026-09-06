@@ -5,14 +5,18 @@ import { listDebates, type DebateReplay, type Model } from "../../lib/api";
 import type { DebateRoundState } from "../../stores/chat";
 import type { StreamingMessage } from "../../stores/chat";
 
-function phaseLabel(phase: string, t: (key: string) => string): string {
+function phaseLabel(phase: string, t: (key: string, fallback?: string) => string): string {
   if (phase === "initial") return t("debate.phaseInitial");
   if (phase === "critique") return t("debate.phaseCritique");
-  return t("debate.phaseSynthesis");
+  return t("debate.phaseSynthesis", "Final answer");
 }
 
 function modelName(models: Model[], modelId: string): string | null {
   return models.find((model) => model.id === modelId)?.display_name ?? null;
+}
+
+function completedCount(round: DebateRoundState): number {
+  return round.turns.filter((turn) => turn.done).length;
 }
 
 /** One participant block inside a round. */
@@ -23,6 +27,7 @@ function TurnBlock({
   reasoning,
   tokens,
   done,
+  featured = false,
 }: {
   label: string;
   realName: string | null;
@@ -30,20 +35,42 @@ function TurnBlock({
   reasoning: string;
   tokens: string | null;
   done: boolean;
+  featured?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-surface px-3 py-2.5">
-      <div className="mb-1 flex items-center gap-2">
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/15 text-[10px] font-bold text-accent">
-          {label.replace("Model ", "")}
-        </span>
-        <span className="text-[12px] font-semibold text-txt-0">{label}</span>
-        {realName != null && <span className="truncate text-[11px] text-txt-2">{realName}</span>}
+    <div
+      className={
+        featured
+          ? "rounded-xl border border-accent/35 bg-accent/5 px-4 py-3"
+          : "rounded-xl border border-border bg-surface px-3 py-2.5"
+      }
+    >
+      <div className="mb-1.5 flex items-center gap-2">
+        {!featured && (
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/15 text-[10px] font-bold text-accent">
+            {label.replace("Model ", "")}
+          </span>
+        )}
+        {featured ? (
+          <span className="text-[12px] font-semibold text-accent">Final answer</span>
+        ) : (
+          <span className="truncate text-[12px] font-semibold text-txt-0">{label}</span>
+        )}
+        {realName != null && !featured && (
+          <span className="truncate text-[11px] text-txt-2">{realName}</span>
+        )}
         <span className="flex-1" />
+        {done ? (
+          <span className="text-[10.5px] text-txt-2">Done</span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-[10.5px] text-accent">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+            Thinking
+          </span>
+        )}
         {tokens != null && (
           <span className="shrink-0 text-[10.5px] tabular-nums text-txt-2">{tokens}</span>
         )}
-        {!done && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />}
       </div>
       {reasoning.length > 0 && (
         <p className="mb-1 line-clamp-2 whitespace-pre-wrap text-[11.5px] italic text-txt-2">
@@ -51,9 +78,37 @@ function TurnBlock({
         </p>
       )}
       <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-txt-1">
-        {content}
+        {content || (!done ? "Working…" : "")}
         {!done && <span className="ml-0.5 inline-block animate-pulse">▍</span>}
       </p>
+    </div>
+  );
+}
+
+function PhaseHeader({
+  round,
+  modelsDone,
+  totalModels,
+  phase,
+  t,
+}: {
+  round: number;
+  modelsDone: number;
+  totalModels: number;
+  phase: string;
+  t: (key: string, fallback?: string) => string;
+}) {
+  const isSynthesis = phase === "synthesis";
+  return (
+    <div className="mb-2 flex items-center gap-2">
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-txt-2">
+        {isSynthesis ? t("debate.phaseSynthesis", "Final answer") : `${t("debate.round", { n: round })} · ${phaseLabel(phase, t)}`}
+      </span>
+      {!isSynthesis && totalModels > 0 && (
+        <span className="text-[10.5px] text-txt-2">
+          {modelsDone}/{totalModels} complete
+        </span>
+      )}
     </div>
   );
 }
@@ -73,35 +128,23 @@ export function DebateStream({
 }) {
   const { t } = useTranslation();
   const synthesis = debate.find((round) => round.phase === "synthesis");
-  const talking = debate.slice(0, synthesis ? -1 : undefined);
+  const talking = debate.filter((round) => round.phase !== "synthesis");
 
   return (
     <div className="mb-4 space-y-3">
       {talking.map((round) => (
-        <div key={round.round} data-testid="debate-round">
-          <div className="mb-1.5 flex items-center gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-txt-2">
-              {t("debate.round", { n: round.round })} · {phaseLabel(round.phase, t)}
-            </span>
-            {round.consensus != null && (
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10.5px] font-medium ${
-                  round.consensus.reached
-                    ? "bg-success/15 text-success"
-                    : "bg-warn/15 text-warn"
-                }`}
-                title={round.consensus.reason}
-              >
-                {round.consensus.reached
-                  ? t("debate.consensusReached")
-                  : t("debate.consensusNo")}
-              </span>
-            )}
-          </div>
+        <div key={`${round.round}-${round.phase}`} data-testid="debate-round">
+          <PhaseHeader
+            round={round.round}
+            modelsDone={completedCount(round)}
+            totalModels={round.turns.length || models.length}
+            phase={round.phase}
+            t={t}
+          />
           <div className="grid gap-2 md:grid-cols-2">
             {round.turns.map((turn) => (
               <TurnBlock
-                key={turn.modelId}
+                key={`${round.round}-${turn.modelId}`}
                 label={turn.anonLabel}
                 realName={modelName(models, turn.modelId)}
                 content={turn.content}
@@ -111,11 +154,48 @@ export function DebateStream({
               />
             ))}
           </div>
+          {round.consensus != null && (
+            <div
+              className={`mt-2 rounded-lg px-3 py-2 text-[11px] ${
+                round.consensus.reached
+                  ? "bg-success/10 text-success"
+                  : "bg-warn/10 text-warn"
+              }`}
+            >
+              {round.consensus.reached
+                ? t("debate.consensusReached")
+                : `${t("debate.consensusNo")}: ${round.consensus.reason}`}
+            </div>
+          )}
         </div>
       ))}
-      {synthesis != null && (
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-accent">
-          ✻ {t("debate.phaseSynthesis")}
+      {synthesis != null && synthesis.turns.length > 0 && (
+        <div className="pt-1">
+          <PhaseHeader
+            round={synthesis.round}
+            modelsDone={completedCount(synthesis)}
+            totalModels={synthesis.turns.length}
+            phase="synthesis"
+            t={t}
+          />
+          {synthesis.turns.map((turn) => (
+            <TurnBlock
+              key={`${synthesis.round}-${turn.modelId}`}
+              label={turn.anonLabel}
+              realName={modelName(models, turn.modelId)}
+              content={turn.content}
+              reasoning={turn.reasoning}
+              tokens={usage(turn.tokensIn, turn.tokensOut)}
+              done={turn.done}
+              featured
+            />
+          ))}
+        </div>
+      )}
+      {synthesis == null && debate.length > 0 && (
+        <div className="flex items-center gap-2 text-[11px] text-accent">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+          {t("debate.preparingSynthesis", "Comparing the responses and preparing the final answer…")}
         </div>
       )}
     </div>
@@ -179,15 +259,30 @@ export function DebateTranscript({ messageId, models }: { messageId: string; mod
       </button>
       {open && debate != null && (
         <div className="mt-2 space-y-3">
-          {[...rounds.entries()].map(([round, turns]) => (
-            <div key={round}>
-              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-txt-2">
-                {t("debate.round", { n: round })} · {phaseLabel(turns[0]?.phase ?? "initial", t)}
-              </div>
-              <div className="grid gap-2 md:grid-cols-2">
-                {turns
-                  .filter((turn) => turn.phase !== "synthesis")
-                  .map((turn) => (
+          {[...rounds.entries()].map(([round, turns]) => {
+            const phase = turns[0]?.phase ?? "initial";
+            return (
+              <div key={round}>
+                <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-txt-2">
+                  {phaseLabel(phase, t)} {phase !== "synthesis" && `· ${t("debate.round", { n: round })}`}
+                </div>
+                <div className="grid gap-2 md:grid-cols-2">
+                  {turns
+                    .filter((turn) => turn.phase !== "synthesis")
+                    .map((turn) => (
+                      <TurnBlock
+                        key={turn.id}
+                        label={turn.anon_label}
+                        realName={modelName(models, turn.model_id)}
+                        content={turn.content}
+                        reasoning={turn.reasoning ?? ""}
+                        tokens={usage(turn.tokens_in, turn.tokens_out)}
+                        done
+                      />
+                    ))}
+                </div>
+                {phase === "synthesis" &&
+                  turns.map((turn) => (
                     <TurnBlock
                       key={turn.id}
                       label={turn.anon_label}
@@ -196,11 +291,12 @@ export function DebateTranscript({ messageId, models }: { messageId: string; mod
                       reasoning={turn.reasoning ?? ""}
                       tokens={usage(turn.tokens_in, turn.tokens_out)}
                       done
+                      featured
                     />
                   ))}
               </div>
-            </div>
-          ))}
+            );
+          })}
           <div className="text-[11px] text-txt-2">
             {t("debate.totalTokens", {
               in: debate.total_tokens_in,
