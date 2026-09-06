@@ -375,27 +375,47 @@ pub async fn remote_models(
     let kind = ProviderKind::from_str_loose(&row.kind)
         .ok_or_else(|| ApiError::bad_request(format!("unknown provider kind {}", row.kind)))?;
     let keys = load_keys(&state, &id)?;
-    let mut last_error = None;
-    for key in keys.iter().map(Some).chain(std::iter::once(None)) {
-        let api_key = key.map(String::as_str);
-        let provider = crate::providers::build(kind, row.base_url.as_deref(), api_key)
-            .map_err(ApiError::internal)?;
-        match provider.list_models().await {
-            Ok(models) => {
-                let existing: Vec<String> = sqlx::query_scalar("SELECT model_id FROM models WHERE provider_id = ?")
-                    .bind(&id)
-                    .fetch_all(&state.db)
-                    .await?;
-                return Ok(Json(models.into_iter().map(|model| RemoteModelDto {
-                    added: existing.contains(&model.id),
-                    id: model.id,
-                    display_name: model.display_name,
-                    supports_tools: model.supports_tools,
-                    context_window: model.context_window,
-                }).collect()));
+
+    let result = if keys.is_empty() {
+        crate::providers::build(kind, row.base_url.as_deref(), None)
+            .map_err(ApiError::internal)?
+            .list_models()
+            .await
+    } else {
+        let mut last_error = None;
+        let mut models = None;
+        for key in &keys {
+            let provider = crate::providers::build(kind, row.base_url.as_deref(), Some(key.as_str()))
+                .map_err(ApiError::internal)?;
+            match provider.list_models().await {
+                Ok(items) => {
+                    models = Some(items);
+                    break;
+                }
+                Err(error) => last_error = Some(error),
             }
-            Err(error) => last_error = Some(error.to_string()),
         }
-    }
-    Err(ApiError { status: axum::http::StatusCode::BAD_GATEWAY, code: "provider_error", detail: last_error.unwrap_or_else(|| "provider returned no models".into()) })
+        match models {
+            Some(items) => Ok(items),
+            None => Err(last_error.unwrap_or_else(|| anyhow::anyhow!("provider returned no models"))),
+        }
+    };
+
+    let models = result.map_err(|error| ApiError {
+        status: axum::http::StatusCode::BAD_GATEWAY,
+        code: "provider_error",
+        detail: Some(error.to_string()),
+    })?;
+
+    let existing: Vec<String> = sqlx::query_scalar("SELECT model_id FROM models WHERE provider_id = ?")
+        .bind(&id)
+        .fetch_all(&state.db)
+        .await?;
+    Ok(Json(models.into_iter().map(|model| RemoteModelDto {
+        added: existing.contains(&model.id),
+        id: model.id,
+        display_name: model.display_name,
+        supports_tools: model.supports_tools,
+        context_window: model.context_window,
+    }).collect()))
 }
