@@ -20,7 +20,6 @@
     background: color-mix(in srgb, var(--accent) 30%, transparent);
   }
 
-  /* Slim warm scrollbars */
   * {
     scrollbar-width: thin;
     scrollbar-color: #d6d3c6 transparent;
@@ -38,6 +37,18 @@
   }
   *::-webkit-scrollbar-track {
     background: transparent;
+  }
+}
+
+@layer components {
+  .input-base {
+    @apply h-9 w-full rounded-lg border border-border bg-bg-2 px-3 text-[12.5px] text-txt-0 outline-none transition;
+  }
+  .input-base::placeholder {
+    @apply text-txt-2;
+  }
+  .input-base:focus {
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   }
 }
 
