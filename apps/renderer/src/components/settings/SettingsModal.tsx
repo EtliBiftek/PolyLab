@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -6,7 +6,6 @@ import {
   createProvider,
   deleteProviderKey,
   listProviderKeys,
-  updateProvider,
   updateProviderKey,
   type Provider,
   type ProviderKeySummary,
@@ -52,13 +51,16 @@ export function SettingsModal() {
   const setLanguage = useSettings((state) => state.setLanguage);
   const theme = useSettings((state) => state.theme);
   const setTheme = useSettings((state) => state.setTheme);
-  const models = useModels();
+  const refreshModels = useModels((state) => state.refresh);
+  const providerCount = useModels((state) => state.providers.length);
+  const modelCount = useModels((state) => state.models.length);
+  const groupCount = useModels((state) => state.groups.length);
   const [section, setSection] = useState<Section>("providers");
   const [adding, setAdding] = useState(false);
 
   useEffect(() => {
-    if (open) void models.refresh();
-  }, [open, models]);
+    if (open) void refreshModels();
+  }, [open, refreshModels]);
 
   if (!open) return null;
 
@@ -75,58 +77,28 @@ export function SettingsModal() {
             <div className="text-[15px] font-semibold text-txt-0">{t("settings.title")}</div>
             <div className="mt-1 text-[11.5px] text-txt-2">PolyLab configuration</div>
           </div>
-
-          <SettingsNavButton active={section === "general"} onClick={() => setSection("general")}>
-            General
-          </SettingsNavButton>
-          <SettingsNavButton active={section === "providers"} onClick={() => setSection("providers")}>
-            Providers
-          </SettingsNavButton>
-          <SettingsNavButton active={section === "groups"} onClick={() => setSection("groups")}>
-            Model groups
-          </SettingsNavButton>
-
+          <SettingsNavButton active={section === "general"} onClick={() => setSection("general")}>General</SettingsNavButton>
+          <SettingsNavButton active={section === "providers"} onClick={() => setSection("providers")}>Providers</SettingsNavButton>
+          <SettingsNavButton active={section === "groups"} onClick={() => setSection("groups")}>Model groups</SettingsNavButton>
           <div className="mt-auto border-t border-border pt-3">
             <div className="px-2 text-[10.5px] font-semibold uppercase tracking-wider text-txt-2">Workspace</div>
-            <div className="mt-2 rounded-lg border border-border bg-bg-0 px-2.5 py-2 text-[11.5px] text-txt-2">
-              {models.providers.length} providers · {models.models.length} models · {models.groups.length} groups
-            </div>
+            <div className="mt-2 rounded-lg border border-border bg-bg-0 px-2.5 py-2 text-[11.5px] text-txt-2">{providerCount} providers · {modelCount} models · {groupCount} groups</div>
           </div>
         </aside>
 
         <main className="flex min-w-0 flex-1 flex-col">
           <header className="flex h-14 shrink-0 items-center justify-between border-b border-border px-5">
             <div>
-              <div className="text-[14px] font-semibold text-txt-0">
-                {section === "general" ? "General" : section === "providers" ? "Providers" : "Model groups"}
-              </div>
-              <div className="text-[11px] text-txt-2">
-                {section === "general"
-                  ? "Theme and language"
-                  : section === "providers"
-                    ? "Connections, fallback keys and model catalog"
-                    : "Create and manage multi-model debate groups"}
-              </div>
+              <div className="text-[14px] font-semibold text-txt-0">{section === "general" ? "General" : section === "providers" ? "Providers" : "Model groups"}</div>
+              <div className="text-[11px] text-txt-2">{section === "general" ? "Theme and language" : section === "providers" ? "Connections, fallback keys and model catalog" : "Create and manage multi-model debate groups"}</div>
             </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              title={t("common.close")}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-txt-2 hover:bg-bg-2 hover:text-txt-0"
-            >
+            <button type="button" onClick={() => setOpen(false)} title={t("common.close")} className="flex h-8 w-8 items-center justify-center rounded-lg text-txt-2 hover:bg-bg-2 hover:text-txt-0">
               <CloseIcon className="h-4 w-4" />
             </button>
           </header>
-
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
             {section === "general" && <GeneralSection language={language} setLanguage={setLanguage} theme={theme} setTheme={setTheme} />}
-            {section === "providers" && (
-              adding ? (
-                <AddProviderForm onDone={() => setAdding(false)} />
-              ) : (
-                <ProvidersSection onAdd={() => setAdding(true)} />
-              )
-            )}
+            {section === "providers" && (adding ? <AddProviderForm onDone={() => setAdding(false)} /> : <ProvidersSection onAdd={() => setAdding(true)} />)}
             {section === "groups" && <GroupsSection />}
           </div>
         </main>
@@ -135,72 +107,32 @@ export function SettingsModal() {
   );
 }
 
-function SettingsNavButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`mb-1 flex h-9 w-full items-center rounded-lg px-2.5 text-left text-[12.5px] transition ${
-        active ? "bg-bg-3 font-medium text-txt-0" : "text-txt-2 hover:bg-bg-2 hover:text-txt-1"
-      }`}
-    >
-      {children}
-    </button>
-  );
+function SettingsNavButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return <button type="button" onClick={onClick} className={`mb-1 flex h-9 w-full items-center rounded-lg px-2.5 text-left text-[12.5px] transition ${active ? "bg-bg-3 font-medium text-txt-0" : "text-txt-2 hover:bg-bg-2 hover:text-txt-1"}`}>{children}</button>;
 }
 
-function GeneralSection({
-  language,
-  setLanguage,
-  theme,
-  setTheme,
-}: {
-  language: "tr" | "en";
-  setLanguage: (value: "tr" | "en") => void;
-  theme: "light" | "dark";
-  setTheme: (value: "light" | "dark") => void;
-}) {
+function GeneralSection({ language, setLanguage, theme, setTheme }: { language: "tr" | "en"; setLanguage: (value: "tr" | "en") => void; theme: "light" | "dark"; setTheme: (value: "light" | "dark") => void }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <SettingCard title="Appearance" description="Choose the visual theme used across PolyLab.">
         <SettingRow label="Theme" description="The app updates immediately.">
           <div className="flex rounded-lg border border-border bg-bg-2 p-1">
-            {(["light", "dark"] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setTheme(value)}
-                className={`rounded-md px-3 py-1.5 text-[12px] capitalize ${theme === value ? "bg-bg-invert text-txt-invert" : "text-txt-2 hover:text-txt-0"}`}
-              >
-                {value}
-              </button>
-            ))}
+            {(["light", "dark"] as const).map((value) => <button key={value} type="button" onClick={() => setTheme(value)} className={`rounded-md px-3 py-1.5 text-[12px] capitalize ${theme === value ? "bg-bg-invert text-txt-invert" : "text-txt-2 hover:text-txt-0"}`}>{value}</button>)}
           </div>
         </SettingRow>
       </SettingCard>
-
       <SettingCard title="Language" description="Switch the interface language.">
         <SettingRow label="Interface" description="Turkish or English.">
           <div className="flex rounded-lg border border-border bg-bg-2 p-1">
-            {(["tr", "en"] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setLanguage(value)}
-                className={`rounded-md px-3 py-1.5 text-[12px] uppercase ${language === value ? "bg-bg-invert text-txt-invert" : "text-txt-2 hover:text-txt-0"}`}
-              >
-                {value}
-              </button>
-            ))}
+            {(["tr", "en"] as const).map((value) => <button key={value} type="button" onClick={() => setLanguage(value)} className={`rounded-md px-3 py-1.5 text-[12px] uppercase ${language === value ? "bg-bg-invert text-txt-invert" : "text-txt-2 hover:text-txt-0"}`}>{value}</button>)}
           </div>
         </SettingRow>
       </SettingCard>
-
-      <SettingCard title="How provider fallback works" description="Keys are kept in the existing secure secret store and are never returned to the renderer in full.">
+      <SettingCard title="Provider fallback" description="Keys stay in the configured secret store and are never returned in full.">
         <div className="space-y-2 text-[12.5px] leading-relaxed text-txt-1">
-          <div className="rounded-lg border border-border bg-bg-2 px-3 py-2">API 1 is always primary.</div>
-          <div className="rounded-lg border border-border bg-bg-2 px-3 py-2">A failed request automatically retries on API 2, API 3, and so on.</div>
-          <div className="rounded-lg border border-border bg-bg-2 px-3 py-2">The same provider and model are preserved during fallback.</div>
+          <div className="rounded-lg border border-border bg-bg-2 px-3 py-2">API 1 is primary.</div>
+          <div className="rounded-lg border border-border bg-bg-2 px-3 py-2">Connection/setup/stream failures advance through API 2, API 3 and later keys.</div>
+          <div className="rounded-lg border border-border bg-bg-2 px-3 py-2">The provider and selected model stay unchanged.</div>
         </div>
       </SettingCard>
     </div>
@@ -208,324 +140,119 @@ function GeneralSection({
 }
 
 function ProvidersSection({ onAdd }: { onAdd: () => void }) {
-  const models = useModels();
-  const [selectedId, setSelectedId] = useState<string | null>(models.providers[0]?.id ?? null);
-
+  const providers = useModels((state) => state.providers);
+  const models = useModels((state) => state.models);
+  const [selectedId, setSelectedId] = useState<string | null>(providers[0]?.id ?? null);
   useEffect(() => {
-    if (selectedId == null && models.providers[0] != null) setSelectedId(models.providers[0].id);
-    if (selectedId != null && !models.providers.some((provider) => provider.id === selectedId)) {
-      setSelectedId(models.providers[0]?.id ?? null);
-    }
-  }, [models.providers, selectedId]);
-
-  const selected = models.providers.find((provider) => provider.id === selectedId) ?? null;
-
+    if (selectedId == null && providers[0] != null) setSelectedId(providers[0].id);
+    if (selectedId != null && !providers.some((provider) => provider.id === selectedId)) setSelectedId(providers[0]?.id ?? null);
+  }, [providers, selectedId]);
+  const selected = providers.find((provider) => provider.id === selectedId) ?? null;
   return (
     <div className="grid min-h-[590px] grid-cols-[270px_minmax(0,1fr)] gap-4">
       <div className="flex min-h-0 flex-col rounded-xl border border-border bg-bg-1 p-2">
-        <div className="flex items-center justify-between px-2 py-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-txt-2">Connections</span>
-          <button type="button" onClick={onAdd} className="flex h-7 w-7 items-center justify-center rounded-lg text-accent hover:bg-bg-2" title="Add provider">
-            <PlusSquareIcon className="h-4 w-4" />
-          </button>
-        </div>
+        <div className="flex items-center justify-between px-2 py-2"><span className="text-[11px] font-semibold uppercase tracking-wider text-txt-2">Connections</span><button type="button" onClick={onAdd} className="flex h-7 w-7 items-center justify-center rounded-lg text-accent hover:bg-bg-2" title="Add provider"><PlusSquareIcon className="h-4 w-4" /></button></div>
         <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
-          {models.providers.map((provider) => (
-            <button
-              key={provider.id}
-              type="button"
-              onClick={() => setSelectedId(provider.id)}
-              className={`w-full rounded-lg border px-3 py-2.5 text-left transition ${selectedId === provider.id ? "border-border bg-bg-3" : "border-transparent hover:bg-bg-2"}`}
-            >
-              <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent text-[10px] font-bold uppercase text-white">{provider.kind.slice(0, 2)}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[12.5px] font-medium text-txt-0">{provider.name}</span>
-                  <span className="block truncate text-[10.5px] text-txt-2">
-                    {provider.api_key_count ?? (provider.has_api_key ? 1 : 0)} API key{(provider.api_key_count ?? (provider.has_api_key ? 1 : 0)) === 1 ? "" : "s"}
-                  </span>
-                </span>
-                <span className={`h-2 w-2 rounded-full ${provider.enabled ? "bg-success" : "bg-txt-2"}`} />
-              </div>
-            </button>
-          ))}
-          {models.providers.length === 0 && (
-            <div className="px-3 py-8 text-center text-[12.5px] text-txt-2">No providers configured yet.</div>
-          )}
+          {providers.map((provider) => {
+            const count = models.filter((model) => model.provider_id === provider.id).length;
+            return <button key={provider.id} type="button" onClick={() => setSelectedId(provider.id)} className={`w-full rounded-lg border px-3 py-2.5 text-left transition ${selectedId === provider.id ? "border-border bg-bg-3" : "border-transparent hover:bg-bg-2"}`}><div className="flex items-center gap-2"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent text-[10px] font-bold uppercase text-white">{provider.kind.slice(0, 2)}</span><span className="min-w-0 flex-1"><span className="block truncate text-[12.5px] font-medium text-txt-0">{provider.name}</span><span className="block truncate text-[10.5px] text-txt-2">{count} models · {provider.api_key_count ?? (provider.has_api_key ? 1 : 0)} keys</span></span><span className={`h-2 w-2 rounded-full ${provider.enabled ? "bg-success" : "bg-txt-2"}`} /></div></button>;
+          })}
+          {providers.length === 0 && <div className="px-3 py-8 text-center text-[12.5px] text-txt-2">No providers configured yet.</div>}
         </div>
       </div>
-
       {selected != null ? <ProviderDetails provider={selected} /> : <EmptyProviders onAdd={onAdd} />}
     </div>
   );
 }
 
 function ProviderDetails({ provider }: { provider: Provider }) {
-  const models = useModels();
+  const fetchRemoteModels = useModels((state) => state.fetchRemoteModels);
+  const refreshModels = useModels((state) => state.refresh);
+  const removeProvider = useModels((state) => state.removeProvider);
+  const localModels = useModels((state) => state.models.filter((model) => model.provider_id === provider.id));
+  const test = useModels((state) => state.test);
+  const addModel = useModels((state) => state.addModel);
+  const removeModel = useModels((state) => state.removeModel);
+  const patchModel = useModels((state) => state.patchModel);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [testing, setTesting] = useState(false);
-  const [showKeySettings, setShowKeySettings] = useState(false);
+  const [showKeys, setShowKeys] = useState(false);
   const [keys, setKeys] = useState<ProviderKeySummary[]>([]);
   const [remote, setRemote] = useState<RemoteModel[] | null>(null);
   const [remoteQuery, setRemoteQuery] = useState("");
   const [loadingRemote, setLoadingRemote] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const localModels = models.models.filter((model) => model.provider_id === provider.id);
-
   const loadKeys = async () => {
-    try {
-      setKeys(await listProviderKeys(provider.id));
-    } catch {
-      setKeys([]);
-    }
+    try { setKeys(await listProviderKeys(provider.id)); } catch { setKeys([]); }
   };
-
   const loadRemote = async () => {
     setLoadingRemote(true);
-    try {
-      setRemote(await models.fetchRemoteModels(provider.id));
-    } catch {
-      setRemote([]);
-    } finally {
-      setLoadingRemote(false);
-    }
+    try { setRemote(await fetchRemoteModels(provider.id)); } catch { setRemote([]); } finally { setLoadingRemote(false); }
   };
-
   useEffect(() => {
     setTestResult(null);
-    setShowKeySettings(false);
-    void loadKeys();
-    setRemote(null);
+    setShowKeys(false);
     setRemoteQuery("");
+    void loadKeys();
     void loadRemote();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [provider.id]);
 
-  const runTest = async () => {
-    setTesting(true);
-    try {
-      setTestResult(await models.test(provider.id));
-    } catch (error) {
-      setTestResult({ ok: false, model_count: null, detail: error instanceof Error ? error.message : String(error) });
-    } finally {
-      setTesting(false);
-    }
-  };
-
   const filteredRemote = useMemo(() => {
-    const q = remoteQuery.trim().toLowerCase();
-    if (q.length === 0) return remote ?? [];
-    return (remote ?? []).filter((model) => `${model.id} ${model.display_name}`.toLowerCase().includes(q));
+    const needle = remoteQuery.trim().toLowerCase();
+    return (remote ?? []).filter((model) => needle.length === 0 || `${model.id} ${model.display_name}`.toLowerCase().includes(needle));
   }, [remote, remoteQuery]);
 
-  const remove = async () => {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
-    await models.removeProvider(provider.id);
+  const runTest = async () => {
+    setTesting(true);
+    try { setTestResult(await test(provider.id)); } catch (error) { setTestResult({ ok: false, model_count: null, detail: error instanceof Error ? error.message : String(error) }); } finally { setTesting(false); }
   };
 
   return (
     <div className="min-w-0 space-y-4">
-      <div className="rounded-xl border border-border bg-bg-1 p-4">
+      <section className="rounded-xl border border-border bg-bg-1 p-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-xs font-bold uppercase text-white">{provider.kind.slice(0, 2)}</span>
-            <div className="min-w-0">
-              <div className="truncate text-[14px] font-semibold text-txt-0">{provider.name}</div>
-              <div className="truncate text-[11.5px] text-txt-2">{provider.base_url ?? "Provider default endpoint"}</div>
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <Button variant="subtle" size="sm" onClick={runTest} disabled={testing}>{testing ? "Testing…" : "Test"}</Button>
-            <button
-              type="button"
-              onClick={() => {
-                const next = !showKeySettings;
-                setShowKeySettings(next);
-                if (next) void loadKeys();
-              }}
-              title="API key settings"
-              className={`flex h-8 w-8 items-center justify-center rounded-lg border border-border ${showKeySettings ? "bg-bg-3 text-txt-0" : "text-txt-2 hover:bg-bg-2 hover:text-txt-0"}`}
-            >
-              <GearIcon className="h-4 w-4" />
-            </button>
-            <button type="button" onClick={() => void remove()} className={`flex h-8 items-center rounded-lg border border-border px-2 text-[11.5px] ${confirmDelete ? "text-danger" : "text-txt-2 hover:text-danger"}`}>
-              {confirmDelete ? "Confirm delete" : <TrashIcon className="h-4 w-4" />}
-            </button>
-          </div>
+          <div className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-xs font-bold uppercase text-white">{provider.kind.slice(0, 2)}</span><div className="min-w-0"><div className="truncate text-[14px] font-semibold text-txt-0">{provider.name}</div><div className="truncate text-[11.5px] text-txt-2">{provider.base_url ?? "Provider default endpoint"}</div></div></div>
+          <div className="flex shrink-0 items-center gap-1.5"><Button variant="subtle" size="sm" onClick={runTest} disabled={testing}>{testing ? "Testing…" : "Test"}</Button><button type="button" onClick={() => { const next = !showKeys; setShowKeys(next); if (next) void loadKeys(); }} title="API key settings" className={`flex h-8 w-8 items-center justify-center rounded-lg border border-border ${showKeys ? "bg-bg-3 text-txt-0" : "text-txt-2 hover:bg-bg-2 hover:text-txt-0"}`}><GearIcon className="h-4 w-4" /></button><button type="button" onClick={() => { if (confirmDelete) void removeProvider(provider.id); else setConfirmDelete(true); }} className={`flex h-8 items-center rounded-lg border border-border px-2 text-[11px] ${confirmDelete ? "text-danger" : "text-txt-2 hover:text-danger"}`}>{confirmDelete ? "Confirm" : <TrashIcon className="h-4 w-4" />}</button></div>
         </div>
+        {testResult != null && <div className={`mt-3 rounded-lg border px-3 py-2 text-[12px] ${testResult.ok ? "border-success/40 bg-success/10 text-success" : "border-danger/40 bg-danger/10 text-danger"}`}>{testResult.ok ? `Connection OK · ${testResult.model_count ?? 0} models` : `Connection failed · ${testResult.detail ?? "Unknown error"}`}</div>}
+        {showKeys && <ApiKeysPanel provider={provider} keys={keys} setKeys={setKeys} refreshModels={refreshModels} />}
+      </section>
 
-        {testResult != null && (
-          <div className={`mt-3 rounded-lg border px-3 py-2 text-[12px] ${testResult.ok ? "border-success/40 bg-success/10 text-success" : "border-danger/40 bg-danger/10 text-danger"}`}>
-            {testResult.ok ? `Connection OK · ${testResult.model_count ?? 0} models` : `Connection failed · ${testResult.detail ?? "Unknown error"}`}
-          </div>
-        )}
+      <section className="rounded-xl border border-border bg-bg-1 p-4"><div className="mb-3 flex items-center justify-between"><div><div className="text-[12.5px] font-semibold text-txt-0">Configured models</div><div className="text-[11px] text-txt-2">Tune display names and runtime defaults.</div></div><span className="rounded-full border border-border bg-bg-2 px-2 py-1 text-[10.5px] text-txt-2">{localModels.length}</span></div><div className="space-y-1.5">{localModels.map((model) => <ModelEditorRow key={model.id} modelId={model.id} patchModel={patchModel} />)}{localModels.length === 0 && <div className="rounded-lg border border-dashed border-border px-3 py-5 text-center text-[12px] text-txt-2">Add models from the catalog below.</div>}</div></section>
 
-        {showKeySettings && <ApiKeysPanel provider={provider} keys={keys} setKeys={setKeys} />}
-      </div>
-
-      <div className="rounded-xl border border-border bg-bg-1 p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <div className="text-[12.5px] font-semibold text-txt-0">Configured models</div>
-            <div className="text-[11px] text-txt-2">Rename, toggle or tune models already attached to this provider.</div>
-          </div>
-          <span className="rounded-full border border-border bg-bg-2 px-2 py-1 text-[10.5px] text-txt-2">{localModels.length}</span>
-        </div>
-        <div className="space-y-1.5">
-          {localModels.map((model) => <ModelEditorRow key={model.id} modelId={model.id} />)}
-          {localModels.length === 0 && <div className="rounded-lg border border-dashed border-border px-3 py-5 text-center text-[12px] text-txt-2">Add models from the catalog below.</div>}
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-border bg-bg-1 p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="text-[12.5px] font-semibold text-txt-0">Model catalog</div>
-            <div className="text-[11px] text-txt-2">Search provider models by name or model id.</div>
-          </div>
-          <button type="button" onClick={() => void loadRemote()} title="Refresh model catalog" className="flex h-8 w-8 items-center justify-center rounded-lg text-txt-2 hover:bg-bg-2 hover:text-txt-0">
-            <RefreshIcon className={`h-4 w-4 ${loadingRemote ? "animate-spin" : ""}`} />
-          </button>
-        </div>
-        <div className="relative mb-3">
-          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-txt-2" />
-          <input
-            value={remoteQuery}
-            onChange={(event) => setRemoteQuery(event.target.value)}
-            placeholder="Search models…"
-            className="h-9 w-full rounded-lg border border-border bg-bg-2 pl-9 pr-3 text-[12.5px] text-txt-0 outline-none placeholder:text-txt-2 focus:border-accent/50"
-          />
-        </div>
+      <section className="rounded-xl border border-border bg-bg-1 p-4">
+        <div className="mb-3 flex items-center gap-2"><div className="min-w-0 flex-1"><div className="text-[12.5px] font-semibold text-txt-0">Model catalog</div><div className="text-[11px] text-txt-2">Search by model name or model id.</div></div><button type="button" onClick={() => void loadRemote()} title="Refresh model catalog" className="flex h-8 w-8 items-center justify-center rounded-lg text-txt-2 hover:bg-bg-2 hover:text-txt-0"><RefreshIcon className={`h-4 w-4 ${loadingRemote ? "animate-spin" : ""}`} /></button></div>
+        <div className="relative mb-3"><SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-txt-2" /><input value={remoteQuery} onChange={(event) => setRemoteQuery(event.target.value)} placeholder="Search models…" className="h-9 w-full rounded-lg border border-border bg-bg-2 pl-9 pr-3 text-[12.5px] text-txt-0 outline-none placeholder:text-txt-2 focus:border-accent/50" /></div>
         {loadingRemote && <div className="py-6 text-center text-[12px] text-txt-2">Loading model catalog…</div>}
         {!loadingRemote && remote != null && remote.length === 0 && <div className="py-6 text-center text-[12px] text-txt-2">No models returned by this provider.</div>}
         {!loadingRemote && remote != null && remote.length > 0 && filteredRemote.length === 0 && <div className="py-6 text-center text-[12px] text-txt-2">No matching models.</div>}
-        {!loadingRemote && filteredRemote.length > 0 && (
-          <div className="grid max-h-72 gap-1.5 overflow-y-auto sm:grid-cols-2">
-            {filteredRemote.map((model) => <RemoteModelRow key={model.id} providerId={provider.id} model={model} />)}
-          </div>
-        )}
-      </div>
+        {!loadingRemote && filteredRemote.length > 0 && <div className="grid max-h-72 gap-1.5 overflow-y-auto sm:grid-cols-2">{filteredRemote.map((model) => <CatalogModelRow key={model.id} providerId={provider.id} model={model} localModels={localModels} addModel={addModel} removeModel={removeModel} />)}</div>}
+      </section>
     </div>
   );
 }
 
-function ApiKeysPanel({
-  provider,
-  keys,
-  setKeys,
-}: {
-  provider: Provider;
-  keys: ProviderKeySummary[];
-  setKeys: (keys: ProviderKeySummary[]) => void;
-}) {
-  const models = useModels();
+function ApiKeysPanel({ provider, keys, setKeys, refreshModels }: { provider: Provider; keys: ProviderKeySummary[]; setKeys: (keys: ProviderKeySummary[]) => void; refreshModels: () => Promise<void> }) {
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [adding, setAdding] = useState("");
   const [busy, setBusy] = useState<number | "add" | null>(null);
-
-  const refresh = async () => setKeys(await listProviderKeys(provider.id));
-
   return (
     <div className="mt-4 rounded-xl border border-border bg-bg-0 p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <div>
-          <div className="text-[12px] font-semibold text-txt-0">API keys / fallback chain</div>
-          <div className="text-[10.5px] text-txt-2">Only the first 5 characters are shown. API 1 is primary.</div>
-        </div>
-        <span className="text-[10.5px] tabular-nums text-txt-2">{keys.length} configured</span>
-      </div>
-
+      <div className="mb-2 flex items-center justify-between"><div><div className="text-[12px] font-semibold text-txt-0">API keys / fallback chain</div><div className="text-[10.5px] text-txt-2">Only the first 5 characters are shown. API 1 is primary.</div></div><span className="text-[10.5px] tabular-nums text-txt-2">{keys.length} configured</span></div>
       <div className="space-y-1.5">
-        {keys.map((key) => (
-          <div key={key.index} className="flex items-center gap-2 rounded-lg border border-border bg-bg-2 px-2.5 py-2">
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              <span className="shrink-0 rounded-md bg-bg-3 px-1.5 py-1 text-[10px] font-semibold uppercase text-txt-2">{key.primary ? "Primary" : `Fallback ${key.index + 1}`}</span>
-              <code className="truncate text-[11.5px] text-txt-1">{key.prefix}</code>
-            </div>
-            {drafts[key.index] != null ? (
-              <>
-                <input
-                  type="password"
-                  value={drafts[key.index]}
-                  onChange={(event) => setDrafts({ ...drafts, [key.index]: event.target.value })}
-                  placeholder="New API key"
-                  className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-bg-0 px-2 text-[11.5px] text-txt-0 outline-none"
-                />
-                <Button variant="subtle" size="sm" disabled={busy === key.index || drafts[key.index].trim().length === 0} onClick={async () => {
-                  setBusy(key.index);
-                  try {
-                    const next = await updateProviderKey(provider.id, key.index, drafts[key.index].trim());
-                    setKeys(next);
-                    const nextDrafts = { ...drafts };
-                    delete nextDrafts[key.index];
-                    setDrafts(nextDrafts);
-                    await models.refresh();
-                  } finally {
-                    setBusy(null);
-                  }
-                }}>Save</Button>
-                <button type="button" onClick={() => {
-                  const nextDrafts = { ...drafts };
-                  delete nextDrafts[key.index];
-                  setDrafts(nextDrafts);
-                }} className="text-[11px] text-txt-2 hover:text-txt-0">Cancel</button>
-              </>
-            ) : (
-              <button type="button" onClick={() => setDrafts({ ...drafts, [key.index]: "" })} className="text-[11px] text-accent-2 hover:text-accent">Change</button>
-            )}
-            <button type="button" disabled={busy === key.index} onClick={async () => {
-              setBusy(key.index);
-              try {
-                setKeys(await deleteProviderKey(provider.id, key.index));
-                await models.refresh();
-              } finally {
-                setBusy(null);
-              }
-            }} className="flex h-7 w-7 items-center justify-center rounded-md text-txt-2 hover:bg-danger/10 hover:text-danger">
-              <TrashIcon className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        ))}
+        {keys.map((key) => <div key={key.index} className="flex items-center gap-2 rounded-lg border border-border bg-bg-2 px-2.5 py-2"><div className="flex min-w-0 flex-1 items-center gap-2"><span className="shrink-0 rounded-md bg-bg-3 px-1.5 py-1 text-[10px] font-semibold uppercase text-txt-2">{key.primary ? "Primary" : `Fallback ${key.index + 1}`}</span><code className="truncate text-[11.5px] text-txt-1">{key.prefix}</code></div>{drafts[key.index] != null ? <><input type="password" value={drafts[key.index]} onChange={(event) => setDrafts({ ...drafts, [key.index]: event.target.value })} placeholder="New API key" className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-bg-0 px-2 text-[11.5px] text-txt-0 outline-none" /><Button variant="subtle" size="sm" disabled={busy === key.index || drafts[key.index].trim().length === 0} onClick={async () => { setBusy(key.index); try { setKeys(await updateProviderKey(provider.id, key.index, drafts[key.index].trim())); const next = { ...drafts }; delete next[key.index]; setDrafts(next); await refreshModels(); } finally { setBusy(null); } }}>Save</Button><button type="button" onClick={() => { const next = { ...drafts }; delete next[key.index]; setDrafts(next); }} className="text-[11px] text-txt-2 hover:text-txt-0">Cancel</button></> : <button type="button" onClick={() => setDrafts({ ...drafts, [key.index]: "" })} className="text-[11px] text-accent-2 hover:text-accent">Change</button>}<button type="button" disabled={busy === key.index} onClick={async () => { setBusy(key.index); try { setKeys(await deleteProviderKey(provider.id, key.index)); await refreshModels(); } finally { setBusy(null); } }} className="flex h-7 w-7 items-center justify-center rounded-md text-txt-2 hover:bg-danger/10 hover:text-danger"><TrashIcon className="h-3.5 w-3.5" /></button></div>)}
         {keys.length === 0 && <div className="rounded-lg border border-dashed border-border px-3 py-3 text-[11.5px] text-txt-2">No API key configured. Local providers do not need one.</div>}
       </div>
-
-      <div className="mt-2 flex gap-2">
-        <div className="relative min-w-0 flex-1">
-          <EyeIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-txt-2" />
-          <input
-            type="password"
-            value={adding}
-            onChange={(event) => setAdding(event.target.value)}
-            placeholder="Add another API key for fallback"
-            className="h-8 w-full rounded-lg border border-border bg-bg-2 pl-2.5 pr-8 text-[11.5px] text-txt-0 outline-none placeholder:text-txt-2"
-          />
-        </div>
-        <Button variant="primary" size="sm" disabled={busy === "add" || adding.trim().length === 0} onClick={async () => {
-          setBusy("add");
-          try {
-            setKeys(await addProviderKey(provider.id, adding.trim()));
-            setAdding("");
-            await models.refresh();
-          } finally {
-            setBusy(null);
-          }
-        }}>
-          <PlusIcon className="h-3.5 w-3.5" />
-          Add fallback
-        </Button>
-      </div>
-      <div className="mt-2 text-[10.5px] leading-relaxed text-txt-2">Requests stay on the same provider and model. On a setup/connection/stream error, the next key is tried automatically.</div>
-      <button type="button" onClick={() => void refresh()} className="mt-2 text-[10.5px] text-accent-2 hover:text-accent">Refresh key list</button>
+      <div className="mt-2 flex gap-2"><div className="relative min-w-0 flex-1"><EyeIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-txt-2" /><input type="password" value={adding} onChange={(event) => setAdding(event.target.value)} placeholder="Add another API key for fallback" className="h-8 w-full rounded-lg border border-border bg-bg-2 pl-2.5 pr-8 text-[11.5px] text-txt-0 outline-none placeholder:text-txt-2" /></div><Button variant="primary" size="sm" disabled={busy === "add" || adding.trim().length === 0} onClick={async () => { setBusy("add"); try { setKeys(await addProviderKey(provider.id, adding.trim())); setAdding(""); await refreshModels(); } finally { setBusy(null); } }}><PlusIcon className="h-3.5 w-3.5" />Add fallback</Button></div>
+      <div className="mt-2 text-[10.5px] leading-relaxed text-txt-2">Same provider and model are preserved. On a setup/connection/stream error, the next key is tried automatically.</div>
     </div>
   );
 }
 
 function AddProviderForm({ onDone }: { onDone: () => void }) {
-  const models = useModels();
+  const refreshModels = useModels((state) => state.refresh);
   const [kind, setKind] = useState("openai");
   const [name, setName] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
@@ -533,211 +260,42 @@ function AddProviderForm({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const def = PROVIDER_KINDS.find((entry) => entry.id === kind) ?? PROVIDER_KINDS[0];
-
   const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await createProvider({
-        kind,
-        name: name.trim() || undefined,
-        base_url: baseUrl.trim() || undefined,
-        api_key: apiKey.trim() || undefined,
-      });
-      await models.refresh();
-      onDone();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-    }
+    event.preventDefault(); setBusy(true); setError(null);
+    try { await createProvider({ kind, name: name.trim() || undefined, base_url: baseUrl.trim() || undefined, api_key: apiKey.trim() || undefined }); await refreshModels(); onDone(); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)); }
+    finally { setBusy(false); }
   };
-
-  return (
-    <form onSubmit={submit} className="mx-auto max-w-2xl space-y-5">
-      <div className="rounded-xl border border-border bg-bg-1 p-4">
-        <div className="mb-3 text-[13px] font-semibold text-txt-0">Add provider</div>
-        <div className="grid gap-2 sm:grid-cols-4">
-          {PROVIDER_KINDS.map((entry) => (
-            <button key={entry.id} type="button" onClick={() => { setKind(entry.id); setBaseUrl(""); }} className={`rounded-lg border px-2 py-2 text-[11.5px] capitalize transition ${kind === entry.id ? "border-accent/50 bg-accent/10 text-txt-0" : "border-border bg-bg-2 text-txt-2 hover:text-txt-0"}`}>
-              {entry.id}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <SettingCard title="Connection" description="The base URL may be left blank to use the provider default.">
-        <div className="grid gap-3 md:grid-cols-2">
-          <Field label="Display name"><input value={name} onChange={(event) => setName(event.target.value)} placeholder={def.id} className="input-base" /></Field>
-          <Field label="Base URL"><input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder={def.base} className="input-base" /></Field>
-          <Field label="Primary API key" className="md:col-span-2">
-            <div className="relative">
-              <input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={def.key ? "Paste primary key" : "Not required"} className="input-base pr-9" />
-              <EyeIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-txt-2" />
-            </div>
-          </Field>
-        </div>
-      </SettingCard>
-
-      {error != null && <div className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-[12px] text-danger">{error}</div>}
-      <div className="flex gap-2">
-        <Button variant="primary" size="sm" type="submit" disabled={busy}>{busy ? "Adding…" : "Add provider"}</Button>
-        <Button variant="ghost" size="sm" type="button" onClick={onDone}>Cancel</Button>
-      </div>
-    </form>
-  );
+  return <form onSubmit={submit} className="mx-auto max-w-2xl space-y-5"><div className="rounded-xl border border-border bg-bg-1 p-4"><div className="mb-3 text-[13px] font-semibold text-txt-0">Add provider</div><div className="grid gap-2 sm:grid-cols-4">{PROVIDER_KINDS.map((entry) => <button key={entry.id} type="button" onClick={() => { setKind(entry.id); setBaseUrl(""); }} className={`rounded-lg border px-2 py-2 text-[11.5px] capitalize transition ${kind === entry.id ? "border-accent/50 bg-accent/10 text-txt-0" : "border-border bg-bg-2 text-txt-2 hover:text-txt-0"}`}>{entry.id}</button>)}</div></div><SettingCard title="Connection" description="Base URL may be left blank to use the provider default."><div className="grid gap-3 md:grid-cols-2"><Field label="Display name"><input value={name} onChange={(event) => setName(event.target.value)} placeholder={def.id} className="input-base" /></Field><Field label="Base URL"><input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder={def.base} className="input-base" /></Field><Field label="Primary API key" className="md:col-span-2"><div className="relative"><input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={def.key ? "Paste primary key" : "Not required"} className="input-base pr-9" /><EyeIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-txt-2" /></div></Field></div></SettingCard>{error != null && <div className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-[12px] text-danger">{error}</div>}<div className="flex gap-2"><Button variant="primary" size="sm" type="submit" disabled={busy}>{busy ? "Adding…" : "Add provider"}</Button><Button variant="ghost" size="sm" type="button" onClick={onDone}>Cancel</Button></div></form>;
 }
 
-function EmptyProviders({ onAdd }: { onAdd: () => void }) {
-  return (
-    <div className="flex items-center justify-center rounded-xl border border-dashed border-border bg-bg-1 p-10">
-      <div className="max-w-sm text-center">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-bg-3 text-txt-1"><PlusSquareIcon className="h-5 w-5" /></div>
-        <div className="text-[13px] font-semibold text-txt-0">No provider connected</div>
-        <p className="mt-1.5 text-[11.5px] leading-relaxed text-txt-2">Add a provider, pull its model catalog, then attach only the models you actually want to use.</p>
-        <Button variant="primary" size="sm" className="mt-4" onClick={onAdd}>Add provider</Button>
-      </div>
-    </div>
-  );
-}
+function EmptyProviders({ onAdd }: { onAdd: () => void }) { return <div className="flex items-center justify-center rounded-xl border border-dashed border-border bg-bg-1 p-10"><div className="max-w-sm text-center"><div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-bg-3 text-txt-1"><PlusSquareIcon className="h-5 w-5" /></div><div className="text-[13px] font-semibold text-txt-0">No provider connected</div><p className="mt-1.5 text-[11.5px] leading-relaxed text-txt-2">Add a provider, pull its model catalog, then attach only the models you want to use.</p><Button variant="primary" size="sm" className="mt-4" onClick={onAdd}>Add provider</Button></div></div>; }
 
-function RemoteModelRow({ providerId, model }: { providerId: string; model: RemoteModel }) {
-  const models = useModels();
+function CatalogModelRow({ providerId, model, localModels, addModel, removeModel }: { providerId: string; model: RemoteModel; localModels: ReturnType<typeof useModels.getState>["models"]; addModel: (providerId: string, modelId: string) => Promise<void>; removeModel: (id: string) => Promise<void> }) {
   const [busy, setBusy] = useState(false);
-  const local = models.models.find((entry) => entry.provider_id === providerId && entry.model_id === model.id);
-  return (
-    <button
-      type="button"
-      disabled={busy}
-      onClick={async () => {
-        setBusy(true);
-        try {
-          if (local != null) await models.removeModel(local.id);
-          else await models.addModel(providerId, model.id);
-        } finally {
-          setBusy(false);
-        }
-      }}
-      className={`flex min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition disabled:opacity-50 ${local != null ? "border-accent/40 bg-accent/10" : "border-border bg-bg-2 hover:bg-bg-3"}`}
-    >
-      {local != null ? <CheckIcon className="h-3.5 w-3.5 shrink-0 text-accent" /> : <PlusIcon className="h-3.5 w-3.5 shrink-0 text-txt-2" />}
-      <span className="min-w-0 flex-1 truncate text-[11.5px] text-txt-1">{model.display_name || model.id}</span>
-      <span className="shrink-0 text-[9.5px] uppercase text-txt-2">{local != null ? "Added" : "Add"}</span>
-    </button>
-  );
+  const local = localModels.find((entry) => entry.model_id === model.id);
+  return <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { if (local != null) await removeModel(local.id); else await addModel(providerId, model.id); } finally { setBusy(false); } }} className={`flex min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition disabled:opacity-50 ${local != null ? "border-accent/40 bg-accent/10" : "border-border bg-bg-2 hover:bg-bg-3"}`}>{local != null ? <CheckIcon className="h-3.5 w-3.5 shrink-0 text-accent" /> : <PlusIcon className="h-3.5 w-3.5 shrink-0 text-txt-2" />}<span className="min-w-0 flex-1 truncate text-[11.5px] text-txt-1">{model.display_name || model.id}</span><span className="shrink-0 text-[9.5px] uppercase text-txt-2">{local != null ? "Added" : "Add"}</span></button>;
 }
 
-function ModelEditorRow({ modelId }: { modelId: string }) {
+function ModelEditorRow({ modelId, patchModel }: { modelId: string; patchModel: ReturnType<typeof useModels.getState>["patchModel"] }) {
   const model = useModels((state) => state.models.find((entry) => entry.id === modelId));
-  const patch = useModels((state) => state.patchModel);
   if (model == null) return null;
-  return (
-    <div className="rounded-lg border border-border bg-bg-2/60 px-3 py-2.5">
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          defaultValue={model.display_name}
-          onBlur={(event) => {
-            const value = event.target.value.trim();
-            if (value.length > 0 && value !== model.display_name) void patch(model.id, { display_name: value });
-          }}
-          className="h-8 min-w-[160px] flex-1 rounded-lg border border-border bg-bg-0 px-2.5 text-[11.5px] text-txt-0 outline-none"
-        />
-        <label className="flex items-center gap-1.5 text-[10.5px] text-txt-2">Temp
-          <input type="number" min={0} max={2} step={0.1} defaultValue={model.temperature ?? ""} onBlur={(event) => void patch(model.id, { temperature: event.target.value.trim() ? Number(event.target.value) : null })} className="h-8 w-16 rounded-lg border border-border bg-bg-0 px-2 text-[11px] text-txt-0" />
-        </label>
-        <label className="flex items-center gap-1.5 text-[10.5px] text-txt-2">Max
-          <input type="number" min={128} step={128} defaultValue={model.max_tokens ?? ""} onBlur={(event) => void patch(model.id, { max_tokens: event.target.value.trim() ? Number(event.target.value) : null })} className="h-8 w-20 rounded-lg border border-border bg-bg-0 px-2 text-[11px] text-txt-0" />
-        </label>
-        <label className="flex items-center gap-1.5 text-[10.5px] text-txt-2">
-          <input type="checkbox" defaultChecked={model.enabled} onChange={(event) => void patch(model.id, { enabled: event.target.checked })} /> Enabled
-        </label>
-      </div>
-      <div className="mt-1 truncate text-[9.5px] text-txt-2">{model.model_id}</div>
-    </div>
-  );
+  return <div className="rounded-lg border border-border bg-bg-2/60 px-3 py-2.5"><div className="flex flex-wrap items-center gap-2"><input defaultValue={model.display_name} onBlur={(event) => { const value = event.target.value.trim(); if (value && value !== model.display_name) void patchModel(model.id, { display_name: value }); }} className="h-8 min-w-[160px] flex-1 rounded-lg border border-border bg-bg-0 px-2.5 text-[11.5px] text-txt-0 outline-none" /><label className="flex items-center gap-1.5 text-[10.5px] text-txt-2">Temp<input type="number" min={0} max={2} step={0.1} defaultValue={model.temperature ?? ""} onBlur={(event) => void patchModel(model.id, { temperature: event.target.value.trim() ? Number(event.target.value) : null })} className="h-8 w-16 rounded-lg border border-border bg-bg-0 px-2 text-[11px] text-txt-0" /></label><label className="flex items-center gap-1.5 text-[10.5px] text-txt-2">Max<input type="number" min={128} step={128} defaultValue={model.max_tokens ?? ""} onBlur={(event) => void patchModel(model.id, { max_tokens: event.target.value.trim() ? Number(event.target.value) : null })} className="h-8 w-20 rounded-lg border border-border bg-bg-0 px-2 text-[11px] text-txt-0" /></label><label className="flex items-center gap-1.5 text-[10.5px] text-txt-2"><input type="checkbox" defaultChecked={model.enabled} onChange={(event) => void patchModel(model.id, { enabled: event.target.checked })} />Enabled</label></div><div className="mt-1 truncate text-[9.5px] text-txt-2">{model.model_id}</div></div>;
 }
 
 function GroupsSection() {
-  const models = useModels();
+  const models = useModels((state) => state.models);
+  const groups = useModels((state) => state.groups);
+  const addGroup = useModels((state) => state.addGroup);
+  const removeGroup = useModels((state) => state.removeGroup);
   const [name, setName] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
-
   const toggle = (id: string) => setSelected((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
-
-  const create = async () => {
-    if (!name.trim() || selected.length < 2) return;
-    setBusy(true);
-    try {
-      await models.addGroup({ name: name.trim(), model_ids: selected });
-      setName("");
-      setSelected([]);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-[1fr_1.15fr]">
-        <SettingCard title="Create a model group" description="Pick two or more models. Groups power multi-model debate chats.">
-          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Coding panel" className="input-base" />
-          <div className="mt-3 max-h-64 space-y-1 overflow-y-auto">
-            {models.models.filter((model) => model.enabled).map((model) => (
-              <button key={model.id} type="button" onClick={() => toggle(model.id)} className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left ${selected.includes(model.id) ? "border-accent/40 bg-accent/10" : "border-border bg-bg-2 hover:bg-bg-3"}`}>
-                <span className={`flex h-4 w-4 items-center justify-center rounded border ${selected.includes(model.id) ? "border-accent bg-accent text-white" : "border-txt-2"}`}>{selected.includes(model.id) && <CheckIcon className="h-3 w-3" />}</span>
-                <span className="min-w-0 flex-1 truncate text-[11.5px] text-txt-1">{model.display_name}</span>
-                <span className="truncate text-[9.5px] text-txt-2">{model.provider_name}</span>
-              </button>
-            ))}
-          </div>
-          <Button variant="primary" size="sm" className="mt-3" disabled={busy || !name.trim() || selected.length < 2} onClick={() => void create()}>
-            {busy ? "Creating…" : "Create group"}
-          </Button>
-          <span className="ml-2 text-[10.5px] text-txt-2">{selected.length} selected</span>
-        </SettingCard>
-
-        <SettingCard title="Existing groups" description="Groups are reusable model sets. Delete only removes the group, not its models.">
-          <div className="space-y-1.5">
-            {models.groups.map((group) => (
-              <div key={group.id} className="flex items-center gap-2 rounded-lg border border-border bg-bg-2 px-3 py-2.5">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[12px] font-medium text-txt-0">{group.name}</div>
-                  <div className="truncate text-[10.5px] text-txt-2">{group.models.map((model) => model.display_name).join(" · ")}</div>
-                </div>
-                <button type="button" onClick={() => void models.removeGroup(group.id)} className="flex h-7 w-7 items-center justify-center rounded-md text-txt-2 hover:bg-danger/10 hover:text-danger"><TrashIcon className="h-3.5 w-3.5" /></button>
-              </div>
-            ))}
-            {models.groups.length === 0 && <div className="rounded-lg border border-dashed border-border px-3 py-5 text-center text-[11.5px] text-txt-2">No groups yet.</div>}
-          </div>
-        </SettingCard>
-      </div>
-    </div>
-  );
+  const create = async () => { if (!name.trim() || selected.length < 2) return; setBusy(true); try { await addGroup({ name: name.trim(), model_ids: selected }); setName(""); setSelected([]); } finally { setBusy(false); } };
+  return <div className="grid gap-4 lg:grid-cols-[1fr_1.15fr]"><SettingCard title="Create a model group" description="Pick two or more models. Groups power multi-model debate chats."><input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Coding panel" className="input-base" /><div className="mt-3 max-h-64 space-y-1 overflow-y-auto">{models.filter((model) => model.enabled).map((model) => <button key={model.id} type="button" onClick={() => toggle(model.id)} className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left ${selected.includes(model.id) ? "border-accent/40 bg-accent/10" : "border-border bg-bg-2 hover:bg-bg-3"}`}><span className={`flex h-4 w-4 items-center justify-center rounded border ${selected.includes(model.id) ? "border-accent bg-accent text-white" : "border-txt-2"}`}>{selected.includes(model.id) && <CheckIcon className="h-3 w-3" />}</span><span className="min-w-0 flex-1 truncate text-[11.5px] text-txt-1">{model.display_name}</span><span className="truncate text-[9.5px] text-txt-2">{model.provider_name}</span></button>)}</div><Button variant="primary" size="sm" className="mt-3" disabled={busy || !name.trim() || selected.length < 2} onClick={() => void create()}>{busy ? "Creating…" : "Create group"}</Button><span className="ml-2 text-[10.5px] text-txt-2">{selected.length} selected</span></SettingCard><SettingCard title="Existing groups" description="Reusable model sets for debate chats."><div className="space-y-1.5">{groups.map((group) => <div key={group.id} className="flex items-center gap-2 rounded-lg border border-border bg-bg-2 px-3 py-2.5"><div className="min-w-0 flex-1"><div className="truncate text-[12px] font-medium text-txt-0">{group.name}</div><div className="truncate text-[10.5px] text-txt-2">{group.models.map((model) => model.display_name).join(" · ")}</div></div><button type="button" onClick={() => void removeGroup(group.id)} className="flex h-7 w-7 items-center justify-center rounded-md text-txt-2 hover:bg-danger/10 hover:text-danger"><TrashIcon className="h-3.5 w-3.5" /></button></div>)}{groups.length === 0 && <div className="rounded-lg border border-dashed border-border px-3 py-5 text-center text-[11.5px] text-txt-2">No groups yet.</div>}</div></SettingCard></div>;
 }
 
-function SettingCard({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-xl border border-border bg-bg-1 p-4">
-      <div className="mb-4">
-        <div className="text-[13px] font-semibold text-txt-0">{title}</div>
-        <div className="mt-1 text-[11.5px] leading-relaxed text-txt-2">{description}</div>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function SettingRow({ label, description, children }: { label: string; description: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-bg-2 px-3 py-2.5">
-      <div className="min-w-0"><div className="text-[11.5px] font-medium text-txt-1">{label}</div><div className="text-[10.5px] text-txt-2">{description}</div></div>
-      {children}
-    </div>
-  );
-}
-
-function Field({ label, className = "", children }: { label: string; className?: string; children: React.ReactNode }) {
-  return <label className={`block ${className}`}><span className="mb-1.5 block text-[11px] font-medium text-txt-1">{label}</span>{children}</label>;
-}
+function SettingCard({ title, description, children }: { title: string; description: string; children: ReactNode }) { return <section className="rounded-xl border border-border bg-bg-1 p-4"><div className="mb-4"><div className="text-[13px] font-semibold text-txt-0">{title}</div><div className="mt-1 text-[11.5px] leading-relaxed text-txt-2">{description}</div></div>{children}</section>; }
+function SettingRow({ label, description, children }: { label: string; description: string; children: ReactNode }) { return <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-bg-2 px-3 py-2.5"><div className="min-w-0"><div className="text-[11.5px] font-medium text-txt-1">{label}</div><div className="text-[10.5px] text-txt-2">{description}</div></div>{children}</div>; }
+function Field({ label, className = "", children }: { label: string; className?: string; children: ReactNode }) { return <label className={`block ${className}`}><span className="mb-1.5 block text-[11px] font-medium text-txt-1">{label}</span>{children}</label>; }
