@@ -15,6 +15,7 @@ pub struct ProviderDto {
     #[serde(flatten)]
     pub row: ProviderRow,
     pub has_api_key: bool,
+    pub api_key_count: usize,
 }
 
 #[derive(Deserialize)]
@@ -30,17 +31,97 @@ pub struct UpdateProvider {
     pub name: Option<String>,
     pub base_url: Option<String>,
     pub enabled: Option<bool>,
-    /// Some("") deletes the stored key; Some(key) overwrites it.
+    /// Some("") clears all keys; Some(key) replaces the primary key.
     pub api_key: Option<String>,
 }
 
-fn dto_for(state: &AppState, row: ProviderRow) -> ProviderDto {
-    let has_api_key = state
+#[derive(Deserialize)]
+struct ApiKeyBody {
+    pub api_key: String,
+}
+
+#[derive(Serialize)]
+pub struct ApiKeySummary {
+    pub index: usize,
+    pub prefix: String,
+    pub primary: bool,
+}
+
+fn decode_stored_keys(raw: &str) -> Vec<String> {
+    #[derive(Deserialize)]
+    struct KeyBundle {
+        __polylab_keys: bool,
+        keys: Vec<String>,
+    }
+    serde_json::from_str::<KeyBundle>(raw)
+        .ok()
+        .filter(|bundle| bundle.__polylab_keys)
+        .map(|bundle| {
+            bundle
+                .keys
+                .into_iter()
+                .filter(|key| !key.trim().is_empty())
+                .collect()
+        })
+        .unwrap_or_else(|| vec![raw.to_string()])
+}
+
+fn load_keys(state: &AppState, provider_id: &str) -> Result<Vec<String>, ApiError> {
+    Ok(state
         .secrets
-        .get(&provider_key(&row.id))
-        .map(|key| key.as_deref().map(str::trim).filter(|k| !k.is_empty()).is_some())
-        .unwrap_or(false);
-    ProviderDto { row, has_api_key }
+        .get(&provider_key(provider_id))
+        .map_err(ApiError::internal)?
+        .map(|raw| decode_stored_keys(&raw))
+        .unwrap_or_default())
+}
+
+fn save_keys(state: &AppState, provider_id: &str, keys: &[String]) -> Result<(), ApiError> {
+    let keys: Vec<String> = keys
+        .iter()
+        .map(|key| key.trim().to_string())
+        .filter(|key| !key.is_empty())
+        .collect();
+    if keys.is_empty() {
+        state
+            .secrets
+            .delete(&provider_key(provider_id))
+            .map_err(ApiError::internal)?;
+        return Ok(());
+    }
+    let encoded = crate::providers::encode_key_bundle(&keys).map_err(ApiError::internal)?;
+    state
+        .secrets
+        .set(&provider_key(provider_id), &encoded)
+        .map_err(ApiError::internal)
+}
+
+fn mask_key(key: &str) -> String {
+    let prefix: String = key.chars().take(5).collect();
+    if prefix.is_empty() {
+        "••••".into()
+    } else {
+        format!("{prefix}••••")
+    }
+}
+
+fn key_summaries(keys: &[String]) -> Vec<ApiKeySummary> {
+    keys.iter()
+        .enumerate()
+        .map(|(index, key)| ApiKeySummary {
+            index,
+            prefix: mask_key(key),
+            primary: index == 0,
+        })
+        .collect()
+}
+
+fn dto_for(state: &AppState, row: ProviderRow) -> ProviderDto {
+    let keys = load_keys(state, &row.id).unwrap_or_default();
+    ProviderDto {
+        row,
+        has_api_key: !keys.is_empty(),
+        api_key_count: keys.len(),
+    }
 }
 
 pub async fn list(State(state): State<AppState>) -> Result<Json<Vec<ProviderDto>>, ApiError> {
@@ -97,7 +178,7 @@ pub async fn create(
         .await?;
 
     if let Some(key) = body.api_key.as_deref().map(str::trim).filter(|k| !k.is_empty()) {
-        state.secrets.set(&provider_key(&id), key).map_err(ApiError::internal)?;
+        save_keys(&state, &id, &[key.to_string()])?;
     }
 
     let row: ProviderRow = sqlx::query_as("SELECT * FROM providers WHERE id = ?")
@@ -140,9 +221,13 @@ pub async fn update(
         .execute(&state.db)
         .await?;
 
-    match body.api_key.as_deref().map(str::trim) {
-        Some("") | None => {}
-        Some(key) => state.secrets.set(&provider_key(&id), key).map_err(ApiError::internal)?,
+    if let Some(key) = body.api_key {
+        let trimmed = key.trim();
+        if trimmed.is_empty() {
+            save_keys(&state, &id, &[])?;
+        } else {
+            save_keys(&state, &id, &[trimmed.to_string()])?;
+        }
     }
 
     let row: ProviderRow = sqlx::query_as("SELECT * FROM providers WHERE id = ?")
@@ -167,6 +252,69 @@ pub async fn delete(
     Ok(Json(json!({ "deleted": true })))
 }
 
+pub async fn list_keys(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Vec<ApiKeySummary>>, ApiError> {
+    let _row: ProviderRow = sqlx::query_as("SELECT * FROM providers WHERE id = ?")
+        .bind(&id)
+        .fetch_optional(&state.db)
+        .await?
+        .ok_or_else(|| ApiError::not_found(format!("provider {id} not found")))?;
+    Ok(Json(key_summaries(&load_keys(&state, &id)?)))
+}
+
+pub async fn add_key(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(body): Json<ApiKeyBody>,
+) -> Result<Json<Vec<ApiKeySummary>>, ApiError> {
+    let _row: ProviderRow = sqlx::query_as("SELECT * FROM providers WHERE id = ?")
+        .bind(&id)
+        .fetch_optional(&state.db)
+        .await?
+        .ok_or_else(|| ApiError::not_found(format!("provider {id} not found")))?;
+    let key = body.api_key.trim();
+    if key.is_empty() {
+        return Err(ApiError::bad_request("api_key cannot be empty"));
+    }
+    let mut keys = load_keys(&state, &id)?;
+    keys.push(key.to_string());
+    save_keys(&state, &id, &keys)?;
+    Ok(Json(key_summaries(&keys)))
+}
+
+pub async fn update_key(
+    State(state): State<AppState>,
+    Path((id, index)): Path<(String, usize)>,
+    Json(body): Json<ApiKeyBody>,
+) -> Result<Json<Vec<ApiKeySummary>>, ApiError> {
+    let mut keys = load_keys(&state, &id)?;
+    let key = body.api_key.trim();
+    if key.is_empty() {
+        return Err(ApiError::bad_request("api_key cannot be empty"));
+    }
+    let slot = keys
+        .get_mut(index)
+        .ok_or_else(|| ApiError::not_found("api key slot not found"))?;
+    *slot = key.to_string();
+    save_keys(&state, &id, &keys)?;
+    Ok(Json(key_summaries(&keys)))
+}
+
+pub async fn delete_key(
+    State(state): State<AppState>,
+    Path((id, index)): Path<(String, usize)>,
+) -> Result<Json<Vec<ApiKeySummary>>, ApiError> {
+    let mut keys = load_keys(&state, &id)?;
+    if index >= keys.len() {
+        return Err(ApiError::not_found("api key slot not found"));
+    }
+    keys.remove(index);
+    save_keys(&state, &id, &keys)?;
+    Ok(Json(key_summaries(&keys)))
+}
+
 #[derive(Serialize)]
 pub struct TestResult {
     pub ok: bool,
@@ -186,17 +334,14 @@ pub async fn test(
 
     let kind = ProviderKind::from_str_loose(&row.kind)
         .ok_or_else(|| ApiError::bad_request(format!("unknown provider kind {}", row.kind)))?;
-    let api_key = state
+    let raw_key = state
         .secrets
         .get(&provider_key(&id))
-        .map_err(ApiError::internal)?
-        .unwrap_or_default();
-
-    let api_key = api_key.trim().to_string();
+        .map_err(ApiError::internal)?;
     let provider = crate::providers::build(
         kind,
         row.base_url.as_deref(),
-        (!api_key.is_empty()).then_some(api_key.as_str()),
+        raw_key.as_deref(),
     )
     .map_err(ApiError::internal)?;
     match provider.list_models().await {
@@ -226,17 +371,14 @@ pub async fn remote_models(
 
     let kind = ProviderKind::from_str_loose(&row.kind)
         .ok_or_else(|| ApiError::bad_request(format!("unknown provider kind {}", row.kind)))?;
-    let api_key = state
+    let raw_key = state
         .secrets
         .get(&provider_key(&id))
-        .map_err(ApiError::internal)?
-        .unwrap_or_default();
-
-    let api_key = api_key.trim().to_string();
+        .map_err(ApiError::internal)?;
     let provider = crate::providers::build(
         kind,
         row.base_url.as_deref(),
-        (!api_key.is_empty()).then_some(api_key.as_str()),
+        raw_key.as_deref(),
     )
     .map_err(ApiError::internal)?;
     let models = provider
