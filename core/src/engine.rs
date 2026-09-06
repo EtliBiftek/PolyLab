@@ -76,17 +76,18 @@ impl ChatEngine {
         conversation_id: String,
         content: String,
         attachments: Vec<AttachmentIn>,
+        web: bool,
     ) {
         let engine = Arc::clone(self);
-        tokio::spawn(async move { engine.run(conversation_id, content, attachments).await });
+        tokio::spawn(async move { engine.run(conversation_id, content, attachments, web).await });
     }
 
     /// Synchronous variant used by tests and future internal callers.
     pub async fn send_message(&self, conversation_id: String, content: String) {
-        self.run(conversation_id, content, Vec::new()).await;
+        self.run(conversation_id, content, Vec::new(), false).await;
     }
 
-    async fn run(&self, conversation_id: String, content: String, attachments: Vec<AttachmentIn>) {
+    async fn run(&self, conversation_id: String, content: String, attachments: Vec<AttachmentIn>, web: bool) {
         let token = CancellationToken::new();
         {
             let mut cancels = self.cancels.lock().await;
@@ -102,7 +103,7 @@ impl ChatEngine {
             cancels.insert(conversation_id.clone(), token.clone());
         }
 
-        self.run_guarded(conversation_id.clone(), content, attachments, token).await;
+        self.run_guarded(conversation_id.clone(), content, attachments, web, token).await;
 
         self.cancels.lock().await.remove(&conversation_id);
     }
@@ -112,9 +113,10 @@ impl ChatEngine {
         conversation_id: String,
         content: String,
         attachments: Vec<AttachmentIn>,
+        web: bool,
         cancel: CancellationToken,
     ) {
-        match self.run_inner(&conversation_id, content, attachments, cancel).await {
+        match self.run_inner(&conversation_id, content, attachments, web, cancel).await {
             Ok(()) => {}
             Err(error) => {
                 tracing::error!(%error, conversation_id, "send_message failed");
@@ -133,6 +135,7 @@ impl ChatEngine {
         conversation_id: &str,
         content: String,
         attachments: Vec<AttachmentIn>,
+        web: bool,
         cancel: CancellationToken,
     ) -> anyhow::Result<()> {
         let conversation: Conversation = sqlx::query_as(
@@ -301,6 +304,7 @@ impl ChatEngine {
             temperature: model.temperature.map(|t| t as f32),
             max_tokens: model.max_tokens.map(|t| t as u32),
             images,
+            web,
         };
 
         // --- assistant row + start event ---------------------------------------
@@ -467,6 +471,7 @@ impl ChatEngine {
             temperature: Some(0.3),
             max_tokens: Some(48),
             images: Vec::new(),
+            web: false,
         };
         let Ok(mut stream) = provider.stream_chat(request).await else { return };
         let mut title = String::new();

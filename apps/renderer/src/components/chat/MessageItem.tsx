@@ -2,6 +2,7 @@ import { memo, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Message, Model } from "../../lib/api";
+import { useSettings } from "../../stores/settings";
 import { MarkdownBody } from "./MarkdownBody";
 import { ThinkingPanel } from "./ThinkingPanel";
 import { AgentSteps } from "./AgentView";
@@ -90,6 +91,7 @@ export const MessageItem = memo(function MessageItem({
   coding: boolean;
 }) {
   const { t } = useTranslation();
+  const showTimestamps = useSettings((state) => state.showTimestamps);
   const steps = useAgentSteps(message, coding);
 
   if (message.role === "user") {
@@ -124,10 +126,15 @@ export const MessageItem = memo(function MessageItem({
       {group && <DebateTranscript messageId={message.id} models={models} />}
       {steps.length > 0 && <AgentSteps steps={steps} />}
       <MarkdownBody content={message.content} />
-      {(usage != null || model != null) && (
+      {(usage != null || model != null || showTimestamps) && (
         <div className="mt-1.5 flex items-center gap-3 text-[11.5px] text-txt-2">
           {model != null && <span>{model.display_name}</span>}
           {usage != null && <span className="tabular-nums">{usage}</span>}
+          {showTimestamps && (
+            <span className="tabular-nums">
+              {new Date(message.created_at).toLocaleString()}
+            </span>
+          )}
         </div>
       )}
     </div>

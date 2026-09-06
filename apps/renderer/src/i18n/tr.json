@@ -18,7 +18,8 @@
     "chatMenu": "Sohbet menüsü",
     "rename": "Yeniden adlandır",
     "pin": "Sabitle",
-    "unpin": "Sabitlemeyi kaldır"
+    "unpin": "Sabitlemeyi kaldır",
+    "codingConversations": "Kodlama sohbetleri"
   },
   "topbar": {
     "workspace": "PolyLab",
@@ -33,6 +34,11 @@
       "noneYet": "Henüz model eklenmedi.\nAyarlar → Sağlayıcı ekle ile başlayın.",
       "noMatches": "Eşleşen model yok.",
       "notAvailableYet": "Model bağlama Faz 1'de geliyor"
+    },
+    "folder": {
+      "select": "Klasör seç",
+      "hint": "Ajan, git ve terminal bu klasöre kısıtlanır",
+      "prompt": "Proje klasörü yolu"
     }
   },
   "status": {
@@ -64,7 +70,14 @@
     "usage": "{{in}} giriş · {{out}} çıkış token",
     "providerError": "Sağlayıcı hatası",
     "think.onHint": "{name} — think modu AÇIK, kapatmak için tıkla",
-    "think.offHint": "{name} — think modu KAPALI, açmak için tıkla"
+    "think.offHint": "{name} — think modu KAPALI, açmak için tıkla",
+    "think": {
+      "pickModel": "Önce bir model seç"
+    },
+    "web": {
+      "hint": "Web'de ara (OpenRouter web eklentisi)",
+      "unsupported": "Web arama yalnızca OpenRouter sağlayıcısında desteklenir"
+    }
   },
   "thinking": {
     "title": "Düşünme süreci · {{chars}} karakter",
@@ -102,12 +115,15 @@
       "testOk": "Bağlantı başarılı ✓ ({{count}} model)",
       "testFail": "Bağlantı başarısız: {{detail}}",
       "delete": "Sağlayıcıyı sil",
-      "confirmDelete": "Emin misiniz?",
+      "confirmDelete": "Onayla",
       "models": "Modeller",
       "reload": "Yenile",
       "noModels": "Model listesi alınamadı. Bağlantıyı test edin.",
       "added": "ekli",
-      "add": "ekle"
+      "add": "ekle",
+      "defaultEndpoint": "Sağlayıcı varsayılan adresi",
+      "testing": "Test ediliyor…",
+      "unknownError": "Bilinmeyen hata"
     },
     "theme": "Görünüm",
     "themeLight": "Beyaz",
@@ -116,6 +132,89 @@
     "model": {
       "temperature": "Sıcaklık",
       "maxTokens": "Maks token"
+    },
+    "data": "Veri",
+    "about": "Hakkında",
+    "sendOnEnter": "Enter ile gönder",
+    "sendOnEnterHint": "Açıkken Enter mesajı gönderir; Shift+Enter her zaman alt satır ekler",
+    "showTimestamps": "Zaman damgalarını göster",
+    "exportData": "Sohbetleri dışa aktar (JSON)",
+    "exporting": "Dışa aktarılıyor…",
+    "exportHint": "Tüm sohbetler ve mesaj geçmişi tek JSON dosyasına iner.",
+    "subtitle": "PolyLab yapılandırması",
+    "nav": {
+      "general": "Genel",
+      "providers": "Sağlayıcılar",
+      "groups": "Model grupları"
+    },
+    "workspace": "Çalışma alanı",
+    "workspaceSummary": "{{providers}} sağlayıcı · {{models}} model · {{groups}} grup",
+    "generalSubtitle": "Tema, dil, yazma alanı davranışı ve veri",
+    "providersSubtitle": "Bağlantılar, yedek anahtarlar ve model kataloğu",
+    "groupsSubtitle": "Çok modelli tartışma grupları oluşturun ve yönetin",
+    "themeDesc": "PolyLab içinde kullanılan görsel temayı seçin.",
+    "themeLabel": "Tema",
+    "themeRowDesc": "Uygulama anında güncellenir.",
+    "language": "Dil",
+    "languageDesc": "Arayüz dilini değiştirin.",
+    "languageLabel": "Arayüz",
+    "languageRowDesc": "Türkçe veya İngilizce.",
+    "composer": "Yazma alanı",
+    "composerDesc": "Sohbet mesajlarının giriş ve çıkış davranışı.",
+    "fallbackTitle": "Sağlayıcı yedeği",
+    "fallbackDesc": "Anahtarlar yapılandırılmış gizli depoda kalır ve hiçbir zaman tam olarak döndürülmez.",
+    "fallbackPoint1": "API 1 birincil anahtardır.",
+    "fallbackPoint2": "Bağlantı/kurulum/akış hatalarında API 2, API 3 ve sonraki anahtarlara geçilir.",
+    "fallbackPoint3": "Sağlayıcı ve seçili model değişmeden kalır.",
+    "dataDesc": "Sohbet geçmişinizi yedekleyin veya taşıyın.",
+    "aboutDesc": "Çalışma zamanı ve derleme bilgileri.",
+    "aboutVersion": "PolyLab v{{version}}",
+    "aboutElectron": "Electron {{version}}",
+    "aboutWeb": "Web önizlemesi",
+    "connections": "Bağlantılar",
+    "providerSummary": "{{models}} model · {{keys}} anahtar",
+    "noProviders": "Henüz sağlayıcı yapılandırılmadı.",
+    "configuredModels": "Yapılandırılmış modeller",
+    "configuredModelsDesc": "Görünen adları ve çalışma zamanı varsayılanlarını ayarlayın.",
+    "noConfiguredModels": "Aşağıdaki katalogdan model ekleyin.",
+    "modelCatalog": "Model kataloğu",
+    "modelCatalogDesc": "Model adına veya kimliğine göre arayın.",
+    "refreshCatalog": "Model kataloğunu yenile",
+    "searchModels": "Model ara…",
+    "loadingCatalog": "Model kataloğu yükleniyor…",
+    "noCatalogModels": "Bu sağlayıcı model döndürmedi.",
+    "noMatchingModels": "Eşleşen model yok.",
+    "apiKeys": "API anahtarları / yedek zinciri",
+    "apiKeysHint": "Yalnızca ilk 5 karakter gösterilir. API 1 birincildir.",
+    "keysConfigured": "{{count}} yapılandırıldı",
+    "keyPrimary": "Birincil",
+    "keyFallback": "Yedek {{index}}",
+    "newKey": "Yeni API anahtarı",
+    "addFallbackPlaceholder": "Yedek için başka bir API anahtarı ekle",
+    "addFallback": "Yedek ekle",
+    "fallbackNote": "Aynı sağlayıcı ve model korunur. Kurulum/bağlantı/akış hatasında bir sonraki anahtar otomatik denenir.",
+    "connection": "Bağlantı",
+    "connectionDesc": "Temel URL boş bırakılırsa sağlayıcı varsayılanı kullanılır.",
+    "primaryKey": "Birincil API anahtarı",
+    "pasteKey": "Birincil anahtarı yapıştırın",
+    "notRequired": "Gerekli değil",
+    "noProviderConnected": "Sağlayıcı bağlı değil",
+    "noProviderConnectedDesc": "Sağlayıcı ekleyin, model kataloğunu çekin, ardından yalnızca kullanmak istediğiniz modelleri ekleyin.",
+    "catalog": {
+      "added": "Eklendi",
+      "add": "Ekle"
+    },
+    "enabled": "Etkin",
+    "groups": {
+      "createTitle": "Model grubu oluştur",
+      "createDesc": "İki veya daha fazla model seçin. Gruplar çok modelli tartışma sohbetlerini besler.",
+      "namePlaceholder": "örn. Kodlama paneli",
+      "create": "Grup oluştur",
+      "creating": "Oluşturuluyor…",
+      "selectedCount": "{{count}} seçildi",
+      "existingTitle": "Mevcut gruplar",
+      "existingDesc": "Tartışma sohbetleri için yeniden kullanılabilir model setleri.",
+      "noGroups": "Henüz grup yok."
     }
   },
   "common": {
@@ -126,7 +225,10 @@
     "comingSoonPhase1": "Faz 1'de geliyor",
     "comingSoonPhase3": "Faz 3'te geliyor",
     "remove": "Kaldır",
-    "refresh": "Yenile"
+    "refresh": "Yenile",
+    "save": "Kaydet",
+    "change": "Değiştir",
+    "saving": "Kaydediliyor…"
   },
   "groups": {
     "tabModels": "Modeller",

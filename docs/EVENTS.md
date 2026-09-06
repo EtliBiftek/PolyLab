@@ -37,7 +37,7 @@ between the renderer and `polylab-core`. When the contract changes, update this 
 |---|---|---|
 | `ping` | — | 0 |
 | `echo` | `text: string` (loopback test event) | 0 |
-| `send_message` | `conversation_id, content, attachments[]` | 1 |
+| `send_message` | `conversation_id, content, attachments[]` | 1  `web` (bool, varsayılan `false` — OpenRouter web araması) |
 | `cancel` | `conversation_id` | 1 |
 | `agent_approve` | `approval_id, approved: bool` — answers an `agent_approval_request` | 4 |
 | `terminal_run` | `conversation_id, command` — one-shot command in the conversation workspace; output streams as `terminal_output` | 5 |

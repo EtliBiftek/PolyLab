@@ -49,6 +49,8 @@ pub struct ChatRequest {
     /// Vision attachments (data URIs). OpenAI-compatible providers attach them as
     /// image_url content parts on the final user turn; other providers ignore them.
     pub images: Vec<InputImage>,
+    /// Web search for this turn (OpenRouter `web` plugin; ignored elsewhere).
+    pub web: bool,
 }
 
 #[derive(Debug, Clone)]

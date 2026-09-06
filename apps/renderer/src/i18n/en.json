@@ -18,7 +18,8 @@
     "chatMenu": "Chat menu",
     "rename": "Rename",
     "pin": "Pin",
-    "unpin": "Unpin"
+    "unpin": "Unpin",
+    "codingConversations": "Coding chats"
   },
   "topbar": {
     "workspace": "PolyLab",
@@ -33,6 +34,11 @@
       "noneYet": "No models yet.\nStart in Settings → Add provider.",
       "noMatches": "No matching models.",
       "notAvailableYet": "Connecting models arrives in Phase 1"
+    },
+    "folder": {
+      "select": "Choose folder",
+      "hint": "Agent, git and terminal are rooted at this folder",
+      "prompt": "Project folder path"
     }
   },
   "status": {
@@ -64,7 +70,14 @@
     "usage": "{{in}} in · {{out}} out tokens",
     "providerError": "Provider error",
     "think.onHint": "{name} — think mode ON, click to disable",
-    "think.offHint": "{name} — think mode OFF, click to enable"
+    "think.offHint": "{name} — think mode OFF, click to enable",
+    "think": {
+      "pickModel": "Pick a model first"
+    },
+    "web": {
+      "hint": "Search the web (OpenRouter web plugin)",
+      "unsupported": "Web search is only supported on OpenRouter providers"
+    }
   },
   "thinking": {
     "title": "Thinking · {{chars}} characters",
@@ -102,12 +115,15 @@
       "testOk": "Connection OK ✓ ({{count}} models)",
       "testFail": "Connection failed: {{detail}}",
       "delete": "Delete provider",
-      "confirmDelete": "Are you sure?",
+      "confirmDelete": "Confirm",
       "models": "Models",
       "reload": "Reload",
       "noModels": "Could not fetch the model list. Test the connection.",
       "added": "added",
-      "add": "add"
+      "add": "add",
+      "defaultEndpoint": "Provider default endpoint",
+      "testing": "Testing…",
+      "unknownError": "Unknown error"
     },
     "theme": "Appearance",
     "themeLight": "Light",
@@ -116,6 +132,89 @@
     "model": {
       "temperature": "Temp",
       "maxTokens": "Max tokens"
+    },
+    "data": "Data",
+    "about": "About",
+    "sendOnEnter": "Enter sends",
+    "sendOnEnterHint": "When on, Enter sends the message; Shift+Enter always inserts a newline",
+    "showTimestamps": "Show timestamps",
+    "exportData": "Export chats (JSON)",
+    "exporting": "Exporting…",
+    "exportHint": "All conversations with full message history download as one JSON file.",
+    "subtitle": "PolyLab configuration",
+    "nav": {
+      "general": "General",
+      "providers": "Providers",
+      "groups": "Model groups"
+    },
+    "workspace": "Workspace",
+    "workspaceSummary": "{{providers}} providers · {{models}} models · {{groups}} groups",
+    "generalSubtitle": "Theme, language, composer behavior and data",
+    "providersSubtitle": "Connections, fallback keys and model catalog",
+    "groupsSubtitle": "Create and manage multi-model debate groups",
+    "themeDesc": "Choose the visual theme used across PolyLab.",
+    "themeLabel": "Theme",
+    "themeRowDesc": "The app updates immediately.",
+    "language": "Language",
+    "languageDesc": "Switch the interface language.",
+    "languageLabel": "Interface",
+    "languageRowDesc": "Turkish or English.",
+    "composer": "Composer",
+    "composerDesc": "Input and output behavior for chat messages.",
+    "fallbackTitle": "Provider fallback",
+    "fallbackDesc": "Keys stay in the configured secret store and are never returned in full.",
+    "fallbackPoint1": "API 1 is primary.",
+    "fallbackPoint2": "Connection/setup/stream failures advance through API 2, API 3 and later keys.",
+    "fallbackPoint3": "The provider and selected model stay unchanged.",
+    "dataDesc": "Back up or move your chat history.",
+    "aboutDesc": "Runtime and build information.",
+    "aboutVersion": "PolyLab v{{version}}",
+    "aboutElectron": "Electron {{version}}",
+    "aboutWeb": "Web preview",
+    "connections": "Connections",
+    "providerSummary": "{{models}} models · {{keys}} keys",
+    "noProviders": "No providers configured yet.",
+    "configuredModels": "Configured models",
+    "configuredModelsDesc": "Tune display names and runtime defaults.",
+    "noConfiguredModels": "Add models from the catalog below.",
+    "modelCatalog": "Model catalog",
+    "modelCatalogDesc": "Search by model name or model id.",
+    "refreshCatalog": "Refresh model catalog",
+    "searchModels": "Search models…",
+    "loadingCatalog": "Loading model catalog…",
+    "noCatalogModels": "No models returned by this provider.",
+    "noMatchingModels": "No matching models.",
+    "apiKeys": "API keys / fallback chain",
+    "apiKeysHint": "Only the first 5 characters are shown. API 1 is primary.",
+    "keysConfigured": "{{count}} configured",
+    "keyPrimary": "Primary",
+    "keyFallback": "Fallback {{index}}",
+    "newKey": "New API key",
+    "addFallbackPlaceholder": "Add another API key for fallback",
+    "addFallback": "Add fallback",
+    "fallbackNote": "Same provider and model are preserved. On a setup/connection/stream error, the next key is tried automatically.",
+    "connection": "Connection",
+    "connectionDesc": "Base URL may be left blank to use the provider default.",
+    "primaryKey": "Primary API key",
+    "pasteKey": "Paste primary key",
+    "notRequired": "Not required",
+    "noProviderConnected": "No provider connected",
+    "noProviderConnectedDesc": "Add a provider, pull its model catalog, then attach only the models you want to use.",
+    "catalog": {
+      "added": "Added",
+      "add": "Add"
+    },
+    "enabled": "Enabled",
+    "groups": {
+      "createTitle": "Create a model group",
+      "createDesc": "Pick two or more models. Groups power multi-model debate chats.",
+      "namePlaceholder": "e.g. Coding panel",
+      "create": "Create group",
+      "creating": "Creating…",
+      "selectedCount": "{{count}} selected",
+      "existingTitle": "Existing groups",
+      "existingDesc": "Reusable model sets for debate chats.",
+      "noGroups": "No groups yet."
     }
   },
   "common": {
@@ -126,7 +225,10 @@
     "comingSoonPhase1": "Coming in Phase 1",
     "comingSoonPhase3": "Coming in Phase 3",
     "remove": "Remove",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "save": "Save",
+    "change": "Change",
+    "saving": "Saving…"
   },
   "groups": {
     "tabModels": "Models",

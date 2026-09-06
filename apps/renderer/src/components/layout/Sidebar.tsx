@@ -20,6 +20,7 @@ export function Sidebar() {
   const lastModelId = useSettings((state) => state.lastModelId);
   const coreVersion = useConnection((state) => state.coreVersion);
   const status = useConnection((state) => state.status);
+  const mode = useSettings((state) => state.mode);
   const conversations = useChat((state) => state.conversations);
   const activeId = useChat((state) => state.activeId);
   const loaded = useChat((state) => state.loaded);
@@ -50,10 +51,15 @@ export function Sidebar() {
   }, [menuFor]);
 
   const filtered = useMemo(() => {
+    // The sidebar follows the global Chat/Coding switch: each mode keeps its
+    // own conversation list.
+    const forMode = conversations.filter((conversation) => conversation.mode === mode);
     const needle = query.trim().toLowerCase();
-    if (needle.length === 0) return conversations;
-    return conversations.filter((conversation) => (conversation.title ?? "").toLowerCase().includes(needle));
-  }, [conversations, query]);
+    if (needle.length === 0) return forMode;
+    return forMode.filter((conversation) =>
+      (conversation.title ?? "").toLowerCase().includes(needle),
+    );
+  }, [conversations, mode, query];
 
   if (sidebarCollapsed) {
     return (
@@ -80,7 +86,9 @@ export function Sidebar() {
         <div className="relative mt-2"><SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-txt-2" /><input type="text" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("sidebar.searchPlaceholder")} className="h-8 w-full rounded-lg border border-border bg-surface pl-9 pr-3 text-[13px] text-txt-0 placeholder:text-txt-2 focus:border-txt-2/40 focus:outline-none" /></div>
       </div>
       <div className="mt-5 flex min-h-0 flex-1 flex-col px-3">
-        <div className="px-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-txt-2">{t("sidebar.conversations")}</div>
+        <div className="px-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-txt-2">
+          {mode === "coding" ? t("sidebar.codingConversations") : t("sidebar.conversations")}
+        </div>
         <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pb-2">
           {filtered.map((conversation) => {
             const active = conversation.id === activeId;

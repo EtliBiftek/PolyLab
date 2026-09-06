@@ -124,6 +124,7 @@ pub async fn run_agent(
             temperature: model.temperature.map(|t| t as f32),
             max_tokens: model.max_tokens.map(|t| t as u32),
             images: Vec::new(),
+            web: false,
         };
         let prompt_chars: u64 =
             messages.iter().map(|m| estimate(&m.content)).sum::<u64>().max(1);
@@ -379,11 +380,11 @@ async fn run_exec(workspace: &std::path::Path, command: &str) -> anyhow::Result<
     if command.trim().is_empty() {
         anyhow::bail!("boş komut");
     }
+    let (program, args) = crate::terminal::shell_exec(command);
     let output = tokio::time::timeout(
         std::time::Duration::from_secs(45),
-        tokio::process::Command::new("bash")
-            .arg("-c")
-            .arg(format!("{command} 2>&1"))
+        tokio::process::Command::new(program)
+            .args(args)
             .current_dir(workspace)
             .output(),
     )

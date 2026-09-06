@@ -9,6 +9,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
 import i18n from "../i18n";
+import { useChat } from "../stores/chat";
+import type { Message } from "../lib/api";
 
 /* ------------------------------------------------------------------ mocks -- */
 
@@ -73,6 +75,17 @@ describe("App (Phase 1 shell)", () => {
 
   beforeEach(() => {
     window.localStorage.clear();
+    // Module-level zustand stores survive across tests — reset the chat state
+    // so a conversation activated in one test does not leak into the next.
+    useChat.setState({
+      conversations: [],
+      activeId: null,
+      messages: {},
+      streaming: {},
+      terminal: {},
+      pendingApproval: null,
+      sending: false,
+    });
     vi.stubGlobal("WebSocket", FakeWebSocket as unknown as typeof WebSocket);
     vi.stubGlobal("fetch", fakeFetch);
     void i18n.changeLanguage("en");
@@ -123,6 +136,44 @@ describe("App (Phase 1 shell)", () => {
     }
     expect(container.querySelector("textarea")).not.toBeNull();
     expect(text()).toContain("Enter to send");
+  });
+
+  it("survives the empty → first-message transition (React #310 regression)", async () => {
+    // Regression: App used to call the `streaming` hook conditionally
+    // (activeId != null ? useChat(...) : undefined). Mounting with no active
+    // conversation and activating one afterwards changed the hook count and
+    // crashed the whole tree ("Minified React error #310" / white screen).
+    const userMessage: Message = {
+      id: "m1",
+      conversation_id: "c1",
+      role: "user",
+      content: "ilk mesaj merhaba",
+      reasoning: null,
+      model_id: null,
+      tokens_in: null,
+      tokens_out: null,
+      tokens_estimated: null,
+      attachments_json: null,
+      created_at: "2026-01-01T00:00:00Z",
+    };
+
+    await act(async () => {
+      root.render(<App />);
+    });
+    await flush();
+    expect(useChat.getState().activeId).toBeNull();
+
+    // First message: a conversation becomes active for the first time.
+    await act(async () => {
+      useChat.setState({
+        activeId: "c1",
+        messages: { c1: [userMessage] },
+        streaming: { c1: undefined },
+      });
+    });
+    await flush();
+
+    expect(text()).toContain("ilk mesaj merhaba");
   });
 
   it("switches every UI string between TR and EN", async () => {

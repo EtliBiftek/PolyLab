@@ -32,13 +32,13 @@ jobs:
         with:
           workspaces: core
 
-      - name: Install JS dependencies (incl. Electron binary)
+      - name: Install JS dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Restore vendor-only optional deps (keyring, tiktoken)
+      - name: Restore optional deps (keyring, tiktoken)
         run: node scripts/enable-optional-deps.mjs
 
-      - name: Build core (release; keyring default + tiktoken)
+      - name: Build core (release)
         working-directory: core
         run: cargo build --release --features tiktoken
 
@@ -58,3 +58,11 @@ jobs:
           path: |
             release/*.exe
           if-no-files-found: error
+
+      - name: Attach exes to tag release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --title "PolyLab $GITHUB_REF_NAME" --generate-notes release/*.exe || gh release upload "$GITHUB_REF_NAME" release/*.exe --clobber
