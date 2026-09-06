@@ -123,7 +123,8 @@
       "add": "add",
       "defaultEndpoint": "Provider default endpoint",
       "testing": "Testing…",
-      "unknownError": "Unknown error"
+      "unknownError": "Unknown error",
+      "apiKeysTitle": "Provider API keys"
     },
     "theme": "Appearance",
     "themeLight": "Light",
@@ -215,7 +216,8 @@
       "existingTitle": "Existing groups",
       "existingDesc": "Reusable model sets for debate chats.",
       "noGroups": "No groups yet."
-    }
+    },
+    "noKeys": "No API keys configured yet."
   },
   "common": {
     "close": "Close",

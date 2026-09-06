@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { fsList, fsRead, getConversation, gitCommit, gitOp } from "../../lib/api";
+import { fsList, fsRead, gitCommit, gitOp } from "../../lib/api";
 import { useChat } from "../../stores/chat";
 import { extractCodeBlocks, useArtifacts } from "../../stores/artifacts";
 import { useSettings } from "../../stores/settings";
@@ -90,26 +90,24 @@ function ArtifactsTab() {
   const activeId = useArtifacts((s) => s.activeId);
   const open = useArtifacts((s) => s.open);
   const register = useArtifacts((s) => s.register);
+  const clearConversation = useArtifacts((s) => s.clearConversation);
   const conversationId = useChat((s) => s.activeId);
+  // Store-driven: re-extracts when history loads AND when a streamed message is
+  // finalized (message_done reloads `messages`), so already-open conversations
+  // refresh their artifact list without switching chats.
+  const messages = useChat((s) => (conversationId != null ? s.messages[conversationId] : undefined));
 
-  // Artifacts survive reloads: re-extract code blocks from persisted messages.
+  // Artifacts are per-conversation: drop the previous chat's blocks before
+  // re-extracting the current one (which survives reloads from history).
   useEffect(() => {
-    if (conversationId == null) return;
-    let cancelled = false;
-    void getConversation(conversationId)
-      .then((detail) => {
-        if (cancelled) return;
-        for (const message of detail.messages) {
-          if (message.role === "assistant" && message.content.includes("```")) {
-            register(message.id, extractCodeBlocks(message.content));
-          }
-        }
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [conversationId, register]);
+    clearConversation();
+    if (conversationId == null || messages == null) return;
+    for (const message of messages) {
+      if (message.role === "assistant" && message.content.includes("```")) {
+        register(message.id, extractCodeBlocks(message.content));
+      }
+    }
+  }, [conversationId, messages, register, clearConversation]);
 
   const active = artifacts.find((artifact) => artifact.id === activeId) ?? artifacts[0];
 

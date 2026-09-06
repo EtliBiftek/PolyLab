@@ -86,6 +86,34 @@ impl OpenAiCompat {
     }
 }
 
+/// Serializes the request history. When vision attachments are present they are
+/// appended as `image_url` content parts on the final user message — the only
+/// shape OpenAI-compatible APIs accept for images.
+fn build_messages(request: &ChatRequest) -> Vec<Value> {
+    let mut messages: Vec<Value> = request
+        .messages
+        .iter()
+        .map(|message| json!({ "role": message.role.as_str(), "content": message.content }))
+        .collect();
+    if request.images.is_empty() || messages.is_empty() {
+        return messages;
+    }
+    let target = request
+        .messages
+        .iter()
+        .rposition(|message| message.role == Role::User)
+        .unwrap_or(request.messages.len() - 1);
+    let mut parts = vec![json!({ "type": "text", "text": request.messages[target].content })];
+    for image in &request.images {
+        parts.push(json!({
+            "type": "image_url",
+            "image_url": { "url": image.data_uri }
+        }));
+    }
+    messages[target]["content"] = Value::Array(parts);
+    messages
+}
+
 #[async_trait::async_trait]
 impl Provider for OpenAiCompat {
     fn kind(&self) -> ProviderKind {
@@ -132,11 +160,7 @@ impl Provider for OpenAiCompat {
     async fn stream_chat(&self, request: ChatRequest) -> anyhow::Result<ChatStream> {
         let mut body = json!({
             "model": request.model,
-            "messages": request
-                .messages
-                .iter()
-                .map(|message| json!({ "role": message.role.as_str(), "content": message.content }))
-                .collect::<Vec<_>>(),
+            "messages": build_messages(&request),
             "stream": true,
         });
         if let Some(temperature) = request.temperature {
@@ -231,7 +255,7 @@ pub fn message(role: super::Role, content: impl Into<String>) -> ChatMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::providers::Role;
+    use crate::providers::{InputImage, Role};
 
     fn test_app() -> axum::Router {
         use axum::{routing::get, routing::post, Json};
@@ -278,5 +302,46 @@ mod tests {
         let message = message(Role::User, "selam");
         assert_eq!(message.role, Role::User);
         assert_eq!(message.content, "selam");
+    }
+
+    #[test]
+    fn build_messages_appends_images_to_the_last_user_turn() {
+        let request = ChatRequest {
+            model: "gpt-4o".into(),
+            messages: vec![
+                message(Role::System, "you are helpful"),
+                message(Role::User, "describe this"),
+                message(Role::Assistant, "ok"),
+                message(Role::User, "and this one"),
+            ],
+            images: vec![
+                InputImage { data_uri: "data:image/png;base64,AAA".into() },
+                InputImage { data_uri: "data:image/png;base64,BBB".into() },
+            ],
+            ..Default::default()
+        };
+        let messages = build_messages(&request);
+        assert_eq!(messages.len(), 4);
+        // Earlier turns stay plain strings.
+        assert_eq!(messages[0], json!({ "role": "system", "content": "you are helpful" }));
+        // Last user turn becomes a content array: text followed by image parts.
+        let last = &messages[3];
+        assert_eq!(last["role"], "user");
+        assert_eq!(last["content"][0]["type"], "text");
+        assert_eq!(last["content"][0]["text"], "and this one");
+        assert_eq!(last["content"][1]["type"], "image_url");
+        assert_eq!(last["content"][1]["image_url"]["url"], "data:image/png;base64,AAA");
+        assert_eq!(last["content"][2]["image_url"]["url"], "data:image/png;base64,BBB");
+    }
+
+    #[test]
+    fn build_messages_without_images_keeps_plain_content() {
+        let request = ChatRequest {
+            model: "model".into(),
+            messages: vec![message(Role::User, "selam")],
+            ..Default::default()
+        };
+        let messages = build_messages(&request);
+        assert_eq!(messages, vec![json!({ "role": "user", "content": "selam" })]);
     }
 }

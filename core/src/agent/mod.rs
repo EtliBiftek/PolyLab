@@ -389,7 +389,7 @@ async fn run_exec(workspace: &std::path::Path, command: &str) -> anyhow::Result<
             .output(),
     )
     .await
-    .map_err(|_| anyhow::anyhow!("komut zaman aşımına uğradı (45s))"))??;
+    .map_err(|_| anyhow::anyhow!("komut zaman aşımına uğradı (45s)"))??;
     Ok(format!(
         "(exit {})\n{}",
         output.status.code().unwrap_or(-1),

@@ -12,6 +12,31 @@ permissions:
   contents: write
 
 jobs:
+  core-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+
+      - name: Test core
+        working-directory: core
+        run: cargo test
+
+      - name: Lint core (deny warnings)
+        working-directory: core
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Build core
+        working-directory: core
+        run: cargo build
+
   windows:
     runs-on: windows-latest
     steps:

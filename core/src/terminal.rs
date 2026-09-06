@@ -38,7 +38,11 @@ pub fn spawn_run(
                 let _ = tx.send(format!("spawn failed: {error}"));
                 None
             }
-            Err(_) => None, // timed out; the task was aborted mid-flight
+            Err(_) => {
+                // Timed out; the task was aborted mid-flight. Tell the user why.
+                let _ = tx.send(format!("komut zaman aşımına uğradı ({TIMEOUT_SECS}s)"));
+                None
+            }
         };
         drop(tx);
 

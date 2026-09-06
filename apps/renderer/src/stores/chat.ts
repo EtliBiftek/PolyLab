@@ -395,21 +395,27 @@ export const useChat = create<ChatState>((set, get) => ({
           anon_label: string;
           delta: string;
         };
-        patchStreaming(event.conversation_id, (current) => ({
-          ...current,
-          mode: "debate",
-          content: current.content + event.delta,
-          debate: current.debate.map((roundState) =>
-            roundState.round !== event.round
-              ? roundState
-              : {
-                  ...roundState,
-                  turns: upsertTurn(roundState.turns, event.model_id, event.anon_label, {
-                    content: event.delta,
-                  }),
-                },
-          ),
-        }));
+        patchStreaming(event.conversation_id, (current) => {
+          // Only the leader's synthesis turn is part of the final answer; the
+          // argument rounds are rendered by DebateStream alone.
+          const roundState = current.debate.find((round) => round.round === event.round);
+          const isSynthesis = roundState?.phase === "synthesis";
+          return {
+            ...current,
+            mode: "debate",
+            content: isSynthesis ? current.content + event.delta : current.content,
+            debate: current.debate.map((state) =>
+              state.round !== event.round
+                ? state
+                : {
+                    ...state,
+                    turns: upsertTurn(state.turns, event.model_id, event.anon_label, {
+                      content: event.delta,
+                    }),
+                  },
+            ),
+          };
+        });
       }),
 
       client.on("debate_turn_reasoning_token", (payload) => {

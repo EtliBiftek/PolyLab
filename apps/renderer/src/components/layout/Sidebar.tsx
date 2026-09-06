@@ -59,7 +59,7 @@ export function Sidebar() {
     return forMode.filter((conversation) =>
       (conversation.title ?? "").toLowerCase().includes(needle),
     );
-  }, [conversations, mode, query];
+  }, [conversations, mode, query]);
 
   if (sidebarCollapsed) {
     return (

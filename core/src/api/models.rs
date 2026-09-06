@@ -41,10 +41,14 @@ pub struct UpsertModel {
 #[derive(Deserialize)]
 pub struct UpdateModel {
     pub display_name: Option<String>,
-    pub color: Option<String>,
-    pub temperature: Option<f64>,
-    pub max_tokens: Option<i64>,
-    pub system_prompt_override: Option<String>,
+    /// `Some(None)` clears; `None` keeps the current value.
+    pub color: Option<Option<String>>,
+    /// `Some(None)` clears; `None` keeps the current value.
+    pub temperature: Option<Option<f64>>,
+    /// `Some(None)` clears; `None` keeps the current value.
+    pub max_tokens: Option<Option<i64>>,
+    /// `Some(None)` clears; `None` keeps the current value.
+    pub system_prompt_override: Option<Option<String>>,
     pub supports_vision: Option<bool>,
     pub supports_tools: Option<bool>,
     pub supports_reasoning: Option<bool>,
@@ -157,13 +161,13 @@ pub async fn update(
         .await?
         .ok_or_else(|| ApiError::not_found(format!("model {id} not found")))?;
 
-    // Optional fields replace; None keeps the current value. For nullable columns we
-    // distinguish via a sentinel in the DTO (Phase 3 adds "clear" support).
+    // Optional fields replace; absent keeps the current value. Nullable columns use
+    // `Option<Option<T>>` so an explicit JSON `null` clears the column.
     let display_name = body.display_name.unwrap_or(row.display_name);
-    let color = body.color.or(row.color);
-    let temperature = body.temperature.or(row.temperature);
-    let max_tokens = body.max_tokens.or(row.max_tokens);
-    let system_prompt_override = body.system_prompt_override.or(row.system_prompt_override);
+    let color = body.color.unwrap_or(row.color);
+    let temperature = body.temperature.unwrap_or(row.temperature);
+    let max_tokens = body.max_tokens.unwrap_or(row.max_tokens);
+    let system_prompt_override = body.system_prompt_override.unwrap_or(row.system_prompt_override);
     let supports_vision = body.supports_vision.unwrap_or(row.supports_vision);
     let supports_tools = body.supports_tools.unwrap_or(row.supports_tools);
     let supports_reasoning = body.supports_reasoning.unwrap_or(row.supports_reasoning);

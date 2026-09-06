@@ -91,17 +91,33 @@ impl Provider for Gemini {
             .filter(|message| message.role == super::Role::System)
             .map(|message| message.content.as_str())
             .collect();
-        let contents: Vec<Value> = request
+        // Native images: `inline_data` parts on the last user turn (the only
+        // turn Gemini accepts them on).
+        let images: Vec<(String, String)> = request
+            .images
+            .iter()
+            .filter_map(|image| super::split_data_uri(&image.data_uri))
+            .collect();
+        let last_user = request
             .messages
             .iter()
-            .filter(|message| message.role != super::Role::System)
-            .map(|message| {
-                json!({
-                    "role": if message.role == super::Role::Assistant { "model" } else { "user" },
-                    "parts": [{ "text": message.content }],
-                })
-            })
-            .collect();
+            .rposition(|message| message.role == super::Role::User);
+        let mut contents: Vec<Value> = Vec::new();
+        for (index, message) in request.messages.iter().enumerate() {
+            if message.role == super::Role::System {
+                continue;
+            }
+            let mut parts = vec![json!({ "text": message.content })];
+            if last_user == Some(index) {
+                for (mime, data) in &images {
+                    parts.push(json!({ "inline_data": { "mime_type": mime, "data": data } }));
+                }
+            }
+            contents.push(json!({
+                "role": if message.role == super::Role::Assistant { "model" } else { "user" },
+                "parts": parts,
+            }));
+        }
 
         let url = format!(
             "{}/v1beta/models/{}:streamGenerateContent?alt=sse",
@@ -167,5 +183,77 @@ impl Provider for Gemini {
             }
             true
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::response::IntoResponse as _;
+    use axum::{extract::State, routing::post, Router};
+    use std::sync::{Arc, Mutex};
+
+    fn request_with_photo() -> ChatRequest {
+        ChatRequest {
+            model: "gemini-2.0-flash".into(),
+            messages: vec![
+                super::super::ChatMessage {
+                    role: super::super::Role::System,
+                    content: "sen yardımcısın".into(),
+                },
+                super::super::ChatMessage {
+                    role: super::super::Role::User,
+                    content: "bu ne?".into(),
+                },
+            ],
+            images: vec![super::super::InputImage {
+                data_uri: "data:image/png;base64,QUJD".into(),
+            }],
+            ..Default::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn images_become_inline_data_on_the_last_user_turn() {
+        let captured: Arc<Mutex<Option<Value>>> = Arc::new(Mutex::new(None));
+        let sink = Arc::clone(&captured);
+        let app = Router::new()
+            .route(
+                "/v1beta/models/{model}:streamGenerateContent",
+                post(
+                    |State(state): State<Arc<Mutex<Option<Value>>>>,
+                     axum::Json(body): axum::Json<Value>| async move {
+                        *state.lock().unwrap() = Some(body);
+                        // Empty SSE stream (only the terminal flush matters here).
+                        ([(axum::http::header::CONTENT_TYPE, "text/event-stream")], "")
+                            .into_response()
+                    },
+                ),
+            )
+            .with_state(sink);
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+
+        let provider = Gemini::new(Some(&format!("http://{addr}")), Some("key")).unwrap();
+        let _stream = provider.stream_chat(request_with_photo()).await.unwrap();
+        let body = captured.lock().unwrap().clone().expect("request captured");
+
+        let contents = body["contents"].as_array().unwrap();
+        assert_eq!(contents.len(), 1);
+        assert_eq!(contents[0]["role"], "user");
+        let parts = contents[0]["parts"].as_array().unwrap();
+        assert_eq!(parts[0]["text"], "bu ne?");
+        assert_eq!(parts[1]["inline_data"]["mime_type"], "image/png");
+        assert_eq!(parts[1]["inline_data"]["data"], "QUJD");
+        assert_eq!(body["systemInstruction"]["parts"][0]["text"], "sen yardımcısın");
+    }
+
+    #[test]
+    fn split_data_uri_matches_native_shape() {
+        let (mime, data) = super::super::split_data_uri("data:image/jpeg;base64,MTIz").unwrap();
+        assert_eq!(mime, "image/jpeg");
+        assert_eq!(data, "MTIz");
+        assert!(super::super::split_data_uri("no-uri").is_none());
     }
 }

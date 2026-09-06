@@ -83,17 +83,35 @@ impl Provider for Anthropic {
             .filter(|message| message.role == super::Role::System)
             .map(|message| message.content.as_str())
             .collect();
-        let conversation: Vec<Value> = request
+        // Native images: `image` content blocks on the last user turn.
+        let images: Vec<(String, String)> = request
+            .images
+            .iter()
+            .filter_map(|image| super::split_data_uri(&image.data_uri))
+            .collect();
+        let last_user = request
             .messages
             .iter()
-            .filter(|message| message.role != super::Role::System)
-            .map(|message| {
-                json!({
-                    "role": if message.role == super::Role::Assistant { "assistant" } else { "user" },
-                    "content": [{ "type": "text", "text": message.content }],
-                })
-            })
-            .collect();
+            .rposition(|message| message.role == super::Role::User);
+        let mut conversation: Vec<Value> = Vec::new();
+        for (index, message) in request.messages.iter().enumerate() {
+            if message.role == super::Role::System {
+                continue;
+            }
+            let mut parts = vec![json!({ "type": "text", "text": message.content })];
+            if last_user == Some(index) {
+                for (mime, data) in &images {
+                    parts.push(json!({
+                        "type": "image",
+                        "source": { "type": "base64", "media_type": mime, "data": data },
+                    }));
+                }
+            }
+            conversation.push(json!({
+                "role": if message.role == super::Role::Assistant { "assistant" } else { "user" },
+                "content": parts,
+            }));
+        }
 
         let mut body = json!({
             "model": request.model,
@@ -181,6 +199,9 @@ impl Provider for Anthropic {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::response::IntoResponse as _;
+    use axum::{extract::State, routing::post, Router};
+    use std::sync::{Arc, Mutex};
 
     #[test]
     fn base_url_default_and_trim() {
@@ -189,5 +210,63 @@ mod tests {
             Anthropic::new(Some("http://127.0.0.1:7/"), None).unwrap().base_url,
             "http://127.0.0.1:7"
         );
+    }
+
+    #[tokio::test]
+    async fn images_become_image_blocks_on_the_last_user_turn() {
+        let captured: Arc<Mutex<Option<Value>>> = Arc::new(Mutex::new(None));
+        let sink = Arc::clone(&captured);
+        let app = Router::new()
+            .route(
+                "/v1/messages",
+                post(
+                    |State(state): State<Arc<Mutex<Option<Value>>>>,
+                     axum::Json(body): axum::Json<Value>| async move {
+                        *state.lock().unwrap() = Some(body);
+                        // Minimal valid Messages SSE stream.
+                        let sse = concat!(
+                            "data: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":3}}}\\n\\n",
+                            "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"ok\"}}\\n\\n",
+                            "data: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":1}}\\n\\n",
+                            "data: {\"type\":\"message_stop\"}\\n\\n",
+                        );
+                        ([(axum::http::header::CONTENT_TYPE, "text/event-stream")], sse).into_response()
+                    },
+                ),
+            )
+            .with_state(sink);
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+
+        let provider = Anthropic::new(Some(&format!("http://{addr}")), Some("sk-ant-test")).unwrap();
+        let request = super::super::ChatRequest {
+            model: "claude-sonnet-4".into(),
+            messages: vec![super::super::ChatMessage {
+                role: super::super::Role::User,
+                content: "bu ne?".into(),
+            }],
+            images: vec![super::super::InputImage {
+                data_uri: "data:image/png;base64,QUJD".into(),
+            }],
+            ..Default::default()
+        };
+        let mut stream = provider.stream_chat(request).await.unwrap();
+        use futures_util::StreamExt;
+        let mut text = String::new();
+        while let Some(event) = stream.next().await {
+            if let super::super::ChatEvent::TextDelta(delta) = event {
+                text.push_str(&delta);
+            }
+        }
+        assert_eq!(text, "ok");
+
+        let body = captured.lock().unwrap().clone().expect("request captured");
+        let content = body["messages"][0]["content"].as_array().unwrap();
+        assert_eq!(content[0]["type"], "text");
+        assert_eq!(content[0]["text"], "bu ne?");
+        assert_eq!(content[1]["type"], "image");
+        assert_eq!(content[1]["source"]["media_type"], "image/png");
+        assert_eq!(content[1]["source"]["data"], "QUJD");
     }
 }

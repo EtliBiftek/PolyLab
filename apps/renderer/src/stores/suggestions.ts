@@ -15,7 +15,7 @@ const POOLS: Record<"tr" | "en", Record<Mode, string[]>> = {
       "Bana ilginç bir bilim kurgu hikâyesi anlat.",
       "Haftalık yemek planı hazırla, akşam yemekleri için.",
       "Öğrenmekte zorlandığım konuları sınavda nasıl hatırlarım?",
-      "BirメールSlack mesajını kibarca nasıl reddederim? Örnek yaz.",
+      "Bir e-posta ya da Slack mesajını kibarca nasıl reddederim? Örnek yaz.",
       "İstanbul'da yağmurlu bir gün için 3 saatlik bir plan yap.",
       "Uyku düzenimi düzeltmek için pratik adımlar sırala.",
       "Bana kolay bir akşam yemeği tarifi ver, eldekilerle olur.",

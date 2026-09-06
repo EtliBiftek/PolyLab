@@ -36,9 +36,14 @@ pub async fn status(root: &Path) -> anyhow::Result<String> {
 }
 
 /// Unified diff of staged + unstaged changes (capped); untracked files are
-/// appended by name since `git diff` never lists them.
+/// appended by name since `git diff` never lists them. Works on repositories
+/// without a HEAD commit (`git diff HEAD` would fail there).
 pub async fn diff(root: &Path) -> anyhow::Result<String> {
-    let mut out = run(root, &["diff", "HEAD"]).await?;
+    let mut out = match run(root, &["diff", "HEAD"]).await {
+        Ok(o) => o,
+        // No commits yet (or other HEAD errors): fall back to the index diff.
+        Err(_) => run(root, &["diff"]).await?,
+    };
     if out.trim().is_empty() {
         out = run(root, &["diff"]).await?;
     }
@@ -90,6 +95,29 @@ mod tests {
         git(&["add", "-A"]);
         git(&["commit", "-q", "-m", "init"]);
         dir
+    }
+
+    #[tokio::test]
+    async fn diff_works_in_repo_without_commits() {
+        let dir = std::env::temp_dir().join(format!("polylab-git-nocommit-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let git = |args: &[&str]| {
+            let out = std::process::Command::new("git")
+                .arg("-C")
+                .arg(&dir)
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        };
+        git(&["init", "-q"]);
+        git(&["config", "user.email", "test@polylab.local"]);
+        git(&["config", "user.name", "PolyLab Test"]);
+        std::fs::write(dir.join("new.txt"), "fresh\n").unwrap();
+        // Prior behavior: `git diff HEAD` fails on a repo without commits.
+        let d = diff(&dir).await.unwrap();
+        assert!(d.contains("new.txt"), "diff on empty-history repo: {d}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[tokio::test]

@@ -58,6 +58,18 @@ pub struct InputImage {
     pub data_uri: String,
 }
 
+/// Splits `data:{mime};base64,{data}` into `(mime_type, base64)`; the native
+/// Gemini/Anthropic payloads need them separately (OpenAI-compatible sends the
+/// whole URI as `image_url.url`).
+pub(crate) fn split_data_uri(uri: &str) -> Option<(String, String)> {
+    let rest = uri.strip_prefix("data:")?;
+    let (mime, payload) = rest.split_once(";base64,")?;
+    if mime.is_empty() || payload.is_empty() {
+        return None;
+    }
+    Some((mime.to_string(), payload.to_string()))
+}
+
 #[derive(Debug, Clone)]
 pub enum ChatEvent {
     TextDelta(String),
