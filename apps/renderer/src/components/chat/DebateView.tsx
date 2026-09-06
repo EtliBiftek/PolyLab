@@ -20,7 +20,6 @@ function completedCount(round: DebateRoundState): number {
   return round.turns.filter((turn) => turn.done).length;
 }
 
-/** One participant block inside a round. */
 function TurnBlock({
   label,
   realName,
@@ -38,6 +37,9 @@ function TurnBlock({
   done: boolean;
   featured?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const collapsible = !featured && (content.length > 260 || reasoning.length > 220);
+
   return (
     <div
       className={
@@ -73,15 +75,31 @@ function TurnBlock({
           <span className="shrink-0 text-[10.5px] tabular-nums text-txt-2">{tokens}</span>
         )}
       </div>
-      {reasoning.length > 0 && (
-        <p className="mb-1 line-clamp-2 whitespace-pre-wrap text-[11.5px] italic text-txt-2">
-          {reasoning.slice(-220)}
+
+      <div className={collapsible && !expanded ? "relative max-h-24 overflow-hidden" : undefined}>
+        {reasoning.length > 0 && (
+          <p className="mb-1 whitespace-pre-wrap text-[11.5px] italic text-txt-2">
+            {reasoning.slice(-220)}
+          </p>
+        )}
+        <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-txt-1">
+          {content || (!done ? "Working…" : "")}
+          {!done && <span className="ml-0.5 inline-block animate-pulse">▍</span>}
         </p>
+        {collapsible && !expanded && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-surface to-transparent" />
+        )}
+      </div>
+
+      {collapsible && (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          className="mt-1.5 text-[10.5px] font-medium text-accent hover:underline"
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
       )}
-      <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-txt-1">
-        {content || (!done ? "Working…" : "")}
-        {!done && <span className="ml-0.5 inline-block animate-pulse">▍</span>}
-      </p>
     </div>
   );
 }
@@ -121,7 +139,6 @@ function usage(tokensIn: number | null, tokensOut: number | null): string | null
   return `${tokensIn ?? 0}→${tokensOut ?? 0} tok`;
 }
 
-/** Live debate view rendered while a group message streams. */
 export function DebateStream({
   debate,
   models,
@@ -205,7 +222,6 @@ export function DebateStream({
   );
 }
 
-/** Collapsible replay of a finished debate, fetched by message id. */
 export function DebateTranscript({ messageId, models }: { messageId: string; models: Model[] }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -236,8 +252,7 @@ export function DebateTranscript({ messageId, models }: { messageId: string; mod
           {t("debate.transcript", {
             rounds: debate?.rounds_total ?? "…",
             models: debate?.turns
-              ? new Set(debate.turns.filter((x) => x.phase !== "synthesis").map((x) => x.model_id))
-                  .size
+              ? new Set(debate.turns.filter((x) => x.phase !== "synthesis").map((x) => x.model_id)).size
               : "…",
           })}
         </span>
@@ -312,7 +327,6 @@ export function DebateTranscript({ messageId, models }: { messageId: string; mod
   );
 }
 
-/** Wrapper: shows live debate or replay depending on the streaming state. */
 export function DebateArea({
   streaming,
   messageId,
