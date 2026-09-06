@@ -88,7 +88,6 @@ struct KeyBundle {
 }
 
 /// Encodes multiple provider API keys into the existing secret-store value.
-/// Older installations may still contain one raw key; those remain supported.
 pub fn encode_key_bundle(keys: &[String]) -> anyhow::Result<String> {
     serde_json::to_string(&KeyBundle {
         __polylab_keys: true,
@@ -198,12 +197,7 @@ impl Provider for FallbackProvider {
                             Err(error) => {
                                 if !advance_fallback(&mut state) {
                                     state.done = true;
-                                    return Some((
-                                        ChatEvent::Error {
-                                            detail: error.to_string(),
-                                        },
-                                        state,
-                                    ));
+                                    return Some((ChatEvent::Error { detail: error.to_string() }, state));
                                 }
                                 continue;
                             }
@@ -211,22 +205,15 @@ impl Provider for FallbackProvider {
                         Err(error) => {
                             if !advance_fallback(&mut state) {
                                 state.done = true;
-                                return Some((
-                                    ChatEvent::Error {
-                                        detail: error.to_string(),
-                                    },
-                                    state,
-                                ));
+                                return Some((ChatEvent::Error { detail: error.to_string() }, state));
                             }
                             continue;
                         }
                     }
                 }
 
-                let event = state.stream.as_mut().and_then(|stream| futures_util::future::ready(()).now_or_never().and_then(|_| None));
-                let _ = event;
-                let stream = state.stream.as_mut().expect("fallback stream initialized");
-                match stream.next().await {
+                let inner = state.stream.as_mut().expect("fallback stream initialized");
+                match inner.next().await {
                     Some(ChatEvent::TextDelta(delta)) => {
                         state.partial.push_str(&delta);
                         return Some((ChatEvent::TextDelta(delta), state));
