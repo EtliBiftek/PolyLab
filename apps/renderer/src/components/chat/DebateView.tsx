@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 import { listDebates, type DebateReplay, type Model } from "../../lib/api";
 import type { DebateRoundState } from "../../stores/chat";
 import type { StreamingMessage } from "../../stores/chat";
 
-function phaseLabel(phase: string, t: (key: string, fallback?: string) => string): string {
+function phaseLabel(phase: string, t: TFunction): string {
   if (phase === "initial") return t("debate.phaseInitial");
   if (phase === "critique") return t("debate.phaseCritique");
   return t("debate.phaseSynthesis", "Final answer");
@@ -96,13 +97,15 @@ function PhaseHeader({
   modelsDone: number;
   totalModels: number;
   phase: string;
-  t: (key: string, fallback?: string) => string;
+  t: TFunction;
 }) {
   const isSynthesis = phase === "synthesis";
   return (
     <div className="mb-2 flex items-center gap-2">
       <span className="text-[11px] font-semibold uppercase tracking-wider text-txt-2">
-        {isSynthesis ? t("debate.phaseSynthesis", "Final answer") : `${t("debate.round", { n: round })} · ${phaseLabel(phase, t)}`}
+        {isSynthesis
+          ? t("debate.phaseSynthesis", "Final answer")
+          : `${t("debate.round", { n: round })} · ${phaseLabel(phase, t)}`}
       </span>
       {!isSynthesis && totalModels > 0 && (
         <span className="text-[10.5px] text-txt-2">
