@@ -3,6 +3,8 @@ name: Build Windows (setup + portable)
 on:
   workflow_dispatch:
   push:
+    branches:
+      - "**"
     tags:
       - "v*"
 
@@ -46,10 +48,7 @@ jobs:
       - name: Package (NSIS setup + portable exe)
         run: pnpm exec electron-builder --win nsis portable --publish never
         env:
-          # avoid CodeSign attempts on unsigned CI builds
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-          # belt & suspenders: if a tag build still resolves to publish,
-          # use the workflow's built-in token (creates a Release w/ both exes)
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
