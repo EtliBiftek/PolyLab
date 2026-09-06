@@ -404,7 +404,7 @@ pub async fn remote_models(
     let models = result.map_err(|error| ApiError {
         status: axum::http::StatusCode::BAD_GATEWAY,
         code: "provider_error",
-        detail: Some(error.to_string()),
+        detail: error.to_string(),
     })?;
 
     let existing: Vec<String> = sqlx::query_scalar("SELECT model_id FROM models WHERE provider_id = ?")
