@@ -256,7 +256,10 @@
     "consensusReached": "Uzlaşıldı",
     "consensusNo": "Uzlaşma yok",
     "transcript": "Tartışma dökümü · {{rounds}} tur · {{models}} model",
-    "totalTokens": "Toplam: {{in}} giriş / {{out}} çıkış token"
+    "totalTokens": "Toplam: {{in}} giriş / {{out}} çıkış token",
+    "thinking": "Düşünme süreci",
+    "expandAnswer": "Yanıtı genişlet",
+    "collapseAnswer": "Yanıtı daralt"
   },
   "agent": {
     "running": "çalışıyor…",

@@ -256,7 +256,10 @@
     "consensusReached": "Consensus",
     "consensusNo": "No consensus",
     "transcript": "Debate transcript · {{rounds}} rounds · {{models}} models",
-    "totalTokens": "Total: {{in}} in / {{out}} out tokens"
+    "totalTokens": "Total: {{in}} in / {{out}} out tokens",
+    "thinking": "Thinking process",
+    "expandAnswer": "Expand answer",
+    "collapseAnswer": "Collapse answer"
   },
   "agent": {
     "running": "running…",

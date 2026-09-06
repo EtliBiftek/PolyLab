@@ -141,12 +141,121 @@ pub fn delete(root: &Path, input: &str) -> anyhow::Result<String> {
     Ok(format!("deleted {input}"))
 }
 
+/* --------------------------------------------------- workspace snapshot -- */
+
+const SNAPSHOT_MAX_FILES: usize = 40;
+const SNAPSHOT_MAX_BYTES: usize = 64 * 1024;
+const SNAPSHOT_MAX_FILE_BYTES: u64 = 16 * 1024;
+/// Files larger than this are never inlined (fs::read would reject them too).
+const SNAPSHOT_READ_LIMIT: u64 = 256 * 1024;
+
+/// Same exclusions as [`list`]: dotfiles, `node_modules`, `target`.
+fn collect_files(dir: &Path, prefix: &str, depth: u32, out: &mut Vec<(String, u64)>) {
+    if depth > MAX_LIST_DEPTH || out.len() >= MAX_LIST_ENTRIES {
+        return;
+    }
+    let mut entries: Vec<_> = ::std::fs::read_dir(dir)
+        .map(|read| read.filter_map(|entry| entry.ok()).collect())
+        .unwrap_or_default();
+    entries.sort_by_key(|entry| entry.file_name());
+    for entry in entries {
+        if out.len() >= MAX_LIST_ENTRIES {
+            return;
+        }
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') || name == "node_modules" || name == "target" {
+            continue;
+        }
+        let display = if prefix.is_empty() {
+            name.clone()
+        } else {
+            format!("{prefix}/{name}")
+        };
+        let Ok(file_type) = entry.file_type() else { continue };
+        // Symlinks are never followed — they could point outside the sandbox.
+        if file_type.is_symlink() {
+            continue;
+        }
+        if file_type.is_dir() {
+            collect_files(&entry.path(), &display, depth + 1, out);
+        } else if let Ok(meta) = entry.metadata() {
+            out.push((display, meta.len()));
+        }
+    }
+}
+
+/// Cheap binary heuristic: NUL bytes almost never appear in hand-written text.
+fn is_binary(bytes: &[u8]) -> bool {
+    bytes.iter().take(4096).any(|byte| *byte == 0)
+}
+
+/// Bounded, deterministic project snapshot: file tree + inline text contents.
+///
+/// This is what makes project files visible to coding models without them having
+/// to probe every path first. Binary / oversized / over-budget files are skipped
+/// and reported so the model knows to `fs_read` them explicitly.
+pub fn snapshot(root: &Path) -> anyhow::Result<String> {
+    let base = resolve_in(root, "")?;
+    anyhow::ensure!(base.exists(), "workspace does not exist: {}", base.display());
+
+    let mut files: Vec<(String, u64)> = Vec::new();
+    collect_files(&base, "", 0, &mut files);
+
+    let mut body = String::new();
+    let mut included: usize = 0;
+    let mut skipped: usize = 0;
+    for (rel, size) in files {
+        if included >= SNAPSHOT_MAX_FILES || body.len() >= SNAPSHOT_MAX_BYTES {
+            skipped += 1;
+            continue;
+        }
+        if size > SNAPSHOT_MAX_FILE_BYTES || size > SNAPSHOT_READ_LIMIT {
+            skipped += 1;
+            continue;
+        }
+        let bytes = match ::std::fs::read(base.join(&rel)) {
+            Ok(bytes) => bytes,
+            Err(_) => {
+                skipped += 1;
+                continue;
+            }
+        };
+        if is_binary(&bytes) || body.len() + bytes.len() > SNAPSHOT_MAX_BYTES {
+            skipped += 1;
+            continue;
+        }
+        body.push_str(&format!("## {rel}\n{}\n", String::from_utf8_lossy(&bytes)));
+        included += 1;
+    }
+
+    let tree = list(root, "")?;
+    let mut out = format!("# Dosya ağacı\n{tree}\n\n# Dosya içerikleri\n");
+    if body.is_empty() {
+        out.push_str("(içerik yok ya da tüm dosyalar atlandı)\n");
+    } else {
+        out.push_str(body.trim_end());
+        out.push('\n');
+    }
+    if skipped > 0 {
+        out.push_str(&format!(
+            "\n(… {skipped} dosya atlandı: ikili, büyük veya bütçe dışı — tam içeriği `fs_read` ile oku)\n"
+        ));
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn tmp_dir(prefix: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("{prefix}-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
     fn setup() -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("polylab-fs-{}", uuid::Uuid::new_v4()));
+        let dir = tmp_dir("polylab-fs");
         std::fs::create_dir_all(dir.join("src/nested")).unwrap();
         std::fs::write(dir.join("src/main.rs"), "fn main() {}").unwrap();
         std::fs::write(dir.join("src/nested/util.rs"), "// util").unwrap();
@@ -195,6 +304,67 @@ mod tests {
         assert!(read(&root, "src/new/mod.rs").unwrap().contains("x()"));
         assert!(delete(&root, "src/new/mod.rs").is_ok());
         assert!(read(&root, "src/new/mod.rs").is_err());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn snapshot_skips_symlinks_that_escape() {
+        let root = setup();
+        let outside = root
+            .parent()
+            .unwrap()
+            .join(format!("polylab-fs-snap-outside-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(outside.join("secret.txt"), "outside secret").unwrap();
+        std::os::unix::fs::symlink(&outside, root.join("link")).unwrap();
+
+        let snap = snapshot(&root).unwrap();
+        // The symlink may be listed by name, but its target contents must never
+        // be inlined into the model context.
+        assert!(!snap.contains("outside secret"), "{snap}");
+        let _ = std::fs::remove_dir_all(&root);
+        let _ = std::fs::remove_dir_all(&outside);
+    }
+
+    #[test]
+    fn snapshot_inlines_text_files_and_skips_noise() {
+        let root = setup();
+        // Noise that must never reach the model context.
+        std::fs::create_dir_all(root.join("node_modules/pkg")).unwrap();
+        std::fs::write(root.join("node_modules/pkg/index.js"), "secret js").unwrap();
+        std::fs::create_dir_all(root.join("target/debug")).unwrap();
+        std::fs::write(root.join("target/debug/out.bin"), "secret bin").unwrap();
+        std::fs::write(root.join(".env"), "SECRET=1").unwrap();
+        // Binary + oversized files must be skipped, not inlined.
+        std::fs::write(root.join("logo.png"), [0u8, 1, 2, 3, 4]).unwrap();
+        std::fs::write(root.join("big.txt"), "x".repeat(SNAPSHOT_MAX_FILE_BYTES as usize + 1)).unwrap();
+
+        let snap = snapshot(&root).unwrap();
+        assert!(snap.contains("# Dosya ağacı"), "{snap}");
+        assert!(snap.contains("src/main.rs"), "{snap}");
+        assert!(snap.contains("## src/main.rs\nfn main() {}"), "{snap}");
+        assert!(snap.contains("## src/nested/util.rs\n// util"), "{snap}");
+        // Exclusions stay in the tree off-screen and never inline contents.
+        assert!(!snap.contains("secret js"), "{snap}");
+        assert!(!snap.contains("secret bin"), "{snap}");
+        assert!(!snap.contains("SECRET=1"), "{snap}");
+        // Binary / oversized are reported so the model can fs_read them.
+        assert!(snap.contains("logo.png"), "{snap}");
+        assert!(snap.contains("big.txt"), "{snap}");
+        assert!(snap.contains("atlandı"), "{snap}");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn snapshot_reports_over_budget_files() {
+        let root = tmp_dir("polylab-snap-budget");
+        for i in 0..(SNAPSHOT_MAX_FILES + 5) {
+            std::fs::write(root.join(format!("f{i:02}.txt")), format!("content {i}")).unwrap();
+        }
+        let snap = snapshot(&root).unwrap();
+        assert!(snap.contains("## f00.txt\ncontent 0"), "{snap}");
+        assert!(snap.contains("atlandı"), "{snap}");
         let _ = std::fs::remove_dir_all(&root);
     }
 }

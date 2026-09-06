@@ -97,8 +97,11 @@ pub async fn run_agent(
         .to_json(),
     );
 
-    // Transcript: agent system prompt (+ workspace overview) → history → task.
-    let overview = fs::list(&workspace, "").unwrap_or_else(|_| "(empty workspace)".into());
+    // Transcript: agent system prompt (+ workspace snapshot) → history → task.
+    let overview = match fs::snapshot(&workspace) {
+        Ok(snapshot) => snapshot,
+        Err(error) => format!("(çalışma alanı okunamadı: {error})"),
+    };
     let mut messages = vec![ChatMessage {
         role: Role::System,
         content: format!("{system_prompt}\n\n# Çalışma alanı\n{overview}"),

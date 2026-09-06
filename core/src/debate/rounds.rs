@@ -61,11 +61,22 @@ pub async fn run_debate(
     cancel: CancellationToken,
 ) -> anyhow::Result<(String, DebateOutcome)> {
     let conversation_id = conversation.id.clone();
-    let base_prompt = if conversation.mode == "coding" {
+    let base_prompt_raw = if conversation.mode == "coding" {
         prompts.get("coding")
     } else {
         prompts.get("chat")
     };
+    // Coding debates: give every participant + the leader the same project
+    // snapshot so the models can actually see the workspace files.
+    let mut base_prompt = base_prompt_raw.to_string();
+    if conversation.mode == "coding" {
+        let workspace = crate::terminal::workspace_root(conversation);
+        let _ = ::std::fs::create_dir_all(&workspace);
+        let context = crate::fs::snapshot(&workspace)
+            .unwrap_or_else(|error| format!("(çalışma alanı okunamadı: {error})"));
+        base_prompt.push_str("\n\n# Çalışma alanı\n");
+        base_prompt.push_str(&context);
+    }
 
     // --- participants + leader ------------------------------------------------
     let mut participants = super::build_participants(db, secrets, group_models).await?;
@@ -144,7 +155,7 @@ pub async fn run_debate(
             let (prompt_text, request) = build_turn_request(
                 participant,
                 round,
-                base_prompt,
+                base_prompt.as_str(),
                 prompts,
                 &transcript,
                 &base_prompts,

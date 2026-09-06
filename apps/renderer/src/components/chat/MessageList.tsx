@@ -22,7 +22,9 @@ function StreamingAnswer({
       {message.debate.length > 0 && <DebateStream debate={message.debate} models={models} />}
       {message.agentSteps.length > 0 && <AgentSteps steps={message.agentSteps} />}
       {message.reasoning.length > 0 && <ThinkingPanel reasoning={message.reasoning} streaming />}
-      {message.content.length > 0 && (
+      {/* Debate answers (incl. the live synthesis) are rendered inside DebateStream;
+          rendering message.content here too would duplicate the leader's answer. */}
+      {message.debate.length === 0 && message.content.length > 0 && (
         <>
           <MarkdownBody content={message.content} />
           <span className="ml-0.5 inline-block animate-pulse">▍</span>
