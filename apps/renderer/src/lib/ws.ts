@@ -1,11 +1,13 @@
-/**
- * WebSocket client for the sidecar event stream (contract: docs/EVENTS.md).
+/** App-wide WebSocket client for the sidecar event stream (contract: docs/EVENTS.md).
  *
  * - JSON text frames with a discriminating `type`
  * - auto-reconnect with capped backoff
  * - `ping`/`pong` keepalive used for the latency readout
  * - emits synthetic `status` events (`connecting` | `online` | `offline`)
+ * - batches high-frequency streaming events so many models cannot starve the UI thread
  */
+import { unstable_batchedUpdates } from "react-dom";
+
 export type ConnectionStatus = "connecting" | "online" | "offline";
 
 export interface WsStatusEvent {
@@ -14,10 +16,23 @@ export interface WsStatusEvent {
 
 type Handler = (payload: unknown) => void;
 
+type QueuedEvent = {
+  type: string;
+  payload: unknown;
+};
+
 const PING_INTERVAL_MS = 10_000;
 const RECONNECT_BASE_MS = 700;
 const RECONNECT_MAX_MS = 5_000;
 const OUTBOX_MAX = 100;
+const STREAM_BATCH_MS = 16;
+const STREAM_BATCH_MAX = 4000;
+const BATCHED_EVENT_TYPES = new Set([
+  "token",
+  "reasoning_token",
+  "debate_turn_token",
+  "debate_turn_reasoning_token",
+]);
 
 export class WsClient {
   private socket: WebSocket | null = null;
@@ -25,9 +40,11 @@ export class WsClient {
   private reconnectAttempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
+  private streamBatchTimer: ReturnType<typeof setTimeout> | null = null;
   private lastPingSentAt = 0;
   private disposed = false;
   private outbox: string[] = [];
+  private streamBatch: QueuedEvent[] = [];
 
   constructor(
     private readonly url: string,
@@ -74,13 +91,50 @@ export class WsClient {
         this.emit("pong", { rttMs: this.lastPingSentAt ? Date.now() - this.lastPingSentAt : null });
         break;
       default:
-        this.emit(parsed.type, parsed);
+        if (BATCHED_EVENT_TYPES.has(parsed.type)) {
+          this.queueStreamEvent(parsed.type, parsed);
+        } else {
+          this.emit(parsed.type, parsed);
+        }
+    }
+  }
+
+  private queueStreamEvent(type: string, payload: unknown): void {
+    if (this.streamBatch.length < STREAM_BATCH_MAX) {
+      this.streamBatch.push({ type, payload });
+    } else {
+      // Keep the UI responsive even if a provider floods the socket.
+      // Dropping the oldest queued delta is preferable to freezing the renderer.
+      this.streamBatch.shift();
+      this.streamBatch.push({ type, payload });
+    }
+
+    if (this.streamBatchTimer == null) {
+      this.streamBatchTimer = setTimeout(() => this.flushStreamBatch(), STREAM_BATCH_MS);
+    }
+  }
+
+  private flushStreamBatch(): void {
+    this.streamBatchTimer = null;
+    if (this.streamBatch.length === 0) return;
+
+    const batch = this.streamBatch;
+    this.streamBatch = [];
+    unstable_batchedUpdates(() => {
+      for (const event of batch) this.emit(event.type, event.payload);
+    });
+
+    if (this.streamBatch.length > 0 && this.streamBatchTimer == null) {
+      this.streamBatchTimer = setTimeout(() => this.flushStreamBatch(), STREAM_BATCH_MS);
     }
   }
 
   private onDisconnect(): void {
     this.stopPing();
     this.socket = null;
+    if (this.streamBatchTimer != null) clearTimeout(this.streamBatchTimer);
+    this.streamBatchTimer = null;
+    this.streamBatch = [];
     this.emit("status", { status: "offline" } satisfies WsStatusEvent);
     if (this.disposed) return;
     const delay = Math.min(RECONNECT_BASE_MS * 2 ** this.reconnectAttempt, RECONNECT_MAX_MS);
@@ -140,6 +194,9 @@ export class WsClient {
     this.disposed = true;
     if (this.reconnectTimer != null) clearTimeout(this.reconnectTimer);
     this.stopPing();
+    if (this.streamBatchTimer != null) clearTimeout(this.streamBatchTimer);
+    this.streamBatchTimer = null;
+    this.streamBatch = [];
     this.outbox = [];
     this.socket?.close();
     this.socket = null;
