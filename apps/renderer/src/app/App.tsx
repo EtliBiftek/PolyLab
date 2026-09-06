@@ -28,16 +28,19 @@ export default function App() {
   );
   const pendingApproval = useChat((state) => state.pendingApproval);
   const resolveApproval = useChat((state) => state.resolveApproval);
+  const messages = useChat((state) =>
+    activeId != null ? state.messages[activeId] : undefined,
+  );
+  const streaming = useChat((state) =>
+    activeId != null ? state.streaming[activeId] : undefined,
+  );
+  const models = useModels((state) => state.models);
+  const refreshModels = useModels((state) => state.refresh);
 
   // Apply the black/white theme on mount + change (settings → appearance).
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
-  const messages = useChat((state) => (activeId != null ? state.messages[activeId] : undefined));
-  const streaming =
-    activeId != null ? useChat((state) => state.streaming[activeId]) : undefined;
-  const models = useModels((state) => state.models);
-  const refreshModels = useModels((state) => state.refresh);
 
   useEffect(() => {
     void refreshModels();
