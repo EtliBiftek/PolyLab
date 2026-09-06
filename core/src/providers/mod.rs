@@ -246,7 +246,9 @@ impl Provider for FallbackProvider {
                         }
                     }
                     None => {
-                        state.done = true;
+                        // Stream ended without an error; `done` already governs the
+                        // outer loop, so returning `None` (and dropping `state`) is
+                        // the correct terminal condition.
                         return None;
                     }
                 }

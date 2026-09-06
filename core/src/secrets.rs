@@ -9,8 +9,14 @@
 //! fallback prints a loud warning at startup and must never be used in production
 //! packaging (`electron-builder` builds use default features).
 
+// The imports below back the file-backed fallback store. When the `keyring`
+// feature is enabled (Windows packaging) the fallback is compiled out, so the
+// imports must be feature-gated too — otherwise the release build warns.
+#[cfg(not(feature = "keyring"))]
 use std::collections::HashMap;
+#[cfg(not(feature = "keyring"))]
 use std::path::PathBuf;
+#[cfg(not(feature = "keyring"))]
 use std::sync::Mutex;
 
 use anyhow::Context;

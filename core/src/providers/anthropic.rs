@@ -225,10 +225,10 @@ mod tests {
                         *state.lock().unwrap() = Some(body);
                         // Minimal valid Messages SSE stream.
                         let sse = concat!(
-                            "data: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":3}}}\\n\\n",
-                            "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"ok\"}}\\n\\n",
-                            "data: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":1}}\\n\\n",
-                            "data: {\"type\":\"message_stop\"}\\n\\n",
+                            "data: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":3}}}\n\n",
+                            "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"ok\"}}\n\n",
+                            "data: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":1}}\n\n",
+                            "data: {\"type\":\"message_stop\"}\n\n",
                         );
                         ([(axum::http::header::CONTENT_TYPE, "text/event-stream")], sse).into_response()
                     },
