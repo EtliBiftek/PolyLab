@@ -17,6 +17,7 @@ type Handler = (payload: unknown) => void;
 const PING_INTERVAL_MS = 10_000;
 const RECONNECT_BASE_MS = 700;
 const RECONNECT_MAX_MS = 5_000;
+const OUTBOX_MAX = 100;
 
 export class WsClient {
   private socket: WebSocket | null = null;
@@ -26,6 +27,7 @@ export class WsClient {
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   private lastPingSentAt = 0;
   private disposed = false;
+  private outbox: string[] = [];
 
   constructor(
     private readonly url: string,
@@ -42,6 +44,7 @@ export class WsClient {
 
     socket.onopen = () => {
       this.reconnectAttempt = 0;
+      this.flushOutbox();
       this.startPing();
     };
     socket.onmessage = (event) => this.onMessage(event.data);
@@ -65,7 +68,7 @@ export class WsClient {
       case "hello":
         this.emit("hello", parsed);
         this.emit("status", { status: "online" } satisfies WsStatusEvent);
-        this.ping(); // prime the latency readout immediately
+        this.ping();
         break;
       case "pong":
         this.emit("pong", { rttMs: this.lastPingSentAt ? Date.now() - this.lastPingSentAt : null });
@@ -101,9 +104,25 @@ export class WsClient {
     this.send("ping");
   }
 
+  private flushOutbox(): void {
+    const socket = this.socket;
+    if (socket?.readyState !== WebSocket.OPEN || this.outbox.length === 0) return;
+    const queued = this.outbox;
+    this.outbox = [];
+    for (const frame of queued) socket.send(frame);
+  }
+
   send(type: string, payload: Record<string, unknown> = {}): void {
-    if (this.socket?.readyState !== WebSocket.OPEN) return;
-    this.socket.send(JSON.stringify({ type, ...payload }));
+    const frame = JSON.stringify({ type, ...payload });
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(frame);
+      return;
+    }
+    // Never buffer keepalive frames, but don't silently lose user actions.
+    if (type !== "ping") {
+      this.outbox.push(frame);
+      if (this.outbox.length > OUTBOX_MAX) this.outbox.shift();
+    }
   }
 
   on(type: string, handler: Handler): () => void {
@@ -121,6 +140,7 @@ export class WsClient {
     this.disposed = true;
     if (this.reconnectTimer != null) clearTimeout(this.reconnectTimer);
     this.stopPing();
+    this.outbox = [];
     this.socket?.close();
     this.socket = null;
   }
