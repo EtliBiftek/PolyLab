@@ -18,6 +18,13 @@ export interface Provider {
   enabled: boolean;
   created_at: string;
   has_api_key: boolean;
+  api_key_count?: number;
+}
+
+export interface ProviderKeySummary {
+  index: number;
+  prefix: string;
+  primary: boolean;
 }
 
 export interface Model {
@@ -161,6 +168,34 @@ export function testProvider(id: string): Promise<TestResult> {
   return request<TestResult>(`/api/providers/${id}/test`);
 }
 
+export function listProviderKeys(id: string): Promise<ProviderKeySummary[]> {
+  return request<ProviderKeySummary[]>(`/api/providers/${id}/keys`);
+}
+
+export function addProviderKey(id: string, apiKey: string): Promise<ProviderKeySummary[]> {
+  return request<ProviderKeySummary[]>(`/api/providers/${id}/keys`, {
+    method: "POST",
+    body: JSON.stringify({ api_key: apiKey }),
+  });
+}
+
+export function updateProviderKey(
+  id: string,
+  index: number,
+  apiKey: string,
+): Promise<ProviderKeySummary[]> {
+  return request<ProviderKeySummary[]>(`/api/providers/${id}/keys/${index}`, {
+    method: "PUT",
+    body: JSON.stringify({ api_key: apiKey }),
+  });
+}
+
+export function deleteProviderKey(id: string, index: number): Promise<ProviderKeySummary[]> {
+  return request<ProviderKeySummary[]>(`/api/providers/${id}/keys/${index}`, {
+    method: "DELETE",
+  });
+}
+
 export function listRemoteModels(id: string): Promise<RemoteModel[]> {
   return request<RemoteModel[]>(`/api/providers/${id}/remote-models`);
 }
@@ -186,9 +221,12 @@ export function updateModel(
   id: string,
   body: Partial<
     Pick<Model, "display_name" | "temperature" | "max_tokens" | "enabled" | "reasoning_enabled">
-  >,
+  > & { color?: string | null },
 ): Promise<Model> {
-  return request<Model>(`/api/models/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+  return request<Model>(`/api/models/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
 }
 
 export function deleteModel(id: string): Promise<{ deleted: boolean }> {

@@ -22,6 +22,11 @@ pub fn router() -> Router<AppState> {
             get(providers::get_one).patch(providers::update).delete(providers::delete),
         )
         .route("/providers/{id}/test", get(providers::test))
+        .route("/providers/{id}/keys", get(providers::list_keys).post(providers::add_key))
+        .route(
+            "/providers/{id}/keys/{index}",
+            put(providers::update_key).delete(providers::delete_key),
+        )
         .route("/providers/{id}/remote-models", get(providers::remote_models))
         .route("/models", get(models::list).post(models::upsert))
         .route(
@@ -59,7 +64,6 @@ pub fn router() -> Router<AppState> {
         .route("/settings", get(settings::list).put(settings::put))
 }
 
-// re-export for handlers
 pub use error::ApiError;
 
 #[allow(unused_imports)]
