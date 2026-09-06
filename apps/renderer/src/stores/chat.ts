@@ -76,7 +76,7 @@ interface ChatState {
   loaded: boolean;
 
   refresh: () => Promise<void>;
-  newConversation: (modelId: string | null) => Promise<Conversation>;
+  newConversation: (modelId: string | null, groupId?: string | null) => Promise<Conversation>;
   open: (id: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
   rename: (id: string, title: string) => Promise<void>;
@@ -124,10 +124,14 @@ export const useChat = create<ChatState>((set, get) => ({
     set({ conversations, loaded: true });
   },
 
-  newConversation: async (modelId) => {
+  newConversation: async (modelId, groupId) => {
     const { useSettings } = await import("./settings");
     const mode = useSettings.getState().mode;
-    const conversation = await createConversation({ mode, model_id: modelId });
+    const conversation = await createConversation(
+      groupId != null
+        ? { mode, selection_type: "group", group_id: groupId }
+        : { mode, model_id: modelId },
+    );
     await get().refresh();
     set((state) => ({
       activeId: conversation.id,
@@ -255,10 +259,12 @@ export const useChat = create<ChatState>((set, get) => ({
       },
     }));
 
+    const { useSettings } = await import("./settings");
     wsClient().send("send_message", {
       conversation_id: conversationId,
       content: trimmed,
       attachments: attachments ?? [],
+      web: useSettings.getState().webSearch,
     });
   },
 

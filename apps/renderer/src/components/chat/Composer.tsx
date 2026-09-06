@@ -2,8 +2,10 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useChat } from "../../stores/chat";
-import { ModelPicker } from "../models/ModelPicker";
-import { ArrowUpIcon, PaperclipIcon, SquareIcon } from "../ui/Icons";
+import { useModels } from "../../stores/models";
+import { useSettings } from "../../stores/settings";
+import { ModelPicker, thinkEnabled } from "../models/ModelPicker";
+import { ArrowUpIcon, GlobeIcon, PaperclipIcon, SparkIcon, SquareIcon } from "../ui/Icons";
 
 export function Composer() {
   const { t } = useTranslation();
@@ -57,6 +59,29 @@ export function Composer() {
   const send = useChat((state) => state.send);
   const cancel = useChat((state) => state.cancel);
 
+  // --- Think + Web toggles next to the model picker -----------------------
+  const models = useModels((state) => state.models);
+  const setThink = useModels((state) => state.setThink);
+  const groups = useModels((state) => state.groups);
+  const sendOnEnter = useSettings((state) => state.sendOnEnter);
+  const webSearch = useSettings((state) => state.webSearch);
+  const setWebSearch = useSettings((state) => state.setWebSearch);
+  const activeConversation = useChat((state) =>
+    state.conversations.find((conversation) => conversation.id === state.activeId),
+  );
+  const isGroupMode = activeConversation?.selection_type === "group";
+  const selectedModel = models.find(
+    (model) => model.id === (activeConversation?.model_id ?? useSettings.getState().lastModelId),
+  );
+  const thinkOn = selectedModel != null && thinkEnabled(selectedModel);
+  // Web search is served by OpenRouter's web plugin; other providers have no
+  // server-side browsing, so the button stays informative but disabled there.
+  const webCapable = isGroupMode
+    ? groups
+        .find((group) => group.id === activeConversation?.group_id)
+        ?.models.some((model) => model.provider_kind === "openrouter") ?? false
+    : selectedModel?.provider_kind === "openrouter";
+
   const autoGrow = () => {
     const el = textareaRef.current;
     if (!el) return;
@@ -75,9 +100,10 @@ export function Composer() {
     });
   };
 
-  // Enter sends; Shift+Enter inserts a newline (claude.ai behavior).
+  // Enter sends (when enabled); Shift+Enter always inserts a newline.
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
+      if (!sendOnEnter) return;
       event.preventDefault();
       submit();
     }
@@ -125,6 +151,39 @@ export function Composer() {
 
         <div className="mt-1 flex items-center gap-1">
           <ModelPicker />
+
+          <button
+            type="button"
+            onClick={() => selectedModel != null && void setThink(selectedModel.id, !thinkOn)}
+            disabled={selectedModel == null || isGroupMode}
+            aria-pressed={thinkOn}
+            title={
+              selectedModel == null
+                ? t("chat.think.pickModel")
+                : thinkOn
+                  ? t("chat.think.onHint", { name: selectedModel.display_name })
+                  : t("chat.think.offHint", { name: selectedModel.display_name })
+            }
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-40 ${
+              thinkOn ? "text-accent hover:bg-accent/10" : "text-txt-2 hover:bg-bg-2 hover:text-txt-1"
+            }`}
+          >
+            <SparkIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setWebSearch(!webSearch)}
+            disabled={!webCapable}
+            aria-pressed={webSearch}
+            title={webCapable ? t("chat.web.hint") : t("chat.web.unsupported")}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition disabled:cursor-not-allowed ${
+              webSearch && webCapable
+                ? "text-accent hover:bg-accent/10"
+                : "text-txt-2 hover:bg-bg-2 hover:text-txt-1 disabled:opacity-40"
+            }`}
+          >
+            <GlobeIcon className="h-4 w-4" />
+          </button>
 
           <div className="flex-1" />
 

@@ -21,6 +21,9 @@ pub enum ClientEvent {
         content: String,
         #[serde(default)]
         attachments: Vec<AttachmentIn>,
+        /// Turn on web search for this turn (OpenRouter web plugin).
+        #[serde(default)]
+        web: bool,
     },
     Cancel {
         conversation_id: String,
@@ -278,6 +281,7 @@ mod tests {
                 conversation_id: "c1".into(),
                 content: "selam".into(),
                 attachments: Vec::new(),
+                web: false,
             }
         );
 
@@ -294,6 +298,7 @@ mod tests {
                     mime_type: None,
                     data_base64: None,
                 }],
+                web: false,
             }
         );
 

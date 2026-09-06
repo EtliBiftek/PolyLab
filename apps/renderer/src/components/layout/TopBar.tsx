@@ -1,8 +1,17 @@
 import { useTranslation } from "react-i18next";
 
+import { updateConversation } from "../../lib/api";
+import { bridge } from "../../lib/backend";
 import { useChat } from "../../stores/chat";
 import { useSettings } from "../../stores/settings";
-import { ChatIcon, ChevronDownIcon, CodeIcon, LogoMark, PanelRightIcon } from "../ui/Icons";
+import {
+  ChatIcon,
+  ChevronDownIcon,
+  CodeIcon,
+  FolderIcon,
+  LogoMark,
+  PanelRightIcon,
+} from "../ui/Icons";
 
 export function TopBar() {
   const { t } = useTranslation();
@@ -15,6 +24,24 @@ export function TopBar() {
   );
   const rightPanelOpen = useSettings((state) => state.rightPanelOpen);
   const toggleRightPanel = useSettings((state) => state.toggleRightPanel);
+  const refresh = useChat((state) => state.refresh);
+
+  // Coding workspace folder: the agent fs tools, git and the terminal session
+  // are all rooted at the conversation's project_path.
+  const pickFolder = async () => {
+    if (activeConversation == null) return;
+    let folder: string | null = null;
+    const selectFolder = bridge()?.selectFolder;
+    if (selectFolder != null) {
+      folder = await selectFolder();
+    } else {
+      // Browser/dev fallback: plain text prompt.
+      folder = window.prompt(t("topbar.folder.prompt"), activeConversation.project_path ?? "");
+    }
+    if (folder == null || folder.trim().length === 0) return;
+    await updateConversation(activeConversation.id, { project_path: folder.trim() });
+    await refresh();
+  };
 
   return (
     // Borderless header over the cream canvas (claude.ai has no hard top rule).
@@ -63,7 +90,20 @@ export function TopBar() {
 
       <div className="flex-1" />
 
-      {/* Agent auto-approve (coding conversations only) */}
+      {/* Project folder + agent auto-approve (coding conversations only) */}
+      {activeConversation?.mode === "coding" && (
+        <button
+          type="button"
+          onClick={() => void pickFolder()}
+          title={t("topbar.folder.hint")}
+          className="mr-2 flex h-8 max-w-[280px] items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 text-[11.5px] text-txt-1 transition hover:bg-bg-2"
+        >
+          <FolderIcon className="h-3.5 w-3.5 shrink-0 text-accent" />
+          <span className="truncate">
+            {activeConversation.project_path ?? t("topbar.folder.select")}
+          </span>
+        </button>
+      )}
       {activeConversation?.mode === "coding" && (
         <label
           className="mr-2 flex cursor-pointer items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-[11.5px] text-txt-1"

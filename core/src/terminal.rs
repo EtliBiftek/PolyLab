@@ -67,9 +67,9 @@ async fn run_command(
     tx: tokio::sync::mpsc::UnboundedSender<String>,
 ) -> anyhow::Result<Option<i32>> {
     // Merge stderr into stdout so a single pipe carries everything.
-    let mut child = tokio::process::Command::new("bash")
-        .arg("-c")
-        .arg(format!("{command} 2>&1"))
+    let (program, args) = shell_exec(&command);
+    let mut child = tokio::process::Command::new(program)
+        .args(args)
         .current_dir(&workspace)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
@@ -97,6 +97,28 @@ async fn run_command(
 
     let status = child.wait().await?;
     Ok(status.code())
+}
+
+/// Platform shell: unix keeps bash; windows falls back to cmd.exe (bash only
+/// exists there when Git Bash/WSL is installed, and spawning a missing binary
+/// would kill terminal sessions and the agent `exec` tool entirely).
+pub fn shell_exec(command: &str) -> (&'static str, Vec<String>) {
+    if cfg!(windows) {
+        // cmd understands `2>&1` redirection the same way.
+        ("cmd", vec!["/C".into(), format!("{command} 2>&1")])
+    } else {
+        ("bash", vec!["-c".into(), format!("{command} 2>&1")])
+    }
+}
+
+/// Interactive session program: reads commands from piped stdin.
+pub fn shell_interactive() -> (&'static str, Vec<String>) {
+    if cfg!(windows) {
+        // `/K` keeps cmd alive reading stdin lines (no TTY, same as bash -i here).
+        ("cmd", vec!["/K".into()])
+    } else {
+        ("bash", vec!["-i".into()])
+    }
 }
 
 /// Workspace dir: the conversation's project_path when set, else the default
@@ -141,8 +163,9 @@ impl Terminals {
             let _ = old.child.start_kill();
         }
 
-        let mut child = match tokio::process::Command::new("bash")
-            .arg("-i")
+        let (program, args) = shell_interactive();
+        let mut child = tokio::process::Command::new(program)
+            .args(args)
             .current_dir(&workspace)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())

@@ -18,7 +18,8 @@
     "chatMenu": "Sohbet menüsü",
     "rename": "Yeniden adlandır",
     "pin": "Sabitle",
-    "unpin": "Sabitlemeyi kaldır"
+    "unpin": "Sabitlemeyi kaldır",
+    "codingConversations": "Kodlama sohbetleri"
   },
   "topbar": {
     "workspace": "PolyLab",
@@ -33,6 +34,11 @@
       "noneYet": "Henüz model eklenmedi.\nAyarlar → Sağlayıcı ekle ile başlayın.",
       "noMatches": "Eşleşen model yok.",
       "notAvailableYet": "Model bağlama Faz 1'de geliyor"
+    },
+    "folder": {
+      "select": "Klasör seç",
+      "hint": "Ajan, git ve terminal bu klasöre kısıtlanır",
+      "prompt": "Proje klasörü yolu"
     }
   },
   "status": {
@@ -64,7 +70,14 @@
     "usage": "{{in}} giriş · {{out}} çıkış token",
     "providerError": "Sağlayıcı hatası",
     "think.onHint": "{name} — think modu AÇIK, kapatmak için tıkla",
-    "think.offHint": "{name} — think modu KAPALI, açmak için tıkla"
+    "think.offHint": "{name} — think modu KAPALI, açmak için tıkla",
+    "think": {
+      "pickModel": "Önce bir model seç"
+    },
+    "web": {
+      "hint": "Web'de ara (OpenRouter web eklentisi)",
+      "unsupported": "Web arama yalnızca OpenRouter sağlayıcısında desteklenir"
+    }
   },
   "thinking": {
     "title": "Düşünme süreci · {{chars}} karakter",
@@ -116,7 +129,15 @@
     "model": {
       "temperature": "Sıcaklık",
       "maxTokens": "Maks token"
-    }
+    },
+    "data": "Veri",
+    "about": "Hakkında",
+    "sendOnEnter": "Enter ile gönder",
+    "sendOnEnterHint": "Açıkken Enter mesajı gönderir; Shift+Enter her zaman alt satır ekler",
+    "showTimestamps": "Zaman damgalarını göster",
+    "exportData": "Sohbetleri dışa aktar (JSON)",
+    "exporting": "Dışa aktarılıyor…",
+    "exportHint": "Tüm sohbetler ve mesaj geçmişi tek JSON dosyasına iner."
   },
   "common": {
     "close": "Kapat",

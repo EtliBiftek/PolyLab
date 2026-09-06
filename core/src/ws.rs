@@ -82,7 +82,7 @@ async fn handle_client_event(state: &AppState, raw: &str) -> Option<ServerEvent>
     match events::parse_client_event(raw) {
         Ok(ClientEvent::Ping) => Some(ServerEvent::Pong),
         Ok(ClientEvent::Echo { text }) => Some(ServerEvent::Echo { text }),
-        Ok(ClientEvent::SendMessage { conversation_id, content, attachments }) => {
+        Ok(ClientEvent::SendMessage { conversation_id, content, attachments, web }) => {
             if content.trim().is_empty() {
                 return Some(ServerEvent::Error {
                     conversation_id: Some(conversation_id),
@@ -91,7 +91,7 @@ async fn handle_client_event(state: &AppState, raw: &str) -> Option<ServerEvent>
                     detail: "message content is empty".into(),
                 });
             }
-            state.engine.dispatch_send(conversation_id, content, attachments);
+            state.engine.dispatch_send(conversation_id, content, attachments, web);
             None
         }
         Ok(ClientEvent::AgentApprove { approval_id, approved }) => {

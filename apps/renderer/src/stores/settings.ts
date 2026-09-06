@@ -15,6 +15,12 @@ interface SettingsState {
   sidebarCollapsed: boolean;
   /** Model used for the next new conversation (single-model selection). */
   lastModelId: string | null;
+  /** Composer: Enter sends the message (Shift+Enter always inserts a newline). */
+  sendOnEnter: boolean;
+  /** Show message timestamps under the meta line. */
+  showTimestamps: boolean;
+  /** Web search for the next turns (OpenRouter web plugin). */
+  webSearch: boolean;
   setLanguage: (language: AppLanguage) => void;
   setTheme: (theme: Theme) => void;
   setMode: (mode: Mode) => void;
@@ -22,6 +28,9 @@ interface SettingsState {
   setSettingsOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   setLastModelId: (modelId: string | null) => void;
+  setSendOnEnter: (enabled: boolean) => void;
+  setShowTimestamps: (enabled: boolean) => void;
+  setWebSearch: (enabled: boolean) => void;
 }
 
 export const useSettings = create<SettingsState>()(
@@ -34,6 +43,9 @@ export const useSettings = create<SettingsState>()(
       settingsOpen: false,
       sidebarCollapsed: false,
       lastModelId: null,
+      sendOnEnter: true,
+      showTimestamps: false,
+      webSearch: false,
       setLanguage: (language) => {
         void i18n.changeLanguage(language);
         set({ language });
@@ -47,6 +59,9 @@ export const useSettings = create<SettingsState>()(
       setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setLastModelId: (lastModelId) => set({ lastModelId }),
+      setSendOnEnter: (sendOnEnter) => set({ sendOnEnter }),
+      setShowTimestamps: (showTimestamps) => set({ showTimestamps }),
+      setWebSearch: (webSearch) => set({ webSearch }),
     }),
     {
       name: "polylab-settings",
@@ -56,6 +71,9 @@ export const useSettings = create<SettingsState>()(
         mode: state.mode,
         lastModelId: state.lastModelId,
         sidebarCollapsed: state.sidebarCollapsed,
+        sendOnEnter: state.sendOnEnter,
+        showTimestamps: state.showTimestamps,
+        webSearch: state.webSearch,
       }),
     },
   ),

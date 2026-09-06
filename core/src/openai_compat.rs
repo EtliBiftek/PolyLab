@@ -164,6 +164,11 @@ impl Provider for OpenAiCompat {
         if supports_stream_options(self.kind) {
             body["stream_options"] = json!({ "include_usage": true });
         }
+        // Web search for this turn (OpenRouter server-side web plugin; other
+        // OpenAI-compatible servers have no equivalent and ignore it silently).
+        if request.web && self.kind == ProviderKind::Openrouter {
+            body["plugins"] = json!([{ "id": "web", "search_results": true }]);
+        }
 
         let response = self
             .apply_auth(self.client.post(format!("{}/chat/completions", self.base_url)))

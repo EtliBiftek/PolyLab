@@ -89,6 +89,10 @@ export function ModelPicker() {
     setLastModelId(model.id);
     if (activeId != null) {
       void setActiveModel(model.id);
+    } else {
+      // No conversation yet: create one with this model so the empty-state
+      // picker is not a silent no-op.
+      void useChat.getState().newConversation(model.id);
     }
     setOpen(false);
   };
@@ -96,6 +100,8 @@ export function ModelPicker() {
   const pickGroup = (groupId: string) => {
     if (activeId != null) {
       void setActiveGroup(groupId);
+    } else {
+      void useChat.getState().newConversation(null, groupId);
     }
     setOpen(false);
   };

@@ -21,6 +21,7 @@ export function Sidebar() {
   const coreVersion = useConnection((state) => state.coreVersion);
   const status = useConnection((state) => state.status);
 
+  const mode = useSettings((state) => state.mode);
   const conversations = useChat((state) => state.conversations);
   const activeId = useChat((state) => state.activeId);
   const loaded = useChat((state) => state.loaded);
@@ -54,12 +55,15 @@ export function Sidebar() {
   }, [refreshConversations]);
 
   const filtered = useMemo(() => {
+    // The sidebar follows the global Chat/Coding switch: each mode keeps its
+    // own conversation list.
+    const forMode = conversations.filter((conversation) => conversation.mode === mode);
     const needle = query.trim().toLowerCase();
-    if (needle.length === 0) return conversations;
-    return conversations.filter((conversation) =>
+    if (needle.length === 0) return forMode;
+    return forMode.filter((conversation) =>
       (conversation.title ?? "").toLowerCase().includes(needle),
     );
-  }, [conversations, query]);
+  }, [conversations, mode, query]);
 
   if (sidebarCollapsed) {
     return (
@@ -156,7 +160,7 @@ export function Sidebar() {
       {/* Conversation list */}
       <div className="mt-5 flex min-h-0 flex-1 flex-col px-3">
         <div className="px-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-txt-2">
-          {t("sidebar.conversations")}
+          {mode === "coding" ? t("sidebar.codingConversations") : t("sidebar.conversations")}
         </div>
         <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pb-2">
           {filtered.map((conversation) => {

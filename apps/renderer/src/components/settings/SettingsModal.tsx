@@ -2,6 +2,9 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Provider, RemoteModel, TestResult } from "../../lib/api";
+import { listConversations, getConversation } from "../../lib/api";
+import { bridge } from "../../lib/backend";
+import { useConnection } from "../../stores/connection";
 import { useModels } from "../../stores/models";
 import { useSettings } from "../../stores/settings";
 import { Button } from "../ui/Button";
@@ -30,6 +33,36 @@ const PROVIDER_KINDS = [
 
 export function SettingsModal() {
   const { t } = useTranslation();
+  const sendOnEnter = useSettings((state) => state.sendOnEnter);
+  const setSendOnEnter = useSettings((state) => state.setSendOnEnter);
+  const showTimestamps = useSettings((state) => state.showTimestamps);
+  const setShowTimestamps = useSettings((state) => state.setShowTimestamps);
+  const coreVersion = useConnection((state) => state.coreVersion);
+  const [exporting, setExporting] = useState(false);
+
+  /** Exports every conversation with its full message history as one JSON file. */
+  const exportData = async () => {
+    setExporting(true);
+    try {
+      const conversations = await listConversations();
+      const payload = [];
+      for (const conversation of conversations) {
+        const detail = await getConversation(conversation.id);
+        payload.push({ ...conversation, messages: detail.messages });
+      }
+      const blob = new Blob([JSON.stringify({ exported_at: new Date().toISOString(), conversations: payload }, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `polylab-export-${new Date().toISOString().slice(0, 10)}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
+  };
   const open = useSettings((state) => state.settingsOpen);
   const setOpen = useSettings((state) => state.setSettingsOpen);
   const language = useSettings((state) => state.language);
@@ -115,6 +148,54 @@ export function SettingsModal() {
                 ))}
               </div>
             </div>
+
+            <div className="mt-3 space-y-2.5 px-2">
+              <label className="flex cursor-pointer items-center justify-between gap-2">
+                <span className="text-[11.5px] text-txt-1" title={t("settings.sendOnEnterHint")}>
+                  {t("settings.sendOnEnter")}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={sendOnEnter}
+                  onChange={(event) => setSendOnEnter(event.target.checked)}
+                  className="h-3.5 w-3.5 accent-[var(--accent)]"
+                />
+              </label>
+              <label className="flex cursor-pointer items-center justify-between gap-2">
+                <span className="text-[11.5px] text-txt-1">{t("settings.showTimestamps")}</span>
+                <input
+                  type="checkbox"
+                  checked={showTimestamps}
+                  onChange={(event) => setShowTimestamps(event.target.checked)}
+                  className="h-3.5 w-3.5 accent-[var(--accent)]"
+                />
+              </label>
+            </div>
+
+            <div className="mt-4 px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-txt-2">
+              {t("settings.data")}
+            </div>
+            <div className="px-2">
+              <button
+                type="button"
+                onClick={() => void exportData()}
+                className="w-full rounded-lg border border-border px-2.5 py-1.5 text-left text-[11.5px] text-txt-1 transition hover:bg-bg-2"
+              >
+                {exporting ? t("settings.exporting") : t("settings.exportData")}
+              </button>
+              <p className="pt-1 text-[10.5px] leading-relaxed text-txt-2">
+                {t("settings.exportHint")}
+              </p>
+            </div>
+
+            <div className="mt-4 px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-txt-2">
+              {t("settings.about")}
+            </div>
+            <div className="px-2 text-[10.5px] leading-relaxed text-txt-2">
+              <div>PolyLab v{coreVersion ?? "?"} · Electron {bridge()?.versions?.electron ?? "—"}</div>
+              <div>{bridge()?.platform ?? "web"}</div>
+            </div>
+
 
             <div className="mt-4 px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-txt-2">
               {t("settings.providers")}

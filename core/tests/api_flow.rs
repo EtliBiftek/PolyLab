@@ -333,6 +333,7 @@ async fn openai_compat_stream_normalizes_reasoning_and_usage() {
 
     let request = polylab_core::providers::ChatRequest {
         images: Vec::new(),
+        web: false,
         model: "mock-1".into(),
         messages: vec![polylab_core::providers::ChatMessage {
             role: polylab_core::providers::Role::User,

@@ -18,7 +18,8 @@
     "chatMenu": "Chat menu",
     "rename": "Rename",
     "pin": "Pin",
-    "unpin": "Unpin"
+    "unpin": "Unpin",
+    "codingConversations": "Coding chats"
   },
   "topbar": {
     "workspace": "PolyLab",
@@ -33,6 +34,11 @@
       "noneYet": "No models yet.\nStart in Settings → Add provider.",
       "noMatches": "No matching models.",
       "notAvailableYet": "Connecting models arrives in Phase 1"
+    },
+    "folder": {
+      "select": "Choose folder",
+      "hint": "Agent, git and terminal are rooted at this folder",
+      "prompt": "Project folder path"
     }
   },
   "status": {
@@ -64,7 +70,14 @@
     "usage": "{{in}} in · {{out}} out tokens",
     "providerError": "Provider error",
     "think.onHint": "{name} — think mode ON, click to disable",
-    "think.offHint": "{name} — think mode OFF, click to enable"
+    "think.offHint": "{name} — think mode OFF, click to enable",
+    "think": {
+      "pickModel": "Pick a model first"
+    },
+    "web": {
+      "hint": "Search the web (OpenRouter web plugin)",
+      "unsupported": "Web search is only supported on OpenRouter providers"
+    }
   },
   "thinking": {
     "title": "Thinking · {{chars}} characters",
@@ -116,7 +129,15 @@
     "model": {
       "temperature": "Temp",
       "maxTokens": "Max tokens"
-    }
+    },
+    "data": "Data",
+    "about": "About",
+    "sendOnEnter": "Enter sends",
+    "sendOnEnterHint": "When on, Enter sends the message; Shift+Enter always inserts a newline",
+    "showTimestamps": "Show timestamps",
+    "exportData": "Export chats (JSON)",
+    "exporting": "Exporting…",
+    "exportHint": "All conversations with full message history download as one JSON file."
   },
   "common": {
     "close": "Close",
