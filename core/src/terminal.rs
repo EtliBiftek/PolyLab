@@ -164,7 +164,7 @@ impl Terminals {
         }
 
         let (program, args) = shell_interactive();
-        let mut child = tokio::process::Command::new(program)
+        let mut child = match tokio::process::Command::new(program)
             .args(args)
             .current_dir(&workspace)
             .stdin(std::process::Stdio::piped())
