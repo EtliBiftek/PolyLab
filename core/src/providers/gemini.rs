@@ -219,7 +219,9 @@ mod tests {
         let sink = Arc::clone(&captured);
         let app = Router::new()
             .route(
-                "/v1beta/models/{model}:streamGenerateContent",
+                // Axum 0.8 rejects a parameter mixed with literal text in one
+                // segment, so use a literal route for the model under test.
+                "/v1beta/models/gemini-2.0-flash:streamGenerateContent",
                 post(
                     |State(state): State<Arc<Mutex<Option<Value>>>>,
                      axum::Json(body): axum::Json<Value>| async move {
