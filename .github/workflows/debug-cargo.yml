@@ -1,0 +1,39 @@
+name: Debug cargo errors
+
+on:
+  push:
+    branches:
+      - "arena/01a07595-polylab"
+
+permissions:
+  contents: read
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+
+      - name: Test core (capture)
+        working-directory: core
+        run: cargo test 2>&1 | tee /tmp/cargo-all.log || true
+
+      - name: Clippy core (capture)
+        working-directory: core
+        run: cargo clippy --all-targets -- -D warnings 2>&1 | tee -a /tmp/cargo-all.log || true
+
+      - name: Build core (capture)
+        working-directory: core
+        run: cargo build 2>&1 | tee -a /tmp/cargo-all.log || true
+
+      - name: Emit annotations
+        run: |
+          echo "::error title=cargo-tail::$(tail -c 12000 /tmp/cargo-all.log | base64 -w0)"
