@@ -3,7 +3,7 @@
 [1m[92m      Adding[0m mime_guess v2.0.5
 [1m[92m      Adding[0m unicase v2.9.0
 [1m[92m   Compiling[0m polylab-core v0.1.0 (/home/runner/work/PolyLab/PolyLab/core)
-[1m[92m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 13.91s
+[1m[92m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 14.14s
 [1m[92m     Running[0m unittests src/lib.rs (target/debug/deps/polylab_core-9c5b532a581049d1)
 
 running 66 tests
@@ -11,25 +11,25 @@ test agent::tests::approval_profiles_gate_the_right_tools ... ok
 test agent::tests::diff_handles_identical_and_empty ... ok
 test agent::tests::diff_shows_change_and_new_file ... ok
 test agent::tests::parses_tool_block ... ok
-test agent::tests::tool_specs_cover_legacy_tools ... ok
 test agent::tests::takes_last_tool_block_and_rejects_plain_text ... ok
+test agent::tests::tool_specs_cover_legacy_tools ... ok
+test api::providers::tests::capability_heuristics_spot_reasoning_and_tools ... ok
 test api::providers::tests::lmstudio_models_are_parsed ... ok
 test api::providers::tests::ollama_tags_are_parsed_and_shorted ... ok
-test api::providers::tests::capability_heuristics_spot_reasoning_and_tools ... ok
 test api::search::tests::fts_phrase_quotes_and_escapes ... ok
 test api::search::tests::snippet_handles_missing_match_and_short_text ... ok
 test api::search::tests::snippet_wraps_the_match ... ok
 test auth::tests::query_param_parses ... ok
 test auth::tests::constant_time_eq_basics ... ok
-test config::tests::config_from_env_parses_port_and_token ... ok
 test config::tests::session_tokens_are_unique ... ok
+test config::tests::config_from_env_parses_port_and_token ... ok
 test debate::consensus::tests::no_vote_is_none ... ok
 test debate::consensus::tests::parses_yes_and_no ... ok
-test debate::consensus::tests::takes_last_vote_line ... ok
 test debate::consensus::tests::unanimous_logic ... ok
-test auth::tests::health_requires_token ... ok
-test auth::tests::query_token_only_works_for_ws ... ok
+test debate::consensus::tests::takes_last_vote_line ... ok
 test debate::leader::tests::explicit_leader_wins_when_present ... ok
+test debate::leader::tests::reasoning_beats_cloud_only ... ok
+test debate::leader::tests::ties_pick_first_in_group_order ... ok
 test debate::tests::settings_parse_and_clamp ... ok
 test engine::tests::summarize_cut_keeps_recent_and_targets_old ... ok
 test events::tests::client_events_round_trip ... ok
@@ -43,10 +43,10 @@ test fs::tests::snapshot_reports_over_budget_files ... ok
 test fs::tests::snapshot_skips_symlinks_that_escape ... ok
 test fs::tests::undo_restores_existing_and_deletes_new_files ... ok
 test git::tests::diff_works_in_repo_without_commits ... ok
-test debate::leader::tests::reasoning_beats_cloud_only ... ok
-test prompts::tests::all_prompts_load_non_empty ... ok
-test debate::leader::tests::ties_pick_first_in_group_order ... ok
 test git::tests::status_and_diff_and_commit ... ok
+test prompts::tests::all_prompts_load_non_empty ... ok
+test auth::tests::health_requires_token ... ok
+test auth::tests::query_token_only_works_for_ws ... ok
 test providers::anthropic::tests::images_become_image_blocks_on_the_last_user_turn ... ok
 test providers::gemini::tests::split_data_uri_matches_native_shape ... ok
 test providers::gemini::tests::images_become_inline_data_on_the_last_user_turn ... ok
@@ -74,7 +74,7 @@ test providers::openai_compat::tests::list_models_sorts_by_id ... ok
 test storage::tests::migrations_create_the_phase1_tables ... ok
 test debate::leader::tests::labels_are_assigned_and_reshuffled ... ok
 
-test result: ok. 66 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.57s
+test result: ok. 66 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.91s
 
 [1m[92m     Running[0m unittests src/main.rs (target/debug/deps/polylab_core-7f39ddef0a182de3)
 
@@ -89,30 +89,24 @@ test openai_compat_stream_normalizes_reasoning_and_usage ... ok
 test settings_round_trip ... ok
 test provider_delete_removes_models_and_keeps_conversations ... ok
 test unauthorized_without_token ... ok
-test full_single_model_flow ... FAILED
+test full_single_model_flow ... ok
 
-failures:
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
 
----- full_single_model_flow stdout ----
-API_FLOW_EVENT {"type":"message_start","conversation_id":"09095766-0807-4ca2-bec4-3bac474cacd8","message_id":"6c38b2dc-0331-45a8-a9b8-4aade7722947","model_id":"ea19fbe0-210e-4102-9f90-e18f2ef878c1","mode":"single"}
-API_FLOW_EVENT {"type":"reasoning_token","conversation_id":"09095766-0807-4ca2-bec4-3bac474cacd8","message_id":"6c38b2dc-0331-45a8-a9b8-4aade7722947","model_id":"ea19fbe0-210e-4102-9f90-e18f2ef878c1","delta":"düşünüyorum"}
-API_FLOW_EVENT {"type":"token","conversation_id":"09095766-0807-4ca2-bec4-3bac474cacd8","message_id":"6c38b2dc-0331-45a8-a9b8-4aade7722947","delta":"Mer"}
-API_FLOW_EVENT {"type":"reasoning_token","conversation_id":"09095766-0807-4ca2-bec4-3bac474cacd8","message_id":"6c38b2dc-0331-45a8-a9b8-4aade7722947","model_id":"ea19fbe0-210e-4102-9f90-e18f2ef878c1","delta":"gizli"}
-API_FLOW_EVENT {"type":"token","conversation_id":"09095766-0807-4ca2-bec4-3bac474cacd8","message_id":"6c38b2dc-0331-45a8-a9b8-4aade7722947","delta":"haba"}
-API_FLOW_EVENT {"type":"token","conversation_id":"09095766-0807-4ca2-bec4-3bac474cacd8","message_id":"6c38b2dc-0331-45a8-a9b8-4aade7722947","delta":" dünya"}
-API_FLOW_EVENT {"type":"error","conversation_id":"09095766-0807-4ca2-bec4-3bac474cacd8","message_id":null,"code":"internal","detail":"error returned from database: (code: 1) SQL logic error"}
+[1m[92m     Running[0m tests/ws_integration.rs (target/debug/deps/ws_integration-82d9ddb4617fe00e)
 
-thread 'full_single_model_flow' (2658) panicked at tests/api_flow.rs:210:9:
-missing usage in ["message_start", "reasoning_token", "token", "reasoning_token", "token", "token", "error"]
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+running 2 tests
+test ws_rejects_wrong_token_before_upgrade ... ok
+test ws_sends_hello_then_serves_ping_pong_and_echo ... ok
 
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
 
-failures:
-    full_single_model_flow
+[1m[92m   Doc-tests[0m polylab_core
 
-test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+running 0 tests
 
-[1m[91merror[0m: test failed, to rerun pass `--test api_flow`
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
 [1m[92m    Checking[0m polylab-core v0.1.0 (/home/runner/work/PolyLab/PolyLab/core)
-[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 3.45s
-[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 0.15s
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 2.94s
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 0.12s
