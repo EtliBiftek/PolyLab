@@ -3,7 +3,7 @@
 use eventsource_stream::Eventsource;
 use serde_json::{json, Value};
 
-use super::{ChatEvent, ChatRequest, ChatStream, Provider, RemoteModel, Role, ToolCall, ToolChoice, ToolSpec};
+use super::{ChatEvent, ChatRequest, ChatStream, Provider, RemoteModel, Role, ToolCall, ToolChoice};
 use crate::storage::ProviderKind;
 
 const DEFAULT_BASE: &str = "https://generativelanguage.googleapis.com";

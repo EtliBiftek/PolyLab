@@ -83,6 +83,8 @@ mod tests {
                 reasoning_enabled: None,
                 reasoning_options: None,
                 reasoning_effort: None,
+                price_input: None,
+                price_output: None,
                 enabled: true,
             },
             provider_row: ProviderRow {

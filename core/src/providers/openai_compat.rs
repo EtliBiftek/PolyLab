@@ -7,7 +7,7 @@
 use eventsource_stream::Eventsource;
 use serde_json::{json, Value};
 
-use super::{ChatEvent, ChatMessage, ChatRequest, ChatStream, Provider, RemoteModel, Role, ToolCall, ToolChoice, ToolSpec};
+use super::{ChatEvent, ChatMessage, ChatRequest, ChatStream, Provider, RemoteModel, Role, ToolCall, ToolChoice};
 use crate::storage::ProviderKind;
 
 pub struct OpenAiCompat {

@@ -499,7 +499,7 @@ async fn approved_or_execute(
     approvals: &Approvals,
     conversation_id: &str,
     message_id: &str,
-    step: u32,
+    _step: u32,
     tool: &str,
     args: &Value,
     args_json: &str,

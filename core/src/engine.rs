@@ -832,6 +832,7 @@ impl ChatEngine {
                         "Aşağıdaki ilk mesaj için en fazla 6 kelimelik, tırnaksız, noktalama\
                          içermeyen kısa bir başlık yaz. Sadece başlık:\n\n{first_user_message}"
                     ),
+                    ..Default::default()
                 },
             ],
             temperature: Some(0.3),
@@ -1044,7 +1045,6 @@ impl ChatEngine {
             }
         }
         // Engine-side web search (shared by every lane).
-        let mut web_results = String::new();
         if web {
             let prompt = history
                 .iter()
@@ -1053,7 +1053,7 @@ impl ChatEngine {
                 .map(|message| message.content.clone())
                 .unwrap_or_default();
             let results = crate::search::search(&prompt).await;
-            web_results = crate::search::format_results(&prompt, &results);
+            let web_results = crate::search::format_results(&prompt, &results);
             if let Some(last_user) = history
                 .iter_mut()
                 .rev()
