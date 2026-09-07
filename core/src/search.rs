@@ -96,10 +96,13 @@ fn find_class(html: &str, from: usize, class: &str) -> Option<usize> {
         let start = cursor + rel;
         let end = html[start..].find('>')? + start;
         let tag = &html[start..=end];
-        let class_attr = tag.find("class=")?;
-        let value = &tag[class_attr..];
-        if value.contains(class) {
-            return Some(start);
+        // Tags without a class attribute (closing tags, etc.) are skipped —
+        // aborting there would hide every later result.
+        if let Some(class_attr) = tag.find("class=") {
+            let value = &tag[class_attr..];
+            if value.contains(class) {
+                return Some(start);
+            }
         }
         cursor = end + 1;
     }
