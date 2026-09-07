@@ -200,7 +200,6 @@ async fn full_single_model_flow() {
     let mut event_types: Vec<String> = Vec::new();
     while let Ok(event) = hub.try_recv() {
         let value: Value = serde_json::from_str(&event).unwrap();
-        println!("API_FLOW_EVENT {event}");
         event_types.push(value["type"].as_str().unwrap_or_default().to_string());
         if value["type"] == "message_done" {
             assert_eq!(value["status"], "done");
