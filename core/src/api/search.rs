@@ -17,6 +17,18 @@ pub struct SearchQuery {
 }
 
 #[derive(Serialize)]
+/// Raw `messages_fts` join row (keeps the multi-column query readable for clippy).
+type SearchRow = (
+    String,
+    String,
+    Option<String>,
+    String,
+    String,
+    Option<String>,
+    String,
+    f64,
+);
+
 pub struct SearchHit {
     pub message_id: String,
     pub conversation_id: String,
@@ -67,8 +79,7 @@ pub async fn search(
         return Ok(Json(Vec::new()));
     }
     let limit = query.limit.unwrap_or(20).clamp(1, 100);
-    let rows: Vec<(String, String, Option<String>, String, String, Option<String>, String, f64)> =
-        sqlx::query_as(
+    let rows: Vec<SearchRow> = sqlx::query_as(
             "SELECT m.id, m.conversation_id, c.title, m.role, m.content, m.model_id, m.created_at,
                     bm25(messages_fts) AS rank
              FROM messages_fts
