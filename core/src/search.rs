@@ -27,7 +27,7 @@ pub async fn search(query: &str) -> Vec<SearchResult> {
     if query.is_empty() {
         return Vec::new();
     }
-    match fetch(&query).await {
+    match fetch(query).await {
         Ok(html) => parse(&html),
         Err(error) => {
             tracing::warn!(%error, "web search failed");
