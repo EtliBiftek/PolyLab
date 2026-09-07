@@ -3,7 +3,7 @@
 
 use axum::extract::{Path, State};
 use axum::Json;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 
 use super::error::ApiError;
@@ -37,7 +37,7 @@ pub struct WinnerBody {
     pub entry_id: String,
 }
 
-fn load_detail(state: &AppState, id: &str) -> Result<ComparisonDetail, ApiError> {
+async fn load_detail(state: &AppState, id: &str) -> Result<ComparisonDetail, ApiError> {
     let comparison: ComparisonRow = sqlx::query_as("SELECT * FROM comparisons WHERE id = ?")
         .bind(id)
         .fetch_optional(&state.db)

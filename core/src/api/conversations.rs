@@ -342,7 +342,7 @@ pub async fn export(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Json<ConversationExport>, ApiError> {
-    let detail = get_one(State(state), Path(id)).await?;
+    let Json(detail) = get_one(State(state), Path(id)).await?;
     Ok(Json(ConversationExport {
         conversation: detail.conversation,
         messages: detail.messages,

@@ -21,7 +21,7 @@ impl ApiError {
         Self { status: StatusCode::NOT_FOUND, code: "not_found", detail: detail.into() }
     }
 
-    pub fn internal(error: anyhow::Error) -> Self {
+    pub fn internal(error: impl std::fmt::Display) -> Self {
         Self { status: StatusCode::INTERNAL_SERVER_ERROR, code: "internal", detail: error.to_string() }
     }
 

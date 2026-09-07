@@ -158,10 +158,10 @@ pub async fn run_agent(
     let mut messages = vec![ChatMessage {
         role: Role::System,
         content: format!(
-            "{system_prompt}\n\n{}\n\n{}{}\n\n# Çalışma alanı\n{overview}",
+            "{system_prompt}\n\n{}\n\n{}\n\n# Çalışma alanı\n{overview}",
             crate::prompts::capability_notice(),
             if conversation.agent_plan_mode {
-                "\n\nPlan modu AÇIK: harekete geçmeden önce kısa, numaralı bir plan yaz;\nher adımı uygularken plana atıf et ve görev bitince '## Özet' başlığıyla özetle."
+                "Plan modu AÇIK: harekete geçmeden önce kısa, numaralı bir plan yaz;\nher adımı uygularken plana atıf et ve görev bitince '## Özet' başlığıyla özetle."
             } else {
                 ""
             },
@@ -489,7 +489,6 @@ fn tool_result_text(ok: bool, output: &str) -> String {
 
 /// Legacy ```tool protocol path: parse → approval → execute → result.
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_arguments)]
 async fn run_legacy_tool(
     workspace: &std::path::Path,
     conversation: &Conversation,
@@ -724,7 +723,6 @@ async fn request_approval(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_arguments)]
 async fn finish_step(
     db: &SqlitePool,

@@ -5,8 +5,8 @@
 mod types;
 
 pub use types::{
-    Conversation, DebateDetail, DebateRow, DebateTurnRow, GroupDetail, GroupRow, Message, ModelRow,
-    ProviderKind, ProviderRow,
+    ComparisonDetail, ComparisonEntryRow, ComparisonRow, Conversation, DebateDetail, DebateRow,
+    DebateTurnRow, GroupDetail, GroupRow, Message, ModelRow, ProviderKind, ProviderRow,
 };
 
 use anyhow::Context;
