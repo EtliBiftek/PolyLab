@@ -5,13 +5,14 @@ import {
   deleteConversation,
   getConversation,
   listConversations,
+  setMessageFeedback,
   updateConversation,
   type Conversation,
   type Message,
 } from "../lib/api";
 import { wsClient } from "../lib/connection";
 
-export type ChatMode = "single" | "debate" | "agent";
+export type ChatMode = "single" | "debate" | "agent" | "race";
 export type DebatePhase = "initial" | "critique" | "synthesis";
 
 export interface DebateTurnState {
@@ -44,10 +45,15 @@ export interface PendingApproval {
   approvalId: string;
   tool: string;
   argsJson: string;
+  /** Unified diff of the pending file change (fs_write/fs_delete). */
+  diff: string | null;
 }
 
 export interface StreamingMessage {
   id: string;
+  /** The conversation this stream belongs to (race lanes share one). */
+  conversationId: string;
+  modelId: string | null;
   mode: ChatMode;
   content: string;
   reasoning: string;
@@ -55,6 +61,8 @@ export interface StreamingMessage {
   resolvedModel: string | null;
   usage: { tokens_in: number; tokens_out: number; estimated: boolean } | null;
   errorDetail: string | null;
+  /** Set on model-race lanes; used to render side-by-side columns. */
+  raceId: string | null;
   debate: DebateRoundState[];
   agentSteps: AgentStepState[];
 }
@@ -71,19 +79,34 @@ interface ChatState {
   activeId: string | null;
   messages: Record<string, Message[]>;
   streaming: Record<string, StreamingMessage | undefined>;
+  /** Model-race lanes keyed by message id (N streams per conversation). */
+  raceStreams: Record<string, StreamingMessage | undefined>;
+  /** In-flight stream count per conversation (drives `sending`). */
+  pendingRuns: Record<string, number>;
   terminal: Record<string, TerminalState | undefined>;
   pendingApproval: PendingApproval | null;
   sending: boolean;
   loaded: boolean;
+  /** Text filter for messages inside the active conversation ('' = off). */
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  /** Thumbs feedback for a persisted assistant message (1/-1/0 to clear). */
+  rateMessage: (messageId: string, rating: number) => Promise<void>;
 
   refresh: () => Promise<void>;
-  newConversation: (modelId: string | null, groupId?: string | null) => Promise<Conversation>;
+  newConversation: (
+    modelId: string | null,
+    groupId?: string | null,
+    race?: boolean,
+  ) => Promise<Conversation>;
   open: (id: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
   rename: (id: string, title: string) => Promise<void>;
   setPinned: (id: string, pinned: boolean) => Promise<void>;
   setActiveModel: (modelId: string) => Promise<void>;
   setActiveGroup: (groupId: string) => Promise<void>;
+  /** Switches the active conversation to model-race mode (same group). */
+  setActiveRace: (groupId: string) => Promise<void>;
   updateMode: (mode: "chat" | "coding") => Promise<void>;
   setAutoApprove: (enabled: boolean) => Promise<void>;
   send: (
@@ -104,8 +127,16 @@ interface ChatState {
   wireEvents: () => () => void;
 }
 
-const emptyStreaming = (id: string, mode: ChatMode): StreamingMessage => ({
+const emptyStreaming = (
+  id: string,
+  conversationId: string,
+  modelId: string | null,
+  mode: ChatMode,
+  raceId: string | null,
+): StreamingMessage => ({
   id,
+  conversationId,
+  modelId,
   mode,
   content: "",
   reasoning: "",
@@ -113,6 +144,7 @@ const emptyStreaming = (id: string, mode: ChatMode): StreamingMessage => ({
   resolvedModel: null,
   usage: null,
   errorDetail: null,
+  raceId,
   debate: [],
   agentSteps: [],
 });
@@ -122,17 +154,20 @@ export const useChat = create<ChatState>((set, get) => ({
   activeId: null,
   messages: {},
   streaming: {},
+  raceStreams: {},
+  pendingRuns: {},
   terminal: {},
   pendingApproval: null,
   sending: false,
   loaded: false,
+  searchQuery: "",
 
   refresh: async () => {
     const conversations = await listConversations();
     set({ conversations, loaded: true });
   },
 
-  newConversation: async (modelId, groupId) => {
+  newConversation: async (modelId, groupId, race = false) => {
     const { activeId, messages } = get();
     // Point 9: an empty conversation is already a "new chat" — don't create a
     // second one when the user is sitting in a conversation with no messages.
@@ -152,7 +187,7 @@ export const useChat = create<ChatState>((set, get) => ({
     const mode = useSettings.getState().mode;
     const conversation = await createConversation(
       groupId != null
-        ? { mode, selection_type: "group", group_id: groupId }
+        ? { mode, selection_type: race ? "race" : "group", group_id: groupId }
         : { mode, model_id: modelId },
     );
     await get().refresh();
@@ -164,9 +199,40 @@ export const useChat = create<ChatState>((set, get) => ({
   },
 
   open: async (id) => {
-    set({ activeId: id });
+    set({ activeId: id, searchQuery: "" });
     const detail = await getConversation(id);
     set((state) => ({ messages: { ...state.messages, [id]: detail.messages } }));
+  },
+
+  setSearchQuery: (searchQuery) => set({ searchQuery }),
+
+  rateMessage: async (messageId, rating) => {
+    const { activeId } = get();
+    if (activeId == null) return;
+    // Optimistic update; the server is the source of truth after refresh.
+    set((state) => ({
+      messages: {
+        ...state.messages,
+        [activeId]: (state.messages[activeId] ?? []).map((message) =>
+          message.id === messageId ? { ...message, feedback: rating } : message,
+        ),
+      },
+    }));
+    try {
+      await setMessageFeedback(messageId, rating);
+    } catch {
+      // Roll back the optimistic change on failure.
+      set((state) => ({
+        messages: {
+          ...state.messages,
+          [activeId]: (state.messages[activeId] ?? []).map((message) =>
+            message.id === messageId
+              ? { ...message, feedback: message.feedback === rating ? null : message.feedback }
+              : message,
+          ),
+        },
+      }));
+    }
   },
 
   remove: async (id) => {
@@ -219,6 +285,18 @@ export const useChat = create<ChatState>((set, get) => ({
     const updated = get().conversations.map((conversation) =>
       conversation.id === activeId
         ? { ...conversation, selection_type: "group" as const, group_id: groupId, model_id: null }
+        : conversation,
+    );
+    set({ conversations: updated });
+  },
+
+  setActiveRace: async (groupId) => {
+    const { activeId } = get();
+    if (activeId == null) return;
+    await updateConversation(activeId, { selection_type: "race", group_id: groupId });
+    const updated = get().conversations.map((conversation) =>
+      conversation.id === activeId
+        ? { ...conversation, selection_type: "race" as const, group_id: groupId, model_id: null }
         : conversation,
     );
     set({ conversations: updated });
@@ -278,6 +356,8 @@ export const useChat = create<ChatState>((set, get) => ({
               attachments != null && attachments.length > 0
                 ? JSON.stringify(attachments)
                 : null,
+            feedback: null,
+            race_id: null,
             created_at: new Date().toISOString(),
           },
         ],
@@ -309,6 +389,7 @@ export const useChat = create<ChatState>((set, get) => ({
       return {
         messages: { ...state.messages, [conversationId]: edited.slice(0, index + 1) },
         streaming: { ...state.streaming, [conversationId]: undefined },
+        raceStreams: clearRaceStreams(state.raceStreams, conversationId),
         sending: true,
       };
     });
@@ -333,6 +414,7 @@ export const useChat = create<ChatState>((set, get) => ({
       return {
         messages: { ...state.messages, [conversationId]: list.slice(0, index) },
         streaming: { ...state.streaming, [conversationId]: undefined },
+        raceStreams: clearRaceStreams(state.raceStreams, conversationId),
         sending: true,
       };
     });
@@ -413,36 +495,78 @@ export const useChat = create<ChatState>((set, get) => ({
         };
       });
 
+    /** Patches a race lane (by message id) when present, else the main stream. */
+    const patchMessage = (
+      messageId: string,
+      conversationId: string,
+      patch: (message: StreamingMessage) => StreamingMessage,
+    ) =>
+      set((state) => {
+        const race = state.raceStreams[messageId];
+        if (race != null) {
+          return {
+            raceStreams: { ...state.raceStreams, [messageId]: patch(race) },
+          };
+        }
+        const current = state.streaming[conversationId];
+        if (current == null) return {};
+        return {
+          streaming: { ...state.streaming, [conversationId]: patch(current) },
+        };
+      });
+
     const offs = [
       client.on("message_start", (payload) => {
         const event = payload as {
           conversation_id: string;
           message_id: string;
+          model_id?: string;
           mode?: ChatMode;
+          race_id?: string | null;
         };
+        const stream = emptyStreaming(
+          event.message_id,
+          event.conversation_id,
+          event.model_id ?? null,
+          event.mode ?? "single",
+          event.race_id ?? null,
+        );
         set((state) => ({
-          streaming: {
-            ...state.streaming,
-            [event.conversation_id]: emptyStreaming(
-              event.message_id,
-              event.mode ?? "single",
-            ),
+          streaming:
+            stream.raceId == null
+              ? { ...state.streaming, [event.conversation_id]: stream }
+              : state.streaming,
+          raceStreams:
+            stream.raceId != null
+              ? { ...state.raceStreams, [event.message_id]: stream }
+              : state.raceStreams,
+          pendingRuns: {
+            ...state.pendingRuns,
+            [event.conversation_id]: (state.pendingRuns[event.conversation_id] ?? 0) + 1,
           },
           sending: true,
         }));
       }),
 
       client.on("token", (payload) => {
-        const event = payload as { conversation_id: string; delta: string };
-        patchStreaming(event.conversation_id, (current) => ({
+        const event = payload as {
+          conversation_id: string;
+          message_id: string;
+          delta: string;
+        };
+        patchMessage(event.message_id, event.conversation_id, (current) => ({
           ...current,
           content: current.content + event.delta,
         }));
       }),
 
       client.on("reasoning_token", (payload) => {
-        const event = payload as { conversation_id: string; delta: string };
-        patchStreaming(event.conversation_id, (current) => ({
+        const event = payload as {
+          conversation_id: string;
+          message_id: string;
+          delta: string;
+        };
+        patchMessage(event.message_id, event.conversation_id, (current) => ({
           ...current,
           reasoning: current.reasoning + event.delta,
         }));
@@ -454,7 +578,7 @@ export const useChat = create<ChatState>((set, get) => ({
           message_id: string;
           model_id: string;
         };
-        patchStreaming(event.conversation_id, (current) => ({
+        patchMessage(event.message_id, event.conversation_id, (current) => ({
           ...current,
           resolvedModel: event.model_id,
         }));
@@ -637,12 +761,14 @@ export const useChat = create<ChatState>((set, get) => ({
           approval_id: string;
           tool: string;
           args_json: string;
+          diff?: string | null;
         };
         set({
           pendingApproval: {
             approvalId: event.approval_id,
             tool: event.tool,
             argsJson: event.args_json,
+            diff: event.diff ?? null,
           },
         });
       }),
@@ -699,11 +825,12 @@ export const useChat = create<ChatState>((set, get) => ({
       client.on("usage", (payload) => {
         const event = payload as {
           conversation_id: string;
+          message_id: string;
           tokens_in: number;
           tokens_out: number;
           estimated: boolean;
         };
-        patchStreaming(event.conversation_id, (current) => ({
+        patchMessage(event.message_id, event.conversation_id, (current) => ({
           ...current,
           usage: {
             tokens_in: event.tokens_in,
@@ -714,14 +841,34 @@ export const useChat = create<ChatState>((set, get) => ({
       }),
 
       client.on("error", (payload) => {
-        const event = payload as { conversation_id?: string; detail: string };
+        const event = payload as {
+          conversation_id?: string;
+          message_id?: string;
+          detail: string;
+        };
         if (event.conversation_id == null) return;
         const conversationId = event.conversation_id as string;
+        // A race lane error belongs to its stream; the lane stays visible.
+        if (event.message_id != null && get().raceStreams[event.message_id] != null) {
+          const messageId = event.message_id;
+          set((state) => ({
+            raceStreams: {
+              ...state.raceStreams,
+              [messageId]: {
+                ...state.raceStreams[messageId]!,
+                status: "error",
+                errorDetail: event.detail,
+              },
+            },
+          }));
+          return;
+        }
         // Errors before any stream (e.g. edit/regenerate validation) must also
         // release the composer lock and resync history.
         if (get().streaming[conversationId] == null) {
           set((state) => ({
             sending: false,
+            pendingRuns: { ...state.pendingRuns, [conversationId]: 0 },
             streaming: { ...state.streaming, [conversationId]: undefined },
           }));
           void getConversation(conversationId)
@@ -741,7 +888,11 @@ export const useChat = create<ChatState>((set, get) => ({
       }),
 
       client.on("message_done", (payload) => {
-        const event = payload as { conversation_id: string; status: string };
+        const event = payload as {
+          conversation_id: string;
+          message_id: string;
+          status: string;
+        };
         // The server is the source of truth — reload history + conversation list.
         void (async () => {
           try {
@@ -749,16 +900,30 @@ export const useChat = create<ChatState>((set, get) => ({
               getConversation(event.conversation_id),
               get().refresh(),
             ]);
-            set((state) => ({
-              messages: { ...state.messages, [event.conversation_id]: detail.messages },
-              streaming: { ...state.streaming, [event.conversation_id]: undefined },
-              sending: false,
-            }));
+            set((state) => {
+              const nextPending = Math.max(0, (state.pendingRuns[event.conversation_id] ?? 1) - 1);
+              const raceStreams = { ...state.raceStreams };
+              delete raceStreams[event.message_id];
+              return {
+                messages: { ...state.messages, [event.conversation_id]: detail.messages },
+                streaming: { ...state.streaming, [event.conversation_id]: undefined },
+                raceStreams,
+                pendingRuns: { ...state.pendingRuns, [event.conversation_id]: nextPending },
+                sending: nextPending > 0,
+              };
+            });
           } catch {
-            set((state) => ({
-              streaming: { ...state.streaming, [event.conversation_id]: undefined },
-              sending: false,
-            }));
+            set((state) => {
+              const nextPending = Math.max(0, (state.pendingRuns[event.conversation_id] ?? 1) - 1);
+              const raceStreams = { ...state.raceStreams };
+              delete raceStreams[event.message_id];
+              return {
+                streaming: { ...state.streaming, [event.conversation_id]: undefined },
+                raceStreams,
+                pendingRuns: { ...state.pendingRuns, [event.conversation_id]: nextPending },
+                sending: nextPending > 0,
+              };
+            });
           }
         })();
       }),
@@ -767,6 +932,17 @@ export const useChat = create<ChatState>((set, get) => ({
     return () => offs.forEach((off) => off());
   },
 }));
+
+function clearRaceStreams(
+  raceStreams: Record<string, StreamingMessage | undefined>,
+  conversationId: string,
+): Record<string, StreamingMessage | undefined> {
+  const next = { ...raceStreams };
+  for (const [id, stream] of Object.entries(next)) {
+    if (stream?.conversationId === conversationId) delete next[id];
+  }
+  return next;
+}
 
 function upsertTurn(
   turns: DebateTurnState[],

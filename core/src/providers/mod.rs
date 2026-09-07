@@ -17,11 +17,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::storage::ProviderKind;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Role {
     System,
+    #[default]
     User,
     Assistant,
+    /// Result of a native tool call; `ChatMessage.tool_call_id` links it.
+    Tool,
 }
 
 impl Role {
@@ -30,14 +33,50 @@ impl Role {
             Role::System => "system",
             Role::User => "user",
             Role::Assistant => "assistant",
+            Role::Tool => "tool",
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ChatMessage {
     pub role: Role,
     pub content: String,
+    /// Native function-calling requests made by an assistant message
+    /// (OpenAI `tool_calls`, Anthropic `tool_use`, Gemini `functionCall`).
+    pub tool_calls: Vec<ToolCall>,
+    /// Set on tool-result messages (`Role::Tool`): the call id answered.
+    pub tool_call_id: Option<String>,
+}
+
+impl ChatMessage {
+    pub fn new(role: Role, content: impl Into<String>) -> Self {
+        Self {
+            role,
+            content: content.into(),
+            tool_calls: Vec::new(),
+            tool_call_id: None,
+        }
+    }
+}
+
+/// A function declaration offered to the model (native function calling).
+#[derive(Debug, Clone)]
+pub struct ToolSpec {
+    pub name: String,
+    pub description: String,
+    /// JSON Schema for `arguments` (for Gemini the `parameters` object).
+    pub parameters: serde_json::Value,
+}
+
+/// One native function-call request from an assistant message.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ToolCall {
+    /// Provider call id (OpenAI `id` / Anthropic `tool_use.id`); Gemini has no
+    /// id, so the engine synthesizes one.
+    pub id: String,
+    pub name: String,
+    pub arguments: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -60,6 +99,20 @@ pub struct ChatRequest {
     /// exposes multiple think levels; falls back to the provider's default
     /// level when the model has only one think level.
     pub reasoning_effort: Option<String>,
+    /// Native function declarations. Empty = no native tool calling; the agent
+    /// then falls back to the legacy ` ```tool ` protocol.
+    pub tools: Vec<ToolSpec>,
+    /// Which tool(s) the model may use. `None` = provider default (auto).
+    pub tool_choice: Option<ToolChoice>,
+}
+
+/// How the model should pick native tools.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ToolChoice {
+    Auto,
+    None,
+    /// Force the named tool.
+    Named(String),
 }
 
 #[derive(Debug, Clone)]
@@ -86,6 +139,9 @@ pub enum ChatEvent {
     /// The concrete model id the provider served (alias resolution, e.g.
     /// OpenRouter `/free` routing). Emitted once per stream when known.
     ModelResolved(String),
+    /// Native function-call requests from the assistant; emitted once per
+    /// stream end (after all tool-call fragments were accumulated).
+    ToolCalls(Vec<ToolCall>),
     Usage { tokens_in: u64, tokens_out: u64 },
     Error { detail: String },
 }
@@ -254,6 +310,9 @@ impl Provider for FallbackProvider {
                     Some(ChatEvent::ModelResolved(model)) => {
                         return Some((ChatEvent::ModelResolved(model), state));
                     }
+                    Some(ChatEvent::ToolCalls(calls)) => {
+                        return Some((ChatEvent::ToolCalls(calls), state));
+                    }
                     Some(ChatEvent::Usage { tokens_in, tokens_out }) => {
                         return Some((ChatEvent::Usage { tokens_in, tokens_out }, state));
                     }
@@ -293,14 +352,11 @@ fn advance_fallback(state: &mut FallbackStreamState) -> bool {
     }
     state.key_index += 1;
     if !state.partial.trim().is_empty() {
-        state.request.messages.push(ChatMessage {
-            role: Role::Assistant,
-            content: state.partial.clone(),
-        });
-        state.request.messages.push(ChatMessage {
-            role: Role::User,
-            content: "Continue the previous response from exactly where it stopped. Do not repeat text that is already present.".into(),
-        });
+        state.request.messages.push(ChatMessage::new(Role::Assistant, state.partial.clone()));
+        state.request.messages.push(ChatMessage::new(
+            Role::User,
+            "Continue the previous response from exactly where it stopped. Do not repeat text that is already present.",
+        ));
     }
     true
 }

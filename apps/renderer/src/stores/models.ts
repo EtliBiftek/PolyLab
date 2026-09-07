@@ -47,7 +47,18 @@ interface ModelsState {
   setReasoningEffort: (id: string, effort: string | null) => Promise<void>;
   patchModel: (
     id: string,
-    body: Partial<Pick<Model, "display_name" | "color" | "temperature" | "max_tokens" | "enabled">>,
+    body: Partial<
+      Pick<
+        Model,
+        | "display_name"
+        | "color"
+        | "temperature"
+        | "max_tokens"
+        | "enabled"
+        | "price_input"
+        | "price_output"
+      >
+    >,
   ) => Promise<void>;
 }
 

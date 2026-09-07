@@ -19,7 +19,8 @@
     "rename": "Yeniden adlandır",
     "pin": "Sabitle",
     "unpin": "Sabitlemeyi kaldır",
-    "codingConversations": "Kodlama sohbetleri"
+    "codingConversations": "Kodlama sohbetleri",
+    "renameHint": "Sohbeti yeniden adlandır"
   },
   "topbar": {
     "workspace": "PolyLab",
@@ -41,7 +42,8 @@
       "select": "Klasör seç",
       "hint": "Ajan, git ve terminal bu klasöre kısıtlanır",
       "prompt": "Proje klasörü yolu"
-    }
+    },
+    "searchMessages": "Mesajlarda ara…"
   },
   "status": {
     "connecting": "Bağlanıyor…",
@@ -89,6 +91,14 @@
     "web": {
       "hint": "Web'de ara (DuckDuckGo)",
       "unsupported": "Web arama şu anda bu modelde kullanılamıyor"
+    },
+    "improve": "Yanıtı iyileştir",
+    "helpful": "Yardımcı oldu",
+    "notHelpful": "Yardımcı olmadı",
+    "searchMatches": "{{total}} mesajdan {{count}} tanesi eşleşiyor",
+    "race": {
+      "model": "Model",
+      "thinking": "düşünüyor…"
     }
   },
   "thinking": {
@@ -144,7 +154,9 @@
     "models": "Model ayarları",
     "model": {
       "temperature": "Sıcaklık",
-      "maxTokens": "Maks token"
+      "maxTokens": "Maks token",
+      "priceInput": "Giriş $/1M",
+      "priceOutput": "Çıkış $/1M"
     },
     "data": "Veri",
     "about": "Hakkında",
@@ -242,7 +254,8 @@
     "refresh": "Yenile",
     "save": "Kaydet",
     "change": "Değiştir",
-    "saving": "Kaydediliyor…"
+    "saving": "Kaydediliyor…",
+    "clear": "Temizle"
   },
   "groups": {
     "tabModels": "Modeller",
@@ -258,7 +271,10 @@
     "terminationConsensus": "Uzlaşınca dur",
     "maxRounds": "Maks tur",
     "leader": "Lider",
-    "leaderAuto": "Otomatik seçim"
+    "leaderAuto": "Otomatik seçim",
+    "tabRace": "Yarış",
+    "raceHint": "Aynı soruyu gruptaki tüm modellere paralel gönder ve cevapları yan yana karşılaştır.",
+    "raceTag": "yarış"
   },
   "debate": {
     "round": "Tur {{n}}",
@@ -279,7 +295,8 @@
     "approve": "Onayla",
     "reject": "Reddet",
     "autoApprove": "Otomatik onay",
-    "autoApproveHint": "Ajanın dosya yazma/silme ve komut çalıştırma adımlarını onay istemeden uygular."
+    "autoApproveHint": "Ajanın dosya yazma/silme ve komut çalıştırma adımlarını onay istemeden uygular.",
+    "approvalDiff": "Değişiklik farkı"
   },
   "files": {
     "tab": "Dosyalar",
@@ -298,5 +315,14 @@
     "tab": "Terminal",
     "placeholder": "komut yaz, Enter…",
     "kill": "Oturumu sonlandır"
+  },
+  "palette": {
+    "placeholder": "Komut yaz veya sohbetlerde ara…",
+    "newChat": "Yeni sohbet",
+    "switchChat": "PolyChat'e geç",
+    "switchCoding": "PolyWork'e geç",
+    "togglePanel": "Sağ paneli aç/kapat",
+    "settings": "Ayarları aç",
+    "noResults": "Sonuç yok"
   }
 }

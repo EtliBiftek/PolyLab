@@ -106,6 +106,7 @@ pub async fn run_debate(
         let mut messages = vec![ChatMessage {
             role: Role::System,
             content: base_prompt.to_string(),
+            ..Default::default()
         }];
         messages.extend(history.iter().cloned());
         messages
@@ -151,6 +152,7 @@ pub async fn run_debate(
         message_id: message_id.clone(),
         model_id: leader_id.clone(),
         mode: ChatMode::Debate,
+        race_id: None,
     });
 
     let mut consensus_reached: Option<bool> = None;
@@ -313,13 +315,14 @@ pub async fn run_debate(
             let request = ChatRequest {
                 model: leader.model.model_id.clone(),
                 messages: vec![
-                    ChatMessage { role: Role::System, content: base_prompt.to_string() },
-                    ChatMessage { role: Role::System, content: prompts.get("debate_leader").to_string() },
+                    ChatMessage { role: Role::System, content: base_prompt.to_string(), ..Default::default() },
+                    ChatMessage { role: Role::System, content: prompts.get("debate_leader").to_string(), ..Default::default() },
                     ChatMessage {
                         role: Role::User,
                         content: format!(
                             "Görev ve tartışma turu çıktıları:\n\n{transcript_text}"
                         ),
+                        ..Default::default()
                     },
                 ],
                 temperature: leader.model.temperature.map(|t| t as f32),
@@ -331,6 +334,8 @@ pub async fn run_debate(
                     .reasoning_enabled
                     .unwrap_or(leader.model.supports_reasoning),
                 reasoning_effort: leader.model.reasoning_effort.clone(),
+                tools: Vec::new(),
+                tool_choice: None,
             };
             let result = run_one_turn(&ctx, leader, request, round, &cancel).await;
             synthesis_text = result.text.clone();
@@ -526,6 +531,7 @@ async fn run_one_turn(
                                     });
                                 }
                             }
+                            ChatEvent::ToolCalls(_) => {}
                             ChatEvent::Usage { tokens_in, tokens_out } => {
                                 result.usage = Some(Usage { tokens_in, tokens_out, estimated: false });
                             }
@@ -567,6 +573,7 @@ fn build_turn_request(
         let mut messages = vec![ChatMessage {
             role: Role::System,
             content: format!("{base_prompt}\n\n{participant_prompt}"),
+            ..Default::default()
         }];
         messages.extend(base_prompts.iter().skip(1).cloned());
         let peers: Vec<String> = same_round
@@ -599,6 +606,8 @@ fn build_turn_request(
                 .reasoning_enabled
                 .unwrap_or(participant.model.supports_reasoning),
             reasoning_effort: participant.model.reasoning_effort.clone(),
+            tools: Vec::new(),
+            tool_choice: None,
         };
         return (prompt_text, request);
     }
@@ -632,8 +641,8 @@ fn build_turn_request(
         critique_prompt,
     );
     let messages = vec![
-        ChatMessage { role: Role::System, content: base_prompt.to_string() },
-        ChatMessage { role: Role::User, content: user_content.clone() },
+        ChatMessage { role: Role::System, content: base_prompt.to_string(), ..Default::default() },
+        ChatMessage { role: Role::User, content: user_content.clone(), ..Default::default() },
     ];
     let prompt_text = messages.iter().map(|m| m.content.clone()).collect::<Vec<_>>().join("\n");
     let request = ChatRequest {
@@ -648,6 +657,8 @@ fn build_turn_request(
             .reasoning_enabled
             .unwrap_or(participant.model.supports_reasoning),
         reasoning_effort: participant.model.reasoning_effort.clone(),
+        tools: Vec::new(),
+        tool_choice: None,
     };
     (prompt_text, request)
 }

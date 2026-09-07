@@ -7,7 +7,7 @@
 use eventsource_stream::Eventsource;
 use serde_json::{json, Value};
 
-use super::{ChatEvent, ChatMessage, ChatRequest, ChatStream, Provider, RemoteModel, Role};
+use super::{ChatEvent, ChatMessage, ChatRequest, ChatStream, Provider, RemoteModel, Role, ToolCall, ToolChoice, ToolSpec};
 use crate::storage::ProviderKind;
 
 pub struct OpenAiCompat {
@@ -86,18 +86,45 @@ impl OpenAiCompat {
     }
 }
 
-/// Serializes the request history. When vision attachments are present they are
-/// appended as `image_url` content parts on the final user message — the only
-/// shape OpenAI-compatible APIs accept for images.
+/// Serializes the request history. Tool calls/results and vision attachments are
+/// mapped to the OpenAI wire shape (tool messages get `tool_call_id`; assistant
+/// tool calls become `tool_calls`; images become `image_url` parts on the final
+/// user turn).
 fn build_messages(request: &ChatRequest) -> Vec<Value> {
     let mut messages: Vec<Value> = request
         .messages
         .iter()
-        .map(|message| json!({ "role": message.role.as_str(), "content": message.content }))
+        .map(|message| {
+            let mut value = json!({ "role": message.role.as_str(), "content": message.content });
+            if !message.tool_calls.is_empty() {
+                value["tool_calls"] = Value::Array(
+                    message
+                        .tool_calls
+                        .iter()
+                        .map(|call| {
+                            json!({
+                                "id": call.id,
+                                "type": "function",
+                                "function": {
+                                    "name": call.name,
+                                    "arguments": call.arguments.to_string(),
+                                }
+                            })
+                        })
+                        .collect(),
+                );
+            }
+            if let Some(call_id) = &message.tool_call_id {
+                value["tool_call_id"] = json!(call_id);
+            }
+            value
+        })
         .collect();
     if request.images.is_empty() || messages.is_empty() {
         return messages;
     }
+    // The image-bearing turn is the LAST plain user message in the wire array
+    // (tool results never carry images).
     let target = request
         .messages
         .iter()
@@ -112,6 +139,33 @@ fn build_messages(request: &ChatRequest) -> Vec<Value> {
     }
     messages[target]["content"] = Value::Array(parts);
     messages
+}
+
+/// `tools` + `tool_choice` request fields (native function calling).
+fn build_tools(request: &ChatRequest) -> Option<Value> {
+    if request.tools.is_empty() {
+        return None;
+    }
+    let tools: Vec<Value> = request
+        .tools
+        .iter()
+        .map(|tool| {
+            json!({
+                "type": "function",
+                "function": {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "parameters": tool.parameters,
+                }
+            })
+        })
+        .collect();
+    let tool_choice = match &request.tool_choice {
+        None | Some(ToolChoice::Auto) => json!("auto"),
+        Some(ToolChoice::None) => json!("none"),
+        Some(ToolChoice::Named(name)) => json!({ "type": "function", "function": { "name": name } }),
+    };
+    Some(json!({ "tools": tools, "tool_choice": tool_choice }))
 }
 
 #[async_trait::async_trait]
@@ -202,6 +256,10 @@ impl Provider for OpenAiCompat {
         if supports_stream_options(self.kind) {
             body["stream_options"] = json!({ "include_usage": true });
         }
+        if let Some(tools) = build_tools(&request) {
+            body["tools"] = tools["tools"].clone();
+            body["tool_choice"] = tools["tool_choice"].clone();
+        }
         // Web search is resolved by the engine (DuckDuckGo injection for every
         // provider) — no provider-side plugin is sent here.
         // Think: OpenRouter wants `reasoning.effort`, OpenAI-compatible reasoning
@@ -232,6 +290,9 @@ impl Provider for OpenAiCompat {
 
         let mut think_filter = super::reasoning::ThinkFilter::new();
         let mut resolved: Option<String> = None;
+        // Streaming tool-call deltas arrive fragmented by `index`; they are
+        // accumulated here and flushed once as ChatEvent::ToolCalls at stream end.
+        let mut tool_fragments: Vec<(String, String, String)> = Vec::new();
         let source = response.bytes_stream().eventsource();
 
         Ok(super::stream_util::sse_events(source, move |event, out| {
@@ -242,6 +303,19 @@ impl Provider for OpenAiCompat {
                 }
                 if !text.is_empty() {
                     out.push(ChatEvent::TextDelta(text));
+                }
+                if !tool_fragments.is_empty() {
+                    out.push(ChatEvent::ToolCalls(
+                        tool_fragments
+                            .iter()
+                            .map(|(id, name, arguments)| ToolCall {
+                                id: id.clone(),
+                                name: name.clone(),
+                                arguments: serde_json::from_str(arguments)
+                                    .unwrap_or_else(|_| json!({ "raw": arguments })),
+                            })
+                            .collect(),
+                    ));
                 }
                 return true;
             };
@@ -283,6 +357,33 @@ impl Provider for OpenAiCompat {
                         out.push(ChatEvent::TextDelta(text));
                     }
                 }
+                // Native tool calls: fragments carry {index, id?, function{name?, arguments?}}.
+                if let Some(calls) = delta.get("tool_calls").and_then(Value::as_array) {
+                    for call in calls {
+                        let index = call.get("index").and_then(Value::as_u64).unwrap_or(0) as usize;
+                        while tool_fragments.len() <= index {
+                            tool_fragments.push((String::new(), String::new(), String::new()));
+                        }
+                        let fragment = &mut tool_fragments[index];
+                        if let Some(id) = call.get("id").and_then(Value::as_str) {
+                            fragment.0 = id.to_string();
+                        }
+                        if let Some(name) = call
+                            .pointer("/function/name")
+                            .and_then(Value::as_str)
+                        {
+                            if !name.is_empty() {
+                                fragment.1 = name.to_string();
+                            }
+                        }
+                        if let Some(arguments) = call
+                            .pointer("/function/arguments")
+                            .and_then(Value::as_str)
+                        {
+                            fragment.2.push_str(arguments);
+                        }
+                    }
+                }
             }
 
             if let Some(usage) = chunk.get("usage").and_then(Value::as_object) {
@@ -311,7 +412,7 @@ fn truncate(text: &str, max: usize) -> &str {
 
 /// `ChatMessage` helper for building histories.
 pub fn message(role: super::Role, content: impl Into<String>) -> ChatMessage {
-    ChatMessage { role, content: content.into() }
+    ChatMessage::new(role, content)
 }
 
 #[cfg(test)]
@@ -405,5 +506,60 @@ mod tests {
         };
         let messages = build_messages(&request);
         assert_eq!(messages, vec![json!({ "role": "user", "content": "selam" })]);
+    }
+
+    #[test]
+    fn build_messages_serializes_native_tool_calls_and_results() {
+        use crate::providers::{ToolCall, ToolChoice, ToolSpec};
+        let mut assistant = message(Role::Assistant, "");
+        assistant.tool_calls = vec![ToolCall {
+            id: "call_1".into(),
+            name: "fs_read".into(),
+            arguments: json!({ "path": "a.rs" }),
+        }];
+        let mut result = message(Role::Tool, "file content");
+        result.tool_call_id = Some("call_1".into());
+        let request = ChatRequest {
+            model: "gpt-4o".into(),
+            messages: vec![message(Role::User, "read a.rs"), assistant, result],
+            tools: vec![ToolSpec {
+                name: "fs_read".into(),
+                description: "read a file".into(),
+                parameters: json!({ "type": "object" }),
+            }],
+            tool_choice: Some(ToolChoice::Auto),
+            ..Default::default()
+        };
+        let wire = build_messages(&request);
+        assert_eq!(wire[1]["tool_calls"][0]["id"], "call_1");
+        assert_eq!(wire[1]["tool_calls"][0]["function"]["name"], "fs_read");
+        assert_eq!(wire[1]["tool_calls"][0]["function"]["arguments"], r#"{"path":"a.rs"}"#);
+        assert_eq!(wire[2]["role"], "tool");
+        assert_eq!(wire[2]["tool_call_id"], "call_1");
+        let tools = build_tools(&request).unwrap();
+        assert_eq!(tools["tools"][0]["function"]["name"], "fs_read");
+        assert_eq!(tools["tool_choice"], "auto");
+    }
+
+    #[test]
+    fn tool_choice_named_and_none_serialize() {
+        use crate::providers::{ToolChoice, ToolSpec};
+        let spec = ToolSpec {
+            name: "exec".into(),
+            description: "run a command".into(),
+            parameters: json!({ "type": "object" }),
+        };
+        let mut request = ChatRequest {
+            model: "m".into(),
+            messages: vec![],
+            tools: vec![spec],
+            ..Default::default()
+        };
+        request.tool_choice = Some(ToolChoice::Named("exec".into()));
+        let tools = build_tools(&request).unwrap();
+        assert_eq!(tools["tool_choice"]["function"]["name"], "exec");
+        request.tool_choice = Some(ToolChoice::None);
+        let tools = build_tools(&request).unwrap();
+        assert_eq!(tools["tool_choice"], "none");
     }
 }

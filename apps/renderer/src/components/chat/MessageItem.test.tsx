@@ -34,6 +34,8 @@ const model: Model = {
   reasoning_enabled: null,
   reasoning_options: null,
   reasoning_effort: null,
+  price_input: null,
+  price_output: null,
   enabled: true,
   provider_kind: "openai_compat",
   provider_name: "Test",
@@ -52,6 +54,8 @@ const baseMessage: Message = {
   tokens_out: null,
   tokens_estimated: null,
   attachments_json: null,
+  feedback: null,
+  race_id: null,
   created_at: "2026-09-07T00:00:00Z",
 };
 

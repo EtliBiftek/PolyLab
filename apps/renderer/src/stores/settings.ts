@@ -13,6 +13,8 @@ interface SettingsState {
   rightPanelOpen: boolean;
   settingsOpen: boolean;
   sidebarCollapsed: boolean;
+  /** Command palette (⌘K) visibility. */
+  paletteOpen: boolean;
   /** Model used for the next new conversation (single-model selection). */
   lastModelId: string | null;
   /** Composer: Enter sends the message (Shift+Enter always inserts a newline). */
@@ -26,6 +28,7 @@ interface SettingsState {
   setMode: (mode: Mode) => void;
   toggleRightPanel: () => void;
   setSettingsOpen: (open: boolean) => void;
+  setPaletteOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   setLastModelId: (modelId: string | null) => void;
   setSendOnEnter: (enabled: boolean) => void;
@@ -42,6 +45,7 @@ export const useSettings = create<SettingsState>()(
       rightPanelOpen: false,
       settingsOpen: false,
       sidebarCollapsed: false,
+      paletteOpen: false,
       lastModelId: null,
       sendOnEnter: true,
       showTimestamps: false,
@@ -57,6 +61,7 @@ export const useSettings = create<SettingsState>()(
       setMode: (mode) => set({ mode }),
       toggleRightPanel: () => set((state) => ({ rightPanelOpen: !state.rightPanelOpen })),
       setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+      setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setLastModelId: (lastModelId) => set({ lastModelId }),
       setSendOnEnter: (sendOnEnter) => set({ sendOnEnter }),

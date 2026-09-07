@@ -91,6 +91,16 @@ export function ApprovalToast({
       <p className="mt-1 truncate rounded-md bg-bg-0 px-2 py-1 font-mono text-[11.5px] text-txt-1">
         {detail}
       </p>
+      {approval.diff != null && (
+        <div className="mt-2">
+          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-txt-2">
+            {t("agent.approvalDiff")}
+          </div>
+          <pre className="max-h-56 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-bg-0 px-2.5 py-2 font-mono text-[11.5px] leading-relaxed text-txt-1">
+            {approval.diff}
+          </pre>
+        </div>
+      )}
       <div className="mt-2.5 flex justify-end gap-2">
         <button
           type="button"

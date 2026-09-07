@@ -47,6 +47,10 @@ pub fn router() -> Router<AppState> {
             "/conversations/{id}/messages",
             get(conversations::messages),
         )
+        .route(
+            "/messages/{id}/feedback",
+            axum::routing::post(conversations::feedback),
+        )
         .route("/groups", get(groups::list).post(groups::create))
         .route(
             "/groups/{id}",

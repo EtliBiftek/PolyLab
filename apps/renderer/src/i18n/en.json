@@ -19,7 +19,8 @@
     "rename": "Rename",
     "pin": "Pin",
     "unpin": "Unpin",
-    "codingConversations": "Coding chats"
+    "codingConversations": "Coding chats",
+    "renameHint": "Rename chat"
   },
   "topbar": {
     "workspace": "PolyLab",
@@ -41,7 +42,8 @@
       "select": "Choose folder",
       "hint": "Agent, git and terminal are rooted at this folder",
       "prompt": "Project folder path"
-    }
+    },
+    "searchMessages": "Search messages…"
   },
   "status": {
     "connecting": "Connecting…",
@@ -89,6 +91,14 @@
     "web": {
       "hint": "Search the web (DuckDuckGo)",
       "unsupported": "Web search is not available for this model right now"
+    },
+    "improve": "Improve answer",
+    "helpful": "Helpful",
+    "notHelpful": "Not helpful",
+    "searchMatches": "{{count}} of {{total}} messages match",
+    "race": {
+      "model": "Model",
+      "thinking": "thinking…"
     }
   },
   "thinking": {
@@ -144,7 +154,9 @@
     "models": "Model settings",
     "model": {
       "temperature": "Temp",
-      "maxTokens": "Max tokens"
+      "maxTokens": "Max tokens",
+      "priceInput": "In $/1M",
+      "priceOutput": "Out $/1M"
     },
     "data": "Data",
     "about": "About",
@@ -242,7 +254,8 @@
     "refresh": "Refresh",
     "save": "Save",
     "change": "Change",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "clear": "Clear"
   },
   "groups": {
     "tabModels": "Models",
@@ -258,7 +271,10 @@
     "terminationConsensus": "Stop on consensus",
     "maxRounds": "Max rounds",
     "leader": "Leader",
-    "leaderAuto": "Automatic"
+    "leaderAuto": "Automatic",
+    "tabRace": "Race",
+    "raceHint": "Send the same prompt to every model in the group in parallel and compare the answers side by side.",
+    "raceTag": "race"
   },
   "debate": {
     "round": "Round {{n}}",
@@ -279,7 +295,8 @@
     "approve": "Approve",
     "reject": "Reject",
     "autoApprove": "Auto-approve",
-    "autoApproveHint": "Apply file writes/deletes and commands without asking for approval."
+    "autoApproveHint": "Apply file writes/deletes and commands without asking for approval.",
+    "approvalDiff": "Change diff"
   },
   "files": {
     "tab": "Files",
@@ -298,5 +315,14 @@
     "tab": "Terminal",
     "placeholder": "type a command, Enter…",
     "kill": "End session"
+  },
+  "palette": {
+    "placeholder": "Type a command or search conversations…",
+    "newChat": "New chat",
+    "switchChat": "Switch to PolyChat",
+    "switchCoding": "Switch to PolyWork",
+    "togglePanel": "Toggle right panel",
+    "settings": "Open settings",
+    "noResults": "No results"
   }
 }

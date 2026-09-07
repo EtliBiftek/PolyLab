@@ -70,7 +70,7 @@ pub async fn create(
     };
     let selection_type = match body.selection_type.as_deref() {
         None | Some("single") => "single",
-        Some("group") => "group",
+        Some("group") | Some("race") => body.selection_type.as_deref().unwrap_or("group"),
         Some(other) => return Err(ApiError::bad_request(format!("unknown selection_type {other}"))),
     };
     if let Some(model_id) = body.model_id.as_deref() {
@@ -83,9 +83,9 @@ pub async fn create(
         }
     }
     let debate_settings_json = store_debate_settings(&body.debate_settings)?;
-    if selection_type == "group" {
+    if selection_type == "group" || selection_type == "race" {
         let group_id = body.group_id.as_deref().ok_or_else(|| {
-            ApiError::bad_request("group conversations require group_id")
+            ApiError::bad_request("group/race conversations require group_id")
         })?;
         let exists: Option<String> = sqlx::query_scalar("SELECT id FROM model_groups WHERE id = ?")
             .bind(group_id)
@@ -190,7 +190,7 @@ pub async fn update(
     let selection_type = match body.selection_type.as_deref() {
         None => row.selection_type.clone(),
         Some("single") => "single".to_string(),
-        Some("group") => "group".to_string(),
+        Some("group") | Some("race") => body.selection_type.clone().unwrap_or_default(),
         Some(other) => {
             return Err(ApiError::bad_request(format!("unknown selection_type {other}")))
         }
@@ -201,8 +201,8 @@ pub async fn update(
     let pinned = body.pinned.unwrap_or(row.pinned);
     let folder_id = body.folder_id.or(row.folder_id);
 
-    // Selection target: model XOR group depending on the final selection_type.
-    let (model_id, group_id) = if selection_type == "group" {
+    // Selection target: model XOR group/race depending on the final selection_type.
+    let (model_id, group_id) = if selection_type == "group" || selection_type == "race" {
         let group_id = body.group_id.or(row.group_id).ok_or_else(|| {
             ApiError::bad_request("group conversations require group_id")
         })?;
@@ -287,4 +287,30 @@ fn store_debate_settings(
     let Some(value) = value else { return Ok(None) };
     let settings = crate::debate::DebateSettings::parse(Some(&value.to_string()));
     Ok(Some(serde_json::to_string(&settings).map_err(anyhow::Error::from)?))
+}
+
+#[derive(Deserialize)]
+pub struct FeedbackBody {
+    /// -1 = not helpful, 0 = clear, 1 = helpful.
+    pub rating: i64,
+}
+
+/// Stores the user's thumbs feedback for a message.
+pub async fn feedback(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(body): Json<FeedbackBody>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    if !(-1..=1).contains(&body.rating) {
+        return Err(ApiError::bad_request("rating must be -1, 0 or 1"));
+    }
+    let result = sqlx::query("UPDATE messages SET feedback = ? WHERE id = ?")
+        .bind(body.rating)
+        .bind(&id)
+        .execute(&state.db)
+        .await?;
+    if result.rows_affected() == 0 {
+        return Err(ApiError::not_found(format!("message {id} not found")));
+    }
+    Ok(Json(serde_json::json!({ "ok": true })))
 }

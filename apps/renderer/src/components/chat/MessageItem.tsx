@@ -1,7 +1,12 @@
 import { memo, useEffect, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { Message, Model } from "../../lib/api";
+import {
+  estimateCostUsd,
+  formatCostUsd,
+  type Message,
+  type Model,
+} from "../../lib/api";
 import { useChat } from "../../stores/chat";
 import { useSettings } from "../../stores/settings";
 import { MarkdownBody } from "./MarkdownBody";
@@ -9,7 +14,16 @@ import { ThinkingPanel } from "./ThinkingPanel";
 import { AgentSteps } from "./AgentView";
 import { DebateTranscript } from "./DebateView";
 import type { AgentStepState } from "../../stores/chat";
-import { CopyIcon, EditIcon, RefreshIcon, ChevronDownIcon, CheckIcon } from "../ui/Icons";
+import {
+  CopyIcon,
+  EditIcon,
+  RefreshIcon,
+  ChevronDownIcon,
+  CheckIcon,
+  ThumbUpIcon,
+  ThumbDownIcon,
+  SparklesIcon,
+} from "../ui/Icons";
 
 interface AgentStepDto {
   id: string;
@@ -124,6 +138,7 @@ export const MessageItem = memo(function MessageItem({
   const steps = useAgentSteps(message, coding);
   const editMessage = useChat((state) => state.editMessage);
   const regenerate = useChat((state) => state.regenerate);
+  const rateMessage = useChat((state) => state.rateMessage);
   const sending = useChat((state) => state.sending);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.content);
@@ -234,6 +249,12 @@ export const MessageItem = memo(function MessageItem({
   // Point 2: show the real served model (alias → resolved name), fallback to
   // the configured display name when the provider did not report it.
   const modelLabel = message.resolved_model ?? model?.display_name;
+  const cost = estimateCostUsd(
+    message.tokens_in,
+    message.tokens_out,
+    model?.price_input ?? null,
+    model?.price_output ?? null,
+  );
   return (
     <div className="group/message min-w-0">
       {message.reasoning != null && message.reasoning.length > 0 && (
@@ -244,10 +265,11 @@ export const MessageItem = memo(function MessageItem({
       )}
       {steps.length > 0 && <AgentSteps steps={steps} />}
       <MarkdownBody content={message.content} />
-      {(usage != null || modelLabel != null || showTimestamps) && (
+      {(usage != null || modelLabel != null || showTimestamps || cost != null) && (
         <div className="mt-1.5 flex items-center gap-3 text-[11.5px] text-txt-2">
           {modelLabel != null && <span>{modelLabel}</span>}
           {usage != null && <span className="tabular-nums">{usage}</span>}
+          {cost != null && <span className="tabular-nums text-txt-2">≈{formatCostUsd(cost)}</span>}
           {showTimestamps && (
             <span className="tabular-nums">
               {new Date(message.created_at).toLocaleString()}
@@ -258,6 +280,43 @@ export const MessageItem = memo(function MessageItem({
       {/* Hover actions below the answer (point 4: copy + regenerate). */}
       <div className="mt-1 flex items-center gap-0.5 opacity-0 transition group-hover/message:opacity-100">
         <CopyButton text={message.content} />
+        {!sending && message.role === "assistant" && (
+          <button
+            type="button"
+            aria-label={t("chat.improve")}
+            title={t("chat.improve")}
+            onClick={() => void regenerate(message.id, model?.id ?? null)}
+            className="flex h-6 items-center gap-0.5 rounded-md px-1 text-txt-2 transition hover:bg-bg-2 hover:text-txt-0"
+          >
+            <SparklesIcon className="h-3 w-3" />
+          </button>
+        )}
+        {!sending && message.role === "assistant" && (
+          <>
+            <button
+              type="button"
+              aria-label={t("chat.helpful")}
+              title={t("chat.helpful")}
+              onClick={() => void rateMessage(message.id, message.feedback === 1 ? 0 : 1)}
+              className={`flex h-6 items-center gap-0.5 rounded-md px-1 transition hover:bg-bg-2 hover:text-txt-0 ${
+                message.feedback === 1 ? "text-success" : "text-txt-2"
+              }`}
+            >
+              <ThumbUpIcon className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              aria-label={t("chat.notHelpful")}
+              title={t("chat.notHelpful")}
+              onClick={() => void rateMessage(message.id, message.feedback === -1 ? 0 : -1)}
+              className={`flex h-6 items-center gap-0.5 rounded-md px-1 transition hover:bg-bg-2 hover:text-txt-0 ${
+                message.feedback === -1 ? "text-danger" : "text-txt-2"
+              }`}
+            >
+              <ThumbDownIcon className="h-3 w-3" />
+            </button>
+          </>
+        )}
         {!sending && (
           <div className="relative">
             <button

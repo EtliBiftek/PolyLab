@@ -128,6 +128,9 @@ pub enum ServerEvent {
         message_id: String,
         model_id: String,
         mode: ChatMode,
+        /// Set on model-race lanes so the UI can render them side by side.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        race_id: Option<String>,
     },
     Token {
         conversation_id: String,
@@ -223,6 +226,9 @@ pub enum ServerEvent {
         approval_id: String,
         tool: String,
         args_json: String,
+        /// Unified diff of the pending change (fs_write/fs_delete) so the user
+        /// can review it before approving; `None` for non-file tools.
+        diff: Option<String>,
         timeout_secs: u64,
     },
     TerminalOutput {
@@ -255,6 +261,8 @@ pub enum ChatMode {
     Single,
     Debate,
     Agent,
+    /// Model race: same prompt, N models in parallel, side-by-side columns.
+    Race,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

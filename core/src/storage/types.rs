@@ -106,6 +106,10 @@ pub struct ModelRow {
     pub reasoning_options: Option<String>,
     /// Currently selected effort level (None = provider default).
     pub reasoning_effort: Option<String>,
+    /// USD per 1M input tokens (None = pricing not configured).
+    pub price_input: Option<f64>,
+    /// USD per 1M output tokens (None = pricing not configured).
+    pub price_output: Option<f64>,
     pub enabled: bool,
 }
 
@@ -147,6 +151,11 @@ pub struct Message {
     /// conversations API; absent (None) in raw `SELECT *` contexts.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub has_debate: Option<bool>,
+    /// User feedback: 1 helpful, -1 not helpful, None unrated.
+    pub feedback: Option<i64>,
+    /// Groups the per-model assistant messages of one model-race run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub race_id: Option<String>,
     pub created_at: String,
 }
 
@@ -297,6 +306,8 @@ impl<'r> sqlx::FromRow<'r, SqliteRow> for ModelRow {
                 .map(|value| value != 0),
             reasoning_options: row.try_get("reasoning_options").ok(),
             reasoning_effort: row.try_get("reasoning_effort").ok(),
+            price_input: row.try_get("price_input").ok(),
+            price_output: row.try_get("price_output").ok(),
             enabled: bool_col(row, "enabled")?,
         })
     }
@@ -338,6 +349,8 @@ impl<'r> sqlx::FromRow<'r, SqliteRow> for Message {
             tokens_estimated: row.try_get::<Option<i64>, _>("tokens_estimated")?.map(|v| v != 0),
             attachments_json: row.try_get("attachments_json")?,
             has_debate: row.try_get("has_debate").ok(),
+            feedback: row.try_get("feedback").ok(),
+            race_id: row.try_get("race_id").ok(),
             created_at: row.try_get("created_at")?,
         })
     }

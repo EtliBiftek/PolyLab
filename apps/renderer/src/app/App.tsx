@@ -7,9 +7,10 @@ import { RightPanel } from "../components/layout/RightPanel";
 import { ApprovalToast } from "../components/chat/AgentView";
 import { Sidebar } from "../components/layout/Sidebar";
 import { TopBar } from "../components/layout/TopBar";
+import { CommandPalette } from "../components/layout/CommandPalette";
 import { SettingsModal } from "../components/settings/SettingsModal";
 import { useModels } from "../stores/models";
-import { useChat } from "../stores/chat";
+import { useChat, type StreamingMessage } from "../stores/chat";
 import { useSettings } from "../stores/settings";
 import { useBackendConnection } from "./useBackendConnection";
 
@@ -38,6 +39,16 @@ export default function App() {
   // null → set on the first message): keep the hook unconditional and let the
   // selector return undefined instead.
   const streaming = useChat((state) => (activeId != null ? state.streaming[activeId] : undefined));
+  // Model-race lanes for the active conversation (live, side-by-side columns).
+  const raceStreams = useChat((state) =>
+    activeId != null
+      ? Object.values(state.raceStreams).filter(
+          (stream) => stream != null && stream.conversationId === activeId,
+        ) as StreamingMessage[]
+      : [],
+  );
+  const searchQuery = useChat((state) => state.searchQuery);
+  const setSearchQuery = useChat((state) => state.setSearchQuery);
   const models = useModels((state) => state.models);
   const refreshModels = useModels((state) => state.refresh);
 
@@ -48,6 +59,7 @@ export default function App() {
   return (
     <div className="flex h-full w-full overflow-hidden bg-bg-0 text-txt-0">
       <Sidebar />
+      <CommandPalette />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar />
@@ -58,9 +70,12 @@ export default function App() {
                 <MessageList
                   messages={messages ?? []}
                   streaming={streaming}
+                  raceStreams={raceStreams}
                   models={models}
                   group={activeConversation?.selection_type === "group"}
                   coding={activeConversation?.mode === "coding"}
+                  searchQuery={searchQuery}
+                  clearSearch={() => setSearchQuery("")}
                 />
               </div>
               <Composer />

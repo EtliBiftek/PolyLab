@@ -45,6 +45,9 @@ export interface Model {
   reasoning_options: string[] | null;
   /** Chosen think level (null = provider default). */
   reasoning_effort: string | null;
+  /** USD per 1M input/output tokens (null = pricing not configured). */
+  price_input: number | null;
+  price_output: number | null;
   enabled: boolean;
   provider_kind: string;
   provider_name: string;
@@ -54,7 +57,7 @@ export interface Conversation {
   id: string;
   title: string | null;
   mode: "chat" | "coding";
-  selection_type: "single" | "group";
+  selection_type: "single" | "group" | "race";
   model_id: string | null;
   group_id: string | null;
   debate_settings_json: string | null;
@@ -80,6 +83,10 @@ export interface Message {
   tokens_out: number | null;
   tokens_estimated: boolean | null;
   attachments_json: string | null;
+  /** 1 helpful, -1 not helpful, null unrated. */
+  feedback: number | null;
+  /** Groups the per-model assistant messages of one model-race run. */
+  race_id: string | null;
   created_at: string;
 }
 
@@ -238,6 +245,8 @@ export function updateModel(
       | "enabled"
       | "reasoning_enabled"
       | "reasoning_effort"
+      | "price_input"
+      | "price_output"
     >
   > & { color?: string | null; reasoning_options?: string[] | null },
 ): Promise<Model> {
@@ -260,7 +269,7 @@ export function listConversations(): Promise<Conversation[]> {
 export function createConversation(body: {
   mode?: "chat" | "coding";
   model_id?: string | null;
-  selection_type?: "single" | "group";
+  selection_type?: "single" | "group" | "race";
   group_id?: string | null;
   debate_settings?: DebateSettings;
 }): Promise<Conversation> {
@@ -283,7 +292,7 @@ export function updateConversation(
     pinned?: boolean;
     folder_id?: string | null;
     mode?: "chat" | "coding";
-    selection_type?: "single" | "group";
+    selection_type?: "single" | "group" | "race";
     group_id?: string | null;
     debate_settings?: DebateSettings;
     agent_auto_approve?: boolean;
@@ -389,6 +398,17 @@ export interface DebateReplay {
   turns: DebateTurn[];
 }
 
+/** Stores the user's thumbs feedback for a persisted message. */
+export function setMessageFeedback(id: string, rating: number): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>(`/api/messages/${id}/feedback`, {
+    method: "POST",
+    body: JSON.stringify({ rating }),
+  });
+}
+
+import { estimateCostUsd, formatCostUsd } from "./cost";
+
+export { estimateCostUsd, formatCostUsd };
 export function listDebates(query: {
   message_id?: string;
   conversation_id?: string;

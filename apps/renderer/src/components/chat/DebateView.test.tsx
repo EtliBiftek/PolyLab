@@ -22,6 +22,8 @@ const model = (id: string, display_name: string): Model => ({
   reasoning_enabled: null,
   reasoning_options: null,
   reasoning_effort: null,
+  price_input: null,
+  price_output: null,
   enabled: true,
   provider_kind: "openai_compat",
   provider_name: "Test",

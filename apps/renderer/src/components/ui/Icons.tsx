@@ -226,3 +226,30 @@ export function FolderIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function ThumbUpIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1Z" />
+      <path d="M7 11l4-7a2 2 0 0 1 2 2v3h5.5a2 2 0 0 1 2 2.2l-1 6a2 2 0 0 1-2 1.8H7" />
+    </svg>
+  );
+}
+
+export function ThumbDownIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M17 13V4h3a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1Z" />
+      <path d="M17 13l-4 7a2 2 0 0 1-2-2v-3H5.5a2 2 0 0 1-2-2.2l1-6a2 2 0 0 1 2-1.8H17" />
+    </svg>
+  );
+}
+
+export function SparklesIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3l1.8 4.6L18.5 9.4l-4.7 1.8L12 15.8l-1.8-4.6L5.5 9.4l4.7-1.8Z" />
+      <path d="M19 15l.9 2.3 2.3.9-2.3.9L19 21.4l-.9-2.3-2.3-.9 2.3-.9Z" />
+    </svg>
+  );
+}

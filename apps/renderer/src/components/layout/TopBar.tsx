@@ -12,6 +12,7 @@ import {
   FolderIcon,
   LogoMark,
   PanelRightIcon,
+  SearchIcon,
 } from "../ui/Icons";
 
 export function TopBar() {
@@ -26,7 +27,13 @@ export function TopBar() {
   );
   const rightPanelOpen = useSettings((state) => state.rightPanelOpen);
   const toggleRightPanel = useSettings((state) => state.toggleRightPanel);
+  const setPaletteOpen = useSettings((state) => state.setPaletteOpen);
   const refresh = useChat((state) => state.refresh);
+  const searchQuery = useChat((state) => state.searchQuery);
+  const setSearchQuery = useChat((state) => state.setSearchQuery);
+  const messageCount = useChat((state) =>
+    state.activeId != null ? (state.messages[state.activeId]?.length ?? 0) : 0,
+  );
 
   // Coding workspace folder: the agent fs tools, git and the terminal session
   // are all rooted at the conversation's project_path.
@@ -128,6 +135,39 @@ export function TopBar() {
           {t("agent.autoApprove")}
         </label>
       )}
+
+      {/* In-conversation message search (visible once there is history). */}
+      {messageCount > 0 && (
+        <div className="relative ml-auto hidden w-56 sm:block">
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-txt-2" />
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={t("topbar.searchMessages")}
+            className="h-8 w-full rounded-lg border border-border bg-surface pl-9 pr-8 text-[12.5px] text-txt-0 outline-none placeholder:text-txt-2 focus:border-accent/40"
+          />
+          {searchQuery.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              aria-label={t("common.clear")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-1 text-txt-2 hover:text-txt-0"
+            >
+              ×
+            </button>
+          )}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => setPaletteOpen(true)}
+        aria-label={t("palette.placeholder")}
+        title={t("palette.placeholder")}
+        className="hidden h-9 items-center gap-2 rounded-lg border border-border bg-surface px-2.5 text-[12px] text-txt-2 transition hover:bg-bg-2 hover:text-txt-0 sm:flex"
+      >
+        <SearchIcon className="h-3.5 w-3.5" />
+        <kbd className="rounded border border-border bg-bg-2 px-1 py-0.5 text-[9.5px]">⌘K</kbd>
+      </button>
 
       {/* Right panel toggle */}
       <button

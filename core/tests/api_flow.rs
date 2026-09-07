@@ -338,11 +338,14 @@ async fn openai_compat_stream_normalizes_reasoning_and_usage() {
         messages: vec![polylab_core::providers::ChatMessage {
             role: polylab_core::providers::Role::User,
             content: "selam".into(),
+            ..Default::default()
         }],
         temperature: None,
         max_tokens: None,
         reasoning_enabled: false,
         reasoning_effort: None,
+        tools: Vec::new(),
+        tool_choice: None,
     };
     let mut stream = provider.stream_chat(request).await.unwrap();
     let mut text = String::new();
@@ -353,6 +356,7 @@ async fn openai_compat_stream_normalizes_reasoning_and_usage() {
             polylab_core::providers::ChatEvent::TextDelta(delta) => text.push_str(&delta),
             polylab_core::providers::ChatEvent::ReasoningDelta(delta) => reasoning.push_str(&delta),
             polylab_core::providers::ChatEvent::ModelResolved(_) => {}
+            polylab_core::providers::ChatEvent::ToolCalls(_) => {}
             polylab_core::providers::ChatEvent::Usage { tokens_in, tokens_out } => {
                 usage = Some((tokens_in, tokens_out));
             }

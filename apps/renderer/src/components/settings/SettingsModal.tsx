@@ -933,6 +933,36 @@ function ModelEditorRow({
           />
         </label>
         <label className="flex items-center gap-1.5 text-[10.5px] text-txt-2">
+          {t("settings.model.priceInput")}
+          <input
+            type="number"
+            min={0}
+            step={0.01}
+            defaultValue={model.price_input ?? ""}
+            onBlur={(event) =>
+              void patchModel(model.id, {
+                price_input: event.target.value.trim() ? Number(event.target.value) : null,
+              })
+            }
+            className="h-8 w-20 rounded-lg border border-border bg-bg-0 px-2 text-[11px] text-txt-0"
+          />
+        </label>
+        <label className="flex items-center gap-1.5 text-[10.5px] text-txt-2">
+          {t("settings.model.priceOutput")}
+          <input
+            type="number"
+            min={0}
+            step={0.01}
+            defaultValue={model.price_output ?? ""}
+            onBlur={(event) =>
+              void patchModel(model.id, {
+                price_output: event.target.value.trim() ? Number(event.target.value) : null,
+              })
+            }
+            className="h-8 w-20 rounded-lg border border-border bg-bg-0 px-2 text-[11px] text-txt-0"
+          />
+        </label>
+        <label className="flex items-center gap-1.5 text-[10.5px] text-txt-2">
           <input
             type="checkbox"
             defaultChecked={model.enabled}

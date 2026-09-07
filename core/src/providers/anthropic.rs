@@ -3,7 +3,7 @@
 use eventsource_stream::Eventsource;
 use serde_json::{json, Value};
 
-use super::{ChatEvent, ChatRequest, ChatStream, Provider, RemoteModel};
+use super::{ChatEvent, ChatRequest, ChatStream, Provider, RemoteModel, Role, ToolCall, ToolChoice, ToolSpec};
 use crate::storage::ProviderKind;
 
 const DEFAULT_BASE: &str = "https://api.anthropic.com";
@@ -94,7 +94,7 @@ impl Provider for Anthropic {
         let system: Vec<&str> = request
             .messages
             .iter()
-            .filter(|message| message.role == super::Role::System)
+            .filter(|message| message.role == Role::System)
             .map(|message| message.content.as_str())
             .collect();
         // Native images: `image` content blocks on the last user turn.
@@ -106,26 +106,52 @@ impl Provider for Anthropic {
         let last_user = request
             .messages
             .iter()
-            .rposition(|message| message.role == super::Role::User);
+            .rposition(|message| message.role == Role::User);
+        // Anthropic requires alternating roles, so consecutive tool results are
+        // merged into ONE user message with multiple `tool_result` blocks.
         let mut conversation: Vec<Value> = Vec::new();
-        for (index, message) in request.messages.iter().enumerate() {
-            if message.role == super::Role::System {
-                continue;
+        let mut tool_batch: Vec<Value> = Vec::new();
+        fn flush_tools(conversation: &mut Vec<Value>, batch: &mut Vec<Value>) {
+            if batch.is_empty() {
+                return;
             }
-            let mut parts = vec![json!({ "type": "text", "text": message.content })];
-            if last_user == Some(index) {
-                for (mime, data) in &images {
-                    parts.push(json!({
-                        "type": "image",
-                        "source": { "type": "base64", "media_type": mime, "data": data },
+            conversation.push(json!({ "role": "user", "content": std::mem::take(batch) }));
+        }
+        for (index, message) in request.messages.iter().enumerate() {
+            match message.role {
+                Role::System => {}
+                Role::Tool => {
+                    tool_batch.push(json!({
+                        "type": "tool_result",
+                        "tool_use_id": message.tool_call_id.clone().unwrap_or_default(),
+                        "content": message.content,
                     }));
                 }
+                _ => {
+                    flush_tools(&mut conversation, &mut tool_batch);
+                    let mut parts = vec![json!({ "type": "text", "text": message.content })];
+                    if last_user == Some(index) {
+                        for (mime, data) in &images {
+                            parts.push(json!({
+                                "type": "image",
+                                "source": { "type": "base64", "media_type": mime, "data": data },
+                            }));
+                        }
+                    }
+                    for call in &message.tool_calls {
+                        parts.push(json!({
+                            "type": "tool_use",
+                            "id": call.id,
+                            "name": call.name,
+                            "input": call.arguments,
+                        }));
+                    }
+                    let role = if message.role == Role::Assistant { "assistant" } else { "user" };
+                    conversation.push(json!({ "role": role, "content": parts }));
+                }
             }
-            conversation.push(json!({
-                "role": if message.role == super::Role::Assistant { "assistant" } else { "user" },
-                "content": parts,
-            }));
         }
+        flush_tools(&mut conversation, &mut tool_batch);
 
         let mut body = json!({
             "model": request.model,
@@ -138,6 +164,29 @@ impl Provider for Anthropic {
         }
         if let Some(temperature) = request.temperature {
             body["temperature"] = json!(temperature);
+        }
+        // Native function calling.
+        if !request.tools.is_empty() {
+            body["tools"] = Value::Array(
+                request
+                    .tools
+                    .iter()
+                    .map(|tool| {
+                        json!({
+                            "name": tool.name,
+                            "description": tool.description,
+                            "input_schema": tool.parameters,
+                        })
+                    })
+                    .collect(),
+            );
+            body["tool_choice"] = match &request.tool_choice {
+                None | Some(ToolChoice::Auto) => json!({ "type": "auto" }),
+                Some(ToolChoice::None) => json!({ "type": "none" }),
+                Some(ToolChoice::Named(name)) => {
+                    json!({ "type": "tool", "name": name })
+                }
+            };
         }
         // Thinking: adaptive (budget-less, effort-based) on Claude 4.6+/5.x,
         // extended thinking with a token budget on older thinking models.
@@ -186,9 +235,19 @@ impl Provider for Anthropic {
         let mut tokens_in: Option<u64> = None;
         let mut tokens_out: Option<u64> = None;
         let mut resolved: Option<String> = None;
+        // tool_use blocks stream as start (id+name) → input_json_delta fragments
+        // → stop; they are flushed once as ChatEvent::ToolCalls at stream end.
+        let mut tool_calls: Vec<ToolCall> = Vec::new();
+        let mut pending_tool: Option<ToolCall> = None;
+        let mut pending_args = String::new();
 
         Ok(super::stream_util::sse_events(source, move |event, out| {
-            let Some(event) = event else { return true };
+            let Some(event) = event else {
+                if !tool_calls.is_empty() {
+                    out.push(ChatEvent::ToolCalls(std::mem::take(&mut tool_calls)));
+                }
+                return true;
+            };
             let Ok(data) = serde_json::from_str::<Value>(&event.data) else { return true };
             if resolved.is_none() {
                 if let Some(model) = data.pointer("/message/model").and_then(Value::as_str) {
@@ -201,6 +260,25 @@ impl Provider for Anthropic {
                     tokens_in = data
                         .pointer("/message/usage/input_tokens")
                         .and_then(Value::as_u64);
+                }
+                "content_block_start" => {
+                    if data.pointer("/content_block/type").and_then(Value::as_str)
+                        == Some("tool_use")
+                    {
+                        pending_tool = Some(ToolCall {
+                            id: data
+                                .pointer("/content_block/id")
+                                .and_then(Value::as_str)
+                                .unwrap_or_default()
+                                .to_string(),
+                            name: data
+                                .pointer("/content_block/name")
+                                .and_then(Value::as_str)
+                                .unwrap_or_default()
+                                .to_string(),
+                            arguments: Value::Object(Default::default()),
+                        });
+                    }
                 }
                 "content_block_delta" => {
                     let delta = &data["delta"];
@@ -215,7 +293,23 @@ impl Provider for Anthropic {
                                 out.push(ChatEvent::ReasoningDelta(thinking.to_string()));
                             }
                         }
+                        "input_json_delta" => {
+                            if let Some(partial) = delta["partial_json"].as_str() {
+                                pending_args.push_str(partial);
+                            }
+                        }
                         _ => {}
+                    }
+                }
+                "content_block_stop" => {
+                    if let Some(mut tool) = pending_tool.take() {
+                        if !tool.name.is_empty() {
+                            tool.arguments = serde_json::from_str(&pending_args).unwrap_or_else(|_| {
+                                json!({ "raw": pending_args.clone() })
+                            });
+                            pending_args.clear();
+                            tool_calls.push(tool);
+                        }
                     }
                 }
                 "message_delta" => {
@@ -294,6 +388,7 @@ mod tests {
             messages: vec![super::super::ChatMessage {
                 role: super::super::Role::User,
                 content: "bu ne?".into(),
+                ..Default::default()
             }],
             images: vec![super::super::InputImage {
                 data_uri: "data:image/png;base64,QUJD".into(),

@@ -3,7 +3,7 @@
 use eventsource_stream::Eventsource;
 use serde_json::{json, Value};
 
-use super::{ChatEvent, ChatRequest, ChatStream, Provider, RemoteModel};
+use super::{ChatEvent, ChatRequest, ChatStream, Provider, RemoteModel, Role, ToolCall, ToolChoice, ToolSpec};
 use crate::storage::ProviderKind;
 
 const DEFAULT_BASE: &str = "https://generativelanguage.googleapis.com";
@@ -99,7 +99,7 @@ impl Provider for Gemini {
         let system: Vec<&str> = request
             .messages
             .iter()
-            .filter(|message| message.role == super::Role::System)
+            .filter(|message| message.role == Role::System)
             .map(|message| message.content.as_str())
             .collect();
         // Native images: `inline_data` parts on the last user turn (the only
@@ -112,22 +112,41 @@ impl Provider for Gemini {
         let last_user = request
             .messages
             .iter()
-            .rposition(|message| message.role == super::Role::User);
+            .rposition(|message| message.role == Role::User);
         let mut contents: Vec<Value> = Vec::new();
         for (index, message) in request.messages.iter().enumerate() {
-            if message.role == super::Role::System {
-                continue;
-            }
-            let mut parts = vec![json!({ "text": message.content })];
-            if last_user == Some(index) {
-                for (mime, data) in &images {
-                    parts.push(json!({ "inline_data": { "mime_type": mime, "data": data } }));
+            match message.role {
+                Role::System => {}
+                Role::Tool => {
+                    // Gemini has no tool_use ids: results are matched by name.
+                    contents.push(json!({
+                        "role": "user",
+                        "parts": [{
+                            "functionResponse": {
+                                "name": message.tool_call_id.as_deref().unwrap_or(""),
+                                "response": { "output": message.content },
+                            }
+                        }],
+                    }));
+                }
+                _ => {
+                    let mut parts = vec![json!({ "text": message.content })];
+                    if last_user == Some(index) {
+                        for (mime, data) in &images {
+                            parts.push(json!({ "inline_data": { "mime_type": mime, "data": data } }));
+                        }
+                    }
+                    for call in &message.tool_calls {
+                        parts.push(json!({
+                            "functionCall": { "name": call.name, "args": call.arguments },
+                        }));
+                    }
+                    contents.push(json!({
+                        "role": if message.role == Role::Assistant { "model" } else { "user" },
+                        "parts": parts,
+                    }));
                 }
             }
-            contents.push(json!({
-                "role": if message.role == super::Role::Assistant { "model" } else { "user" },
-                "parts": parts,
-            }));
         }
 
         let url = format!(
@@ -174,6 +193,24 @@ impl Provider for Gemini {
         if !generation_config.is_empty() {
             body["generationConfig"] = Value::Object(generation_config);
         }
+        // Native function calling.
+        if !request.tools.is_empty() {
+            body["tools"] = json!([{
+                "functionDeclarations": request.tools.iter().map(|tool| json!({
+                    "name": tool.name,
+                    "description": tool.description,
+                    "parameters": tool.parameters,
+                })).collect::<Vec<_>>(),
+            }]);
+            let calling_config = match &request.tool_choice {
+                None | Some(ToolChoice::Auto) => json!({ "mode": "AUTO" }),
+                Some(ToolChoice::None) => json!({ "mode": "NONE" }),
+                Some(ToolChoice::Named(name)) => {
+                    json!({ "mode": "ANY", "allowedFunctionNames": [name] })
+                }
+            };
+            body["toolConfig"] = json!({ "functionCallingConfig": calling_config });
+        }
 
         let response = self.auth(self.client.post(url)).json(&body).send().await?;
         let status = response.status();
@@ -188,11 +225,18 @@ impl Provider for Gemini {
         let source = response.bytes_stream().eventsource();
         let mut usage: Option<(u64, u64)> = None;
         let mut resolved: Option<String> = None;
+        // Gemini sends whole `functionCall` parts (no id, no fragments); they are
+        // flushed once as ChatEvent::ToolCalls at stream end. The call id is the
+        // function name (Gemini has none), so tool results can be matched back.
+        let mut tool_calls: Vec<ToolCall> = Vec::new();
 
         Ok(super::stream_util::sse_events(source, move |event, out| {
             let Some(event) = event else {
                 if let Some((tokens_in, tokens_out)) = usage {
                     out.push(ChatEvent::Usage { tokens_in, tokens_out });
+                }
+                if !tool_calls.is_empty() {
+                    out.push(ChatEvent::ToolCalls(std::mem::take(&mut tool_calls)));
                 }
                 return true;
             };
@@ -216,6 +260,16 @@ impl Provider for Gemini {
             }
             if let Some(parts) = chunk.pointer("/candidates/0/content/parts").and_then(Value::as_array) {
                 for part in parts {
+                    if let Some(call) = part.get("functionCall") {
+                        if let Some(name) = call.get("name").and_then(Value::as_str) {
+                            tool_calls.push(ToolCall {
+                                id: name.to_string(),
+                                name: name.to_string(),
+                                arguments: call.get("args").cloned().unwrap_or_else(|| json!({})),
+                            });
+                        }
+                        continue;
+                    }
                     let Some(text) = part["text"].as_str() else { continue };
                     if part.get("thought").and_then(Value::as_bool).unwrap_or(false) {
                         out.push(ChatEvent::ReasoningDelta(text.to_string()));
@@ -250,10 +304,12 @@ mod tests {
                 super::super::ChatMessage {
                     role: super::super::Role::System,
                     content: "sen yardımcısın".into(),
+                    ..Default::default()
                 },
                 super::super::ChatMessage {
                     role: super::super::Role::User,
                     content: "bu ne?".into(),
+                    ..Default::default()
                 },
             ],
             images: vec![super::super::InputImage {

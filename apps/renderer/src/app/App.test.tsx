@@ -156,6 +156,8 @@ describe("App (Phase 1 shell)", () => {
       tokens_out: null,
       tokens_estimated: null,
       attachments_json: null,
+      feedback: null,
+      race_id: null,
       created_at: "2026-01-01T00:00:00Z",
     };
 

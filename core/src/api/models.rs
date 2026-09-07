@@ -60,6 +60,9 @@ pub struct UpdateModel {
     pub reasoning_effort: Option<Option<String>>,
     /// Think toggle. `Some(bool)` sets it; `None` keeps the current value.
     pub reasoning_enabled: Option<bool>,
+    /// USD per 1M tokens. `Some(None)` clears; `None` keeps the current value.
+    pub price_input: Option<Option<f64>>,
+    pub price_output: Option<Option<f64>>,
     pub enabled: Option<bool>,
 }
 
@@ -198,13 +201,15 @@ pub async fn update(
         });
     let reasoning_effort = body.reasoning_effort.unwrap_or(row.reasoning_effort);
     let reasoning_enabled = body.reasoning_enabled.or(row.reasoning_enabled);
+    let price_input = body.price_input.unwrap_or(row.price_input);
+    let price_output = body.price_output.unwrap_or(row.price_output);
     let enabled = body.enabled.unwrap_or(row.enabled);
 
     sqlx::query(
         "UPDATE models SET display_name = ?, color = ?, temperature = ?, max_tokens = ?,
                 system_prompt_override = ?, supports_vision = ?, supports_tools = ?,
                 supports_reasoning = ?, reasoning_options = ?, reasoning_effort = ?,
-                reasoning_enabled = ?, enabled = ? WHERE id = ?",
+                reasoning_enabled = ?, price_input = ?, price_output = ?, enabled = ? WHERE id = ?",
     )
     .bind(&display_name)
     .bind(&color)
@@ -217,6 +222,8 @@ pub async fn update(
     .bind(&reasoning_options)
     .bind(&reasoning_effort)
     .bind(reasoning_enabled)
+    .bind(price_input)
+    .bind(price_output)
     .bind(enabled)
     .bind(&id)
     .execute(&state.db)

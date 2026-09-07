@@ -465,6 +465,10 @@ impl ChatEngine {
         if conversation.selection_type == "group" {
             return self.run_debate(conversation, web, quote_old, cancel).await;
         }
+        // --- race send: same prompt to N models in parallel (side-by-side) ------
+        if conversation.selection_type == "race" {
+            return self.run_race(conversation, attachments, web, quote_old, cancel).await;
+        }
 
         let model_id = conversation
             .model_id
@@ -508,6 +512,7 @@ impl ChatEngine {
                         _ => Role::User,
                     },
                     content,
+                    ..Default::default()
                 })
                 .collect();
             // Web search + edit quote apply to the agent too (point 3/4: all
@@ -579,13 +584,15 @@ impl ChatEngine {
         .fetch_all(&self.db)
         .await?;
 
-        let mut messages = vec![ChatMessage { role: Role::System, content: system.join("\n\n") }];
+        let mut messages = vec![
+            ChatMessage { role: Role::System, content: system.join("\n\n"), ..Default::default() },
+        ];
         for (role, text) in history.into_iter().rev().take(MAX_HISTORY_MESSAGES).rev() {
             let role = match role.as_str() {
                 "assistant" => Role::Assistant,
                 _ => Role::User,
             };
-            messages.push(ChatMessage { role, content: text });
+            messages.push(ChatMessage { role, content: text, ..Default::default() });
         }
         let mut images: Vec<providers::InputImage> = Vec::new();
         if !attachments.is_empty() {
@@ -651,6 +658,8 @@ impl ChatEngine {
             } else {
                 None
             },
+            tools: Vec::new(),
+            tool_choice: None,
         };
 
         // --- assistant row + start event ---------------------------------------
@@ -671,6 +680,7 @@ impl ChatEngine {
             message_id: message_id.clone(),
             model_id: model.id.clone(),
             mode: ChatMode::Single,
+            race_id: None,
         });
 
         // --- stream -------------------------------------------------------------
@@ -712,6 +722,9 @@ impl ChatEngine {
                                             model_id: resolved,
                                         });
                                     }
+                                }
+                                ChatEvent::ToolCalls(_) => {
+                                    // Single-chat mode never offers native tools.
                                 }
                                 ChatEvent::Usage { tokens_in, tokens_out } => {
                                     result.usage = Some(Usage { tokens_in, tokens_out, estimated: false });
@@ -811,6 +824,7 @@ impl ChatEngine {
                 ChatMessage {
                     role: Role::System,
                     content: "Sohbet başlığı üreticisisin. Yalnızca başlığı yaz.".into(),
+                    ..Default::default()
                 },
                 ChatMessage {
                     role: Role::User,
@@ -826,6 +840,8 @@ impl ChatEngine {
             web: false,
             reasoning_enabled: false,
             reasoning_effort: None,
+            tools: Vec::new(),
+            tool_choice: None,
         };
         let Ok(mut stream) = provider.stream_chat(request).await else { return };
         let mut title = String::new();
@@ -903,6 +919,7 @@ impl ChatEngine {
                     _ => Role::User,
                 },
                 content,
+                ..Default::default()
             })
             .collect();
         // Edited turn: every participant and the leader see the quoted previous
@@ -934,6 +951,376 @@ impl ChatEngine {
         )
         .await
         .map(|_| ())
+    }
+
+    /// Race run: the same prompt is sent to every model of the group in
+    /// parallel; each lane persists its own assistant message (grouped by
+    /// `race_id`) and streams its own events so the UI renders columns.
+    async fn run_race(
+        &self,
+        conversation: Conversation,
+        attachments: Vec<AttachmentIn>,
+        web: bool,
+        quote_old: Option<String>,
+        cancel: CancellationToken,
+    ) -> anyhow::Result<()> {
+        let group_id = conversation
+            .group_id
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("race conversation has no group_id"))?;
+        let models: Vec<ModelRow> = sqlx::query_as(
+            "SELECT m.* FROM model_group_items i
+             JOIN models m ON m.id = i.model_id
+             WHERE i.group_id = ? AND m.enabled = 1
+             ORDER BY i.position ASC, m.id ASC",
+        )
+        .bind(&group_id)
+        .fetch_all(&self.db)
+        .await?;
+        if models.len() < 2 {
+            self.emit(ServerEvent::Error {
+                conversation_id: Some(conversation.id.clone()),
+                message_id: None,
+                code: ErrorCode::BadRequest,
+                detail: "a race group needs at least 2 enabled models".into(),
+            });
+            return Ok(());
+        }
+
+        let history: Vec<(String, String)> = sqlx::query_as(
+            "SELECT role, content FROM messages
+             WHERE conversation_id = ? ORDER BY created_at ASC, rowid ASC",
+        )
+        .bind(&conversation.id)
+        .fetch_all(&self.db)
+        .await?;
+        let mut history: Vec<ChatMessage> = history
+            .into_iter()
+            .rev()
+            .take(MAX_HISTORY_MESSAGES)
+            .rev()
+            .map(|(role, content)| {
+                ChatMessage::new(
+                    match role.as_str() {
+                        "assistant" => Role::Assistant,
+                        _ => Role::User,
+                    },
+                    content,
+                )
+            })
+            .collect();
+        // Edited turn: every race lane sees the quoted previous version of the
+        // last user message (request-only, not stored).
+        if let Some(quote) = quote_old {
+            if let Some(last_user) = history
+                .iter_mut()
+                .rev()
+                .find(|message| matches!(message.role, Role::User))
+            {
+                last_user.content.push_str(&format!(
+                    "\n\n# Alıntılanan önceki mesaj\n{quote}\n\nBu mesaj düzenlendi. Alıntılanan önceki haliyle birlikte düzenlenmiş mesaja odaklanarak cevap ver."
+                ));
+            }
+        }
+
+        // Images + text attachments (shared by every lane).
+        let mut images: Vec<providers::InputImage> = Vec::new();
+        if !attachments.is_empty() {
+            if let Some(last_user) = history
+                .iter_mut()
+                .rev()
+                .find(|message| matches!(message.role, Role::User))
+            {
+                for attachment in &attachments {
+                    if let Some(data_uri) = attachment.data_uri() {
+                        images.push(providers::InputImage { data_uri });
+                    } else {
+                        last_user.content.push_str(&format!(
+                            "\n\n[Dosya eki: {}]\n{}",
+                            attachment.name, attachment.text
+                        ));
+                    }
+                }
+            }
+        }
+        // Engine-side web search (shared by every lane).
+        let mut web_results = String::new();
+        if web {
+            let prompt = history
+                .iter()
+                .rev()
+                .find(|message| matches!(message.role, Role::User))
+                .map(|message| message.content.clone())
+                .unwrap_or_default();
+            let results = crate::search::search(&prompt).await;
+            web_results = crate::search::format_results(&prompt, &results);
+            if let Some(last_user) = history
+                .iter_mut()
+                .rev()
+                .find(|message| matches!(message.role, Role::User))
+            {
+                last_user.content.push_str(&format!(
+                    "\n\n# Web arama sonuçları\n{web_results}\n\nBu sonuçları kullanarak soruyu cevapla ve kaynaklara atıf yap."
+                ));
+            }
+        }
+
+        let base_prompt = if conversation.mode == "coding" {
+            self.prompts.get("coding")
+        } else {
+            self.prompts.get("chat")
+        };
+        let race_id = uuid::Uuid::new_v4().to_string();
+        let lanes = models
+            .iter()
+            .map(|model| {
+                Box::pin(self.race_lane(
+                    &conversation,
+                    model,
+                    &history,
+                    &images,
+                    web,
+                    base_prompt,
+                    &race_id,
+                    &cancel,
+                ))
+            })
+            .collect::<Vec<_>>();
+        for result in futures_util::future::join_all(lanes).await {
+            if let Err(error) = result {
+                tracing::error!(%error, conversation_id = %conversation.id, "race lane failed");
+            }
+        }
+        Ok(())
+    }
+
+    /// One race lane: builds the per-model request, streams and persists its own
+    /// assistant message (grouped by `race_id`).
+    #[allow(clippy::too_many_arguments)]
+    async fn race_lane(
+        &self,
+        conversation: &Conversation,
+        model: &ModelRow,
+        history: &[ChatMessage],
+        images: &[providers::InputImage],
+        web: bool,
+        base_prompt: &str,
+        race_id: &str,
+        cancel: &CancellationToken,
+    ) -> anyhow::Result<()> {
+        let conversation_id = conversation.id.clone();
+        let provider: ProviderRow = sqlx::query_as("SELECT * FROM providers WHERE id = ?")
+            .bind(&model.provider_id)
+            .fetch_one(&self.db)
+            .await?;
+        let kind = storage::ProviderKind::from_str_loose(&provider.kind)
+            .ok_or_else(|| anyhow::anyhow!("unknown provider kind {}", provider.kind))?;
+        let api_key = self
+            .secrets
+            .get(&provider_key(&provider.id))
+            .unwrap_or_else(|error| {
+                tracing::warn!(%error, "secret store read failed; continuing without key");
+                None
+            });
+        let provider_impl = providers::build(kind, provider.base_url.as_deref(), api_key.as_deref())?;
+
+        let mut system = vec![
+            base_prompt.to_string(),
+            crate::prompts::capability_notice().to_string(),
+        ];
+        if let Some(extra) = model
+            .system_prompt_override
+            .as_deref()
+            .filter(|s| !s.trim().is_empty())
+        {
+            system.push(extra.to_string());
+        }
+        let mut messages = vec![ChatMessage::new(Role::System, system.join("\n\n"))];
+        messages.extend(history.iter().cloned());
+        let think_mode = model.reasoning_enabled.unwrap_or(model.supports_reasoning);
+        let messages = crate::trim_history(messages, HISTORY_TOKEN_BUDGET);
+        let request = ChatRequest {
+            model: model.model_id.clone(),
+            messages: messages.clone(),
+            temperature: model.temperature.map(|t| t as f32),
+            max_tokens: model.max_tokens.map(|t| t as u32),
+            images: images.to_vec(),
+            web,
+            reasoning_enabled: think_mode,
+            reasoning_effort: if think_mode {
+                model.reasoning_effort.clone().or_else(|| Some("medium".to_string()))
+            } else {
+                None
+            },
+            tools: Vec::new(),
+            tool_choice: None,
+        };
+        let prompt_texts: Vec<String> = messages.iter().map(|m| m.content.clone()).collect();
+
+        // --- assistant row + start event ---------------------------------------
+        let message_id = uuid::Uuid::new_v4().to_string();
+        let now = storage::now_rfc3339();
+        sqlx::query(
+            "INSERT INTO messages (id, conversation_id, role, content, model_id, race_id, created_at)
+             VALUES (?, ?, 'assistant', '', ?, ?, ?)",
+        )
+        .bind(&message_id)
+        .bind(&conversation_id)
+        .bind(&model.id)
+        .bind(race_id)
+        .bind(&now)
+        .execute(&self.db)
+        .await?;
+
+        self.emit(ServerEvent::MessageStart {
+            conversation_id: conversation_id.clone(),
+            message_id: message_id.clone(),
+            model_id: model.id.clone(),
+            mode: ChatMode::Race,
+            race_id: Some(race_id.to_string()),
+        });
+
+        // Every failure after the row exists must still close the lane
+        // (Error + MessageDone) so the UI does not wait forever.
+        let outcome: anyhow::Result<()> = async {
+            // --- stream -------------------------------------------------------------
+            let mut result = StreamResult::default();
+        match provider_impl.stream_chat(request).await {
+            Ok(mut stream) => {
+                use futures_util::StreamExt;
+                loop {
+                    tokio::select! {
+                        event = stream.next() => {
+                            let Some(event) = event else { break };
+                            match event {
+                                ChatEvent::TextDelta(delta) => {
+                                    result.text.push_str(&delta);
+                                    self.emit(ServerEvent::Token {
+                                        conversation_id: conversation_id.clone(),
+                                        message_id: message_id.clone(),
+                                        delta,
+                                    });
+                                }
+                                ChatEvent::ReasoningDelta(delta) if think_mode => {
+                                    result.reasoning.push_str(&delta);
+                                    self.emit(ServerEvent::ReasoningToken {
+                                        conversation_id: conversation_id.clone(),
+                                        message_id: message_id.clone(),
+                                        model_id: model.id.clone(),
+                                        delta,
+                                    });
+                                }
+                                ChatEvent::ReasoningDelta(_) => {}
+                                ChatEvent::ModelResolved(resolved) => {
+                                    if result.resolved_model.is_none() {
+                                        result.resolved_model = Some(resolved.clone());
+                                        self.emit(ServerEvent::ModelResolved {
+                                            conversation_id: conversation_id.clone(),
+                                            message_id: message_id.clone(),
+                                            model_id: resolved,
+                                        });
+                                    }
+                                }
+                                ChatEvent::ToolCalls(_) => {}
+                                ChatEvent::Usage { tokens_in, tokens_out } => {
+                                    result.usage = Some(Usage { tokens_in, tokens_out, estimated: false });
+                                }
+                                ChatEvent::Error { detail } => {
+                                    result.error = Some(detail);
+                                    break;
+                                }
+                            }
+                        }
+                        () = cancel.cancelled() => {
+                            result.cancelled = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            Err(error) => {
+                result.error = Some(error.to_string());
+            }
+        }
+
+        // --- usage + persist ------------------------------------------------------
+        let usage = result.usage.unwrap_or_else(|| Usage {
+            tokens_in: crate::tokens::estimate_prompt(&prompt_texts),
+            tokens_out: estimate(&result.text),
+            estimated: true,
+        });
+        let status = if result.cancelled {
+            MessageStatus::Cancelled
+        } else if result.error.is_some() {
+            MessageStatus::Error
+        } else {
+            MessageStatus::Done
+        };
+        let finished_at = storage::now_rfc3339();
+        sqlx::query(
+            "UPDATE messages SET content = ?, reasoning = ?, tokens_in = ?, tokens_out = ?,
+                    tokens_estimated = ?, resolved_model = ? WHERE id = ?",
+        )
+        .bind(&result.text)
+        .bind(&result.reasoning)
+        .bind(usage.tokens_in as i64)
+        .bind(usage.tokens_out as i64)
+        .bind(usage.estimated)
+        .bind(&result.resolved_model)
+        .bind(&message_id)
+        .execute(&self.db)
+        .await?;
+        sqlx::query("UPDATE conversations SET updated_at = ? WHERE id = ?")
+            .bind(&finished_at)
+            .bind(&conversation_id)
+            .execute(&self.db)
+            .await?;
+
+        self.emit(ServerEvent::Usage {
+            conversation_id: conversation_id.clone(),
+            message_id: message_id.clone(),
+            tokens_in: usage.tokens_in,
+            tokens_out: usage.tokens_out,
+            estimated: usage.estimated,
+        });
+        if let Some(detail) = result.error {
+            self.emit(ServerEvent::Error {
+                conversation_id: Some(conversation_id.clone()),
+                message_id: Some(message_id.clone()),
+                code: ErrorCode::ProviderError,
+                detail,
+            });
+        }
+            self.emit(ServerEvent::MessageDone {
+                conversation_id: conversation_id.clone(),
+                message_id: message_id.clone(),
+                status,
+            });
+            Ok(())
+        }
+        .await;
+
+        if let Err(error) = outcome {
+            tracing::error!(%error, conversation_id, "race lane failed");
+            let detail = error.to_string();
+            let _ = sqlx::query("UPDATE messages SET content = ? WHERE id = ?")
+                .bind(&detail)
+                .bind(&message_id)
+                .execute(&self.db)
+                .await;
+            self.emit(ServerEvent::Error {
+                conversation_id: Some(conversation_id.clone()),
+                message_id: Some(message_id.clone()),
+                code: ErrorCode::ProviderError,
+                detail,
+            });
+            self.emit(ServerEvent::MessageDone {
+                conversation_id,
+                message_id,
+                status: MessageStatus::Error,
+            });
+        }
+        Ok(())
     }
 }
 

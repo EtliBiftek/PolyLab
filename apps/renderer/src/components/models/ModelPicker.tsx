@@ -30,7 +30,7 @@ function parseDebateSettings(json: string | null): DebateSettings {
 export function ModelPicker() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"models" | "groups">("models");
+  const [tab, setTab] = useState<"models" | "groups" | "race">("models");
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
@@ -48,10 +48,12 @@ export function ModelPicker() {
   const activeConversation = useChat((state) => state.conversations.find((conversation) => conversation.id === state.activeId));
   const setActiveModel = useChat((state) => state.setActiveModel);
   const setActiveGroup = useChat((state) => state.setActiveGroup);
+  const setActiveRace = useChat((state) => state.setActiveRace);
   const lastModelId = useSettings((state) => state.lastModelId);
   const setLastModelId = useSettings((state) => state.setLastModelId);
 
   const isGroupMode = activeConversation?.selection_type === "group";
+  const isRaceMode = activeConversation?.selection_type === "race";
   const selectedGroupId = activeConversation?.group_id ?? null;
   const selectedModelId = activeConversation?.model_id ?? lastModelId;
   const selected = models.find((model) => model.id === selectedModelId);
@@ -89,6 +91,12 @@ export function ModelPicker() {
   const pickGroup = async (groupId: string) => {
     if (activeId == null) await newConversation(null);
     await useChat.getState().setActiveGroup(groupId);
+    setOpen(false);
+  };
+
+  const pickRace = async (groupId: string) => {
+    if (activeId == null) await newConversation(null, groupId, true);
+    await useChat.getState().setActiveRace(groupId);
     setOpen(false);
   };
 
@@ -131,12 +139,16 @@ export function ModelPicker() {
     return [...byProvider.entries()];
   }, [models, query]);
 
-  const triggerLabel = isGroupMode ? (selectedGroup?.name ?? t("groups.select")) : (selected?.display_name ?? t("topbar.model.select"));
+  const triggerLabel = isRaceMode
+    ? `${selectedGroup?.name ?? t("groups.select")} · ${t("groups.raceTag")}`
+    : isGroupMode
+      ? (selectedGroup?.name ?? t("groups.select"))
+      : (selected?.display_name ?? t("topbar.model.select"));
 
   return (
     <div ref={containerRef} className="relative">
       <button type="button" onClick={() => setOpen((value) => !value)} className="flex h-8 max-w-[240px] items-center gap-1.5 rounded-lg px-2 text-[12.5px] font-medium text-txt-1 transition hover:bg-bg-2 hover:text-txt-0">
-        {isGroupMode ? <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[10px] font-bold text-accent">⚯</span> : selected != null && thinkEnabled(selected) && <SparkIcon className="h-3.5 w-3.5 shrink-0 text-accent" />}
+        {isRaceMode ? <span className="text-[12px] font-bold text-accent">⚡</span> : isGroupMode ? <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[10px] font-bold text-accent">⚯</span> : selected != null && thinkEnabled(selected) && <SparkIcon className="h-3.5 w-3.5 shrink-0 text-accent" />}
         <span className="truncate">{triggerLabel}</span>
         <ChevronDownIcon className="h-3.5 w-3.5 shrink-0 text-txt-2" />
       </button>
@@ -144,9 +156,9 @@ export function ModelPicker() {
       {open && (
         <div className="absolute bottom-10 left-0 z-50 w-[360px] overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-pop)]">
           <div className="flex border-b border-border p-1.5">
-            {(["models", "groups"] as const).map((value) => (
+            {(["models", "groups", "race"] as const).map((value) => (
               <button key={value} type="button" onClick={() => setTab(value)} aria-pressed={tab === value} className={`h-7 flex-1 rounded-lg text-[12.5px] font-medium transition ${tab === value ? "bg-bg-3 text-txt-0" : "text-txt-2 hover:bg-bg-2 hover:text-txt-1"}`}>
-                {t(value === "models" ? "groups.tabModels" : "groups.tabGroups")}
+                {t(value === "models" ? "groups.tabModels" : value === "groups" ? "groups.tabGroups" : "groups.tabRace")}
               </button>
             ))}
           </div>
@@ -241,6 +253,27 @@ export function ModelPicker() {
               ) : (
                 <button type="button" onClick={() => setCreating(true)} className="flex w-full items-center gap-1.5 rounded-lg px-2.5 py-2 text-left text-[12.5px] text-accent-2 hover:bg-bg-2"><PlusIcon className="h-3.5 w-3.5" />{t("groups.new")}</button>
               )}
+            </div>
+          )}
+
+          {tab === "race" && (
+            <div className="max-h-[340px] overflow-y-auto p-1.5">
+              <div className="px-2.5 py-1.5 text-[11px] leading-relaxed text-txt-2">{t("groups.raceHint")}</div>
+              {groups.length === 0 && <div className="px-3 py-5 text-center text-[13px] leading-relaxed text-txt-2">{t("groups.empty")}</div>}
+              {groups.map((group) => {
+                const active = isRaceMode && group.id === selectedGroupId;
+                return (
+                  <button key={group.id} type="button" onClick={() => void pickRace(group.id)} className={`mb-1 w-full rounded-lg px-2.5 py-2 text-left transition ${active ? "bg-bg-3" : "hover:bg-bg-2"}`}>
+                    <span className="flex items-center gap-2 text-[13px] text-txt-1 hover:text-txt-0">
+                      <span className="text-[12px] font-bold text-accent">⚡</span>
+                      <span className="truncate font-medium">{group.name}</span>
+                      <span className="shrink-0 text-[11px] text-txt-2">{group.models.length}</span>
+                      {active && <CheckIcon className="ml-auto h-3.5 w-3.5 shrink-0 text-accent" />}
+                    </span>
+                    <span className="mt-1 block truncate text-[11px] text-txt-2">{group.models.map((model) => model.display_name).join(" · ")}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
 
