@@ -352,6 +352,7 @@ async fn openai_compat_stream_normalizes_reasoning_and_usage() {
         match event {
             polylab_core::providers::ChatEvent::TextDelta(delta) => text.push_str(&delta),
             polylab_core::providers::ChatEvent::ReasoningDelta(delta) => reasoning.push_str(&delta),
+            polylab_core::providers::ChatEvent::ModelResolved(_) => {}
             polylab_core::providers::ChatEvent::Usage { tokens_in, tokens_out } => {
                 usage = Some((tokens_in, tokens_out));
             }
