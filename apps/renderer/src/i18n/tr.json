@@ -23,10 +23,12 @@
   },
   "topbar": {
     "workspace": "PolyLab",
+    "polyChat": "PolyChat",
+    "polyWork": "PolyWork",
     "mode": {
       "chat": "Sohbet",
       "coding": "Kodlama",
-      "comingSoon": "{{mode}} modu yakında geliyor"
+      "toggle": "Mod değiştir (Sohbet / Kodlama)"
     },
     "model": {
       "select": "Model seç",
@@ -65,6 +67,11 @@
     "send": "Gönder",
     "sendHint": "Enter gönderir · Shift+Enter yeni satır",
     "cancel": "Durdur",
+    "copy": "Kopyala",
+    "copied": "Kopyalandı",
+    "edit": "Düzenle",
+    "quoteOld": "Eski mesajı alıntıla (model alıntıya odaklanır)",
+    "regenerate": "Yeniden oluştur",
     "generating": "Üretiliyor… Durdur ile iptal edebilirsiniz.",
     "attach": "Dosya ekle",
     "usage": "{{in}} giriş · {{out}} çıkış token",
@@ -72,11 +79,16 @@
     "think.onHint": "{name} — think modu AÇIK, kapatmak için tıkla",
     "think.offHint": "{name} — think modu KAPALI, açmak için tıkla",
     "think": {
-      "pickModel": "Önce bir model seç"
+      "pickModel": "Önce bir model seç",
+      "auto": "Otomatik",
+      "levelHint": "{name} — think derinliği seviyesi",
+      "low": "Düşük",
+      "medium": "Orta",
+      "high": "Yüksek"
     },
     "web": {
-      "hint": "Web'de ara (OpenRouter web eklentisi)",
-      "unsupported": "Web arama yalnızca OpenRouter sağlayıcısında desteklenir"
+      "hint": "Web'de ara (DuckDuckGo)",
+      "unsupported": "Web arama şu anda bu modelde kullanılamıyor"
     }
   },
   "thinking": {

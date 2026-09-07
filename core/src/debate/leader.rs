@@ -81,6 +81,8 @@ mod tests {
                 supports_tools: false,
                 supports_reasoning: reasoning,
                 reasoning_enabled: None,
+                reasoning_options: None,
+                reasoning_effort: None,
                 enabled: true,
             },
             provider_row: ProviderRow {

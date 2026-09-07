@@ -49,8 +49,17 @@ pub struct ChatRequest {
     /// Vision attachments (data URIs). OpenAI-compatible providers attach them as
     /// image_url content parts on the final user turn; other providers ignore them.
     pub images: Vec<InputImage>,
-    /// Web search for this turn (OpenRouter `web` plugin; ignored elsewhere).
+    /// Web search toggle. The engine resolves it into injected DuckDuckGo results
+    /// (all providers) before building the request.
     pub web: bool,
+    /// Think toggle resolved by the engine (explicit per-model choice, else
+    /// follows the model's `supports_reasoning` flag). Providers use it to
+    /// enable/disable their native thinking parameter.
+    pub reasoning_enabled: bool,
+    /// Reasoning effort level (e.g. "low" | "medium" | "high") when the model
+    /// exposes multiple think levels; falls back to the provider's default
+    /// level when the model has only one think level.
+    pub reasoning_effort: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -74,6 +83,9 @@ pub(crate) fn split_data_uri(uri: &str) -> Option<(String, String)> {
 pub enum ChatEvent {
     TextDelta(String),
     ReasoningDelta(String),
+    /// The concrete model id the provider served (alias resolution, e.g.
+    /// OpenRouter `/free` routing). Emitted once per stream when known.
+    ModelResolved(String),
     Usage { tokens_in: u64, tokens_out: u64 },
     Error { detail: String },
 }
@@ -84,6 +96,10 @@ pub struct RemoteModel {
     pub display_name: String,
     pub supports_tools: Option<bool>,
     pub context_window: Option<u64>,
+    pub supports_reasoning: Option<bool>,
+    /// Available effort levels when the provider exposes more than one
+    /// (e.g. OpenRouter `reasoning.effort` → low/medium/high).
+    pub reasoning_options: Vec<String>,
 }
 
 pub type ChatStream = BoxStream<'static, ChatEvent>;
@@ -234,6 +250,9 @@ impl Provider for FallbackProvider {
                     }
                     Some(ChatEvent::ReasoningDelta(delta)) => {
                         return Some((ChatEvent::ReasoningDelta(delta), state));
+                    }
+                    Some(ChatEvent::ModelResolved(model)) => {
+                        return Some((ChatEvent::ModelResolved(model), state));
                     }
                     Some(ChatEvent::Usage { tokens_in, tokens_out }) => {
                         return Some((ChatEvent::Usage { tokens_in, tokens_out }, state));

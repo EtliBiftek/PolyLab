@@ -7,6 +7,23 @@ use serde::{Deserialize, Serialize};
 use sqlx::sqlite::SqliteRow;
 use sqlx::Row;
 
+/// Serializes a column that stores a JSON array as TEXT while exposing the
+/// parsed `Vec<String>` on the wire (e.g. `models.reasoning_options`).
+mod json_array_text {
+    use serde::Serialize;
+    use serde::Serializer;
+
+    pub fn serialize_option_text<S>(value: &Option<String>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let parsed: Option<Vec<String>> = value
+            .as_deref()
+            .and_then(|raw| serde_json::from_str(raw).ok());
+        parsed.serialize(serializer)
+    }
+}
+
 /// Provider kinds the UI can offer; unknown strings are preserved for forward compat.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -84,6 +101,11 @@ pub struct ModelRow {
     pub supports_reasoning: bool,
     /// Think (reasoning) toggle: None = auto (follows supports_reasoning).
     pub reasoning_enabled: Option<bool>,
+    /// JSON array of selectable effort levels, e.g. `["low","medium","high"]`.
+    #[serde(default, serialize_with = "json_array_text::serialize_option_text")]
+    pub reasoning_options: Option<String>,
+    /// Currently selected effort level (None = provider default).
+    pub reasoning_effort: Option<String>,
     pub enabled: bool,
 }
 
@@ -114,10 +136,17 @@ pub struct Message {
     pub content: String,
     pub reasoning: Option<String>,
     pub model_id: Option<String>,
+    /// The concrete model id the provider served (e.g. OpenRouter alias resolution).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resolved_model: Option<String>,
     pub tokens_in: Option<i64>,
     pub tokens_out: Option<i64>,
     pub tokens_estimated: Option<bool>,
     pub attachments_json: Option<String>,
+    /// True when this message has a persisted debate transcript. Present in the
+    /// conversations API; absent (None) in raw `SELECT *` contexts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub has_debate: Option<bool>,
     pub created_at: String,
 }
 
@@ -173,6 +202,9 @@ pub struct DebateTurnRow {
     pub tokens_out: Option<i64>,
     pub phase: String,
     pub consensus: Option<bool>,
+    /// The concrete model id the provider served for this turn (alias resolution).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resolved_model: Option<String>,
     pub created_at: String,
 }
 
@@ -227,6 +259,7 @@ impl<'r> sqlx::FromRow<'r, SqliteRow> for DebateTurnRow {
             tokens_out: row.try_get("tokens_out")?,
             phase: row.try_get("phase")?,
             consensus: opt_bool_col(row, "consensus")?,
+            resolved_model: row.try_get("resolved_model").ok(),
             created_at: row.try_get("created_at")?,
         })
     }
@@ -262,6 +295,8 @@ impl<'r> sqlx::FromRow<'r, SqliteRow> for ModelRow {
             reasoning_enabled: row
                 .try_get::<Option<i64>, _>("reasoning_enabled")?
                 .map(|value| value != 0),
+            reasoning_options: row.try_get("reasoning_options").ok(),
+            reasoning_effort: row.try_get("reasoning_effort").ok(),
             enabled: bool_col(row, "enabled")?,
         })
     }
@@ -297,10 +332,12 @@ impl<'r> sqlx::FromRow<'r, SqliteRow> for Message {
             content: row.try_get("content")?,
             reasoning: row.try_get("reasoning")?,
             model_id: row.try_get("model_id")?,
+            resolved_model: row.try_get("resolved_model").ok(),
             tokens_in: row.try_get("tokens_in")?,
             tokens_out: row.try_get("tokens_out")?,
             tokens_estimated: row.try_get::<Option<i64>, _>("tokens_estimated")?.map(|v| v != 0),
             attachments_json: row.try_get("attachments_json")?,
+            has_debate: row.try_get("has_debate").ok(),
             created_at: row.try_get("created_at")?,
         })
     }

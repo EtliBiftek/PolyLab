@@ -5,6 +5,7 @@ import type { DebateSettings, Model } from "../../lib/api";
 import { useChat } from "../../stores/chat";
 import { useModels } from "../../stores/models";
 import { useSettings } from "../../stores/settings";
+import { ThinkEffortMenu, thinkLevels } from "../chat/ThinkEffortMenu";
 import { CheckIcon, ChevronDownIcon, PlusIcon, SearchIcon, SparkIcon, TrashIcon } from "../ui/Icons";
 
 export function thinkEnabled(model: Model): boolean {
@@ -174,6 +175,7 @@ export function ModelPicker() {
                           <button type="button" onClick={() => void toggleThink(model)} aria-pressed={think} title={think ? t("chat.think.onHint", { name: model.display_name }) : t("chat.think.offHint", { name: model.display_name })} className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition ${think ? "text-accent hover:bg-accent/10" : "text-txt-2 hover:bg-bg-3 hover:text-txt-1"}`}>
                             <SparkIcon className="h-4 w-4" />
                           </button>
+                          {think && thinkLevels(model).length > 0 && <ThinkEffortMenu model={model} align="right" />}
                         </div>
                       );
                     })}

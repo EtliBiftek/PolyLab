@@ -150,6 +150,8 @@ describe("App (Phase 1 shell)", () => {
       content: "ilk mesaj merhaba",
       reasoning: null,
       model_id: null,
+      resolved_model: null,
+      has_debate: null,
       tokens_in: null,
       tokens_out: null,
       tokens_estimated: null,

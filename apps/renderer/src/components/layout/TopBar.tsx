@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { updateConversation } from "../../lib/api";
@@ -14,6 +15,7 @@ import {
 } from "../ui/Icons";
 
 export function TopBar() {
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const { t } = useTranslation();
   const mode = useSettings((state) => state.mode);
   const setMode = useSettings((state) => state.setMode);
@@ -43,49 +45,57 @@ export function TopBar() {
     await refresh();
   };
 
+  const switchMode = (id: "chat" | "coding") => {
+    setMode(id);
+    void updateConversationMode(id);
+    setModeMenuOpen(false);
+  };
+
   return (
     // Borderless header over the cream canvas (claude.ai has no hard top rule).
     <header className="flex h-14 shrink-0 items-center gap-3 bg-bg-0 px-4">
-      {/* Workspace switcher (static for now) */}
-      <button
-        type="button"
-        className="flex h-9 items-center gap-2 rounded-lg px-2.5 text-[15px] font-semibold text-txt-0 transition hover:bg-bg-2"
-      >
-        <LogoMark className="h-6 w-6 text-accent" />
-        {t("topbar.workspace")}
-        <ChevronDownIcon className="h-4 w-4 text-txt-2" />
-      </button>
-
-      {/* Chat / Coding segmented control — claude.ai pill: cream track, white active */}
-      <div className="ml-3 flex h-9 items-center rounded-full bg-bg-2 p-0.5">
-        {(
-          [
-            { id: "chat", label: t("topbar.mode.chat"), Icon: ChatIcon },
-            { id: "coding", label: t("topbar.mode.coding"), Icon: CodeIcon },
-          ] as const
-        ).map(({ id, label, Icon }) => {
-          const active = mode === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => {
-                setMode(id);
-                void updateConversationMode(id);
-              }}
-              aria-pressed={active}
-              title={t("topbar.mode.comingSoon", { mode: label })}
-              className={`flex h-8 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition ${
-                active
-                  ? "bg-surface text-txt-0 shadow-[var(--shadow-card)]"
-                  : "text-txt-1 hover:text-txt-0"
-              }`}
-            >
-              <Icon className={`h-4 w-4 ${active ? "text-accent" : ""}`} />
-              {label}
-            </button>
-          );
-        })}
+      {/* Brand button: shows PolyChat/PolyWork for the active mode and opens
+          the mode switcher (requirement: no separate chat/coding pills). */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setModeMenuOpen((current) => !current)}
+          aria-expanded={modeMenuOpen}
+          title={t("topbar.mode.toggle")}
+          className={`flex h-9 items-center gap-2 rounded-lg px-2.5 text-[15px] font-semibold text-txt-0 transition ${
+            modeMenuOpen ? "bg-bg-2" : "hover:bg-bg-2"
+          }`}
+        >
+          <LogoMark className="h-6 w-6 text-accent" />
+          {mode === "chat" ? t("topbar.polyChat") : t("topbar.polyWork")}
+          <ChevronDownIcon className="h-4 w-4 text-txt-2" />
+        </button>
+        {modeMenuOpen && (
+          <div className="absolute left-0 top-11 z-50 w-44 overflow-hidden rounded-xl border border-border bg-surface py-1 shadow-[var(--shadow-pop)]">
+            {(
+              [
+                { id: "chat", label: t("topbar.polyChat"), hint: t("topbar.mode.chat"), Icon: ChatIcon },
+                { id: "coding", label: t("topbar.polyWork"), hint: t("topbar.mode.coding"), Icon: CodeIcon },
+              ] as const
+            ).map(({ id, label, hint, Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => switchMode(id)}
+                aria-pressed={mode === id}
+                className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition hover:bg-bg-2 ${
+                  mode === id ? "text-txt-0" : "text-txt-1"
+                }`}
+              >
+                <Icon className={`h-4 w-4 ${mode === id ? "text-accent" : "text-txt-2"}`} />
+                <span className="min-w-0">
+                  <span className="block text-[13.5px] font-medium">{label}</span>
+                  <span className="block text-[11px] text-txt-2">{hint}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex-1" />

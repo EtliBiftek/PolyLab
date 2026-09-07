@@ -73,11 +73,22 @@ impl Provider for Gemini {
                     continue;
                 }
                 let id = name.strip_prefix("models/").unwrap_or(name);
+                // Dynamic thinking: Gemini 2.5+ and 3.x. 2.5 exposes a budget
+                // (single level); Gemini 3 exposes low/medium/high thinking_level.
+                let id_lower = id.to_ascii_lowercase();
+                let thinking_capable = id_lower.starts_with("gemini-2.5")
+                    || id_lower.starts_with("gemini-3");
                 models.push(RemoteModel {
                     id: id.to_string(),
                     display_name: item["displayName"].as_str().unwrap_or(id).to_string(),
                     supports_tools: None,
                     context_window: item.get("inputTokenLimit").and_then(Value::as_u64),
+                    supports_reasoning: thinking_capable.then_some(true),
+                    reasoning_options: if id_lower.starts_with("gemini-3") {
+                        vec!["low".to_string(), "medium".to_string(), "high".to_string()]
+                    } else {
+                        Vec::new()
+                    },
                 });
             }
         }
@@ -134,6 +145,32 @@ impl Provider for Gemini {
         if let Some(max_tokens) = request.max_tokens {
             generation_config.insert("maxOutputTokens".into(), json!(max_tokens));
         }
+        // Dynamic thinking: Gemini 3 uses thinking_level; Gemini 2.5 uses a
+        // token budget (0 disables). Single-level 2.5 → default budget.
+        if request.reasoning_enabled {
+            let id_lower = request.model.to_ascii_lowercase();
+            if id_lower.starts_with("gemini-3") {
+                let level = match request.reasoning_effort.as_deref() {
+                    Some("low") => "LOW",
+                    Some("high") => "HIGH",
+                    _ => "MEDIUM",
+                };
+                generation_config.insert(
+                    "thinkingConfig".into(),
+                    json!({ "thinkingLevel": level }),
+                );
+            } else {
+                let budget = match request.reasoning_effort.as_deref() {
+                    Some("low") => 2048,
+                    Some("high") => 8192,
+                    _ => 4096,
+                };
+                generation_config.insert(
+                    "thinkingConfig".into(),
+                    json!({ "thinkingBudget": budget }),
+                );
+            }
+        }
         if !generation_config.is_empty() {
             body["generationConfig"] = Value::Object(generation_config);
         }
@@ -150,6 +187,7 @@ impl Provider for Gemini {
 
         let source = response.bytes_stream().eventsource();
         let mut usage: Option<(u64, u64)> = None;
+        let mut resolved: Option<String> = None;
 
         Ok(super::stream_util::sse_events(source, move |event, out| {
             let Some(event) = event else {
@@ -159,6 +197,18 @@ impl Provider for Gemini {
                 return true;
             };
             let Ok(chunk) = serde_json::from_str::<Value>(&event.data) else { return true };
+            if resolved.is_none() {
+                // Concrete model actually served (e.g. `gemini-3-flash` when a
+                // `-preview` alias was requested).
+                let actual = chunk
+                    .pointer("/candidates/0/modelVersion")
+                    .and_then(Value::as_str)
+                    .or_else(|| chunk.pointer("/responseMetadata/model").and_then(Value::as_str));
+                if let Some(model) = actual {
+                    resolved = Some(model.to_string());
+                    out.push(ChatEvent::ModelResolved(model.to_string()));
+                }
+            }
             if let Some(error) = chunk.get("error") {
                 let detail = error["message"].as_str().unwrap_or("unknown error").to_string();
                 out.push(ChatEvent::Error { detail });

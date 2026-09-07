@@ -104,7 +104,10 @@ pub async fn run_agent(
     };
     let mut messages = vec![ChatMessage {
         role: Role::System,
-        content: format!("{system_prompt}\n\n# Çalışma alanı\n{overview}"),
+        content: format!(
+            "{system_prompt}\n\n{}\n\n# Çalışma alanı\n{overview}",
+            crate::prompts::capability_notice()
+        ),
     }];
     messages.extend(history.iter().cloned());
 
@@ -115,6 +118,7 @@ pub async fn run_agent(
     let mut final_text = String::new();
     let mut failed: Option<String> = None;
     let mut cancelled = false;
+    let mut resolved: Option<String> = None;
 
     for step in 1..=MAX_STEPS {
         if cancel.is_cancelled() {
@@ -128,15 +132,18 @@ pub async fn run_agent(
             max_tokens: model.max_tokens.map(|t| t as u32),
             images: Vec::new(),
             web: false,
+            reasoning_enabled: model.reasoning_enabled.unwrap_or(model.supports_reasoning),
+            reasoning_effort: model.reasoning_effort.clone(),
         };
         let prompt_chars: u64 =
             messages.iter().map(|m| estimate(&m.content)).sum::<u64>().max(1);
 
-        let (text, usage) = match provider.stream_chat(request).await {
+        let (text, usage, step_resolved) = match provider.stream_chat(request).await {
             Ok(mut stream) => {
                 use futures_util::StreamExt;
                 let mut text = String::new();
                 let mut usage: Option<Usage> = None;
+                let mut resolved_model: Option<String> = None;
                 let mut stream_error: Option<String> = None;
                 loop {
                     tokio::select! {
@@ -145,6 +152,19 @@ pub async fn run_agent(
                             match event {
                                 crate::providers::ChatEvent::TextDelta(delta) => text.push_str(&delta),
                                 crate::providers::ChatEvent::ReasoningDelta(_) => {}
+                                crate::providers::ChatEvent::ModelResolved(resolved) => {
+                                    if resolved_model.is_none() {
+                                        resolved_model = Some(resolved.clone());
+                                        let _ = hub.send(
+                                            ServerEvent::ModelResolved {
+                                                conversation_id: conversation_id.clone(),
+                                                message_id: message_id.clone(),
+                                                model_id: resolved,
+                                            }
+                                            .to_json(),
+                                        );
+                                    }
+                                }
                                 crate::providers::ChatEvent::Usage { tokens_in, tokens_out } => {
                                     usage = Some(Usage { tokens_in, tokens_out, estimated: false });
                                 }
@@ -163,13 +183,16 @@ pub async fn run_agent(
                 if let Some(detail) = stream_error {
                     failed = Some(detail);
                 }
-                (text, usage)
+                (text, usage, resolved_model)
             }
             Err(error) => {
                 failed = Some(error.to_string());
-                (String::new(), None)
+                (String::new(), None, None)
             }
         };
+        if step_resolved.is_some() {
+            resolved = step_resolved;
+        }
         if cancelled {
             final_text = text;
             break;
@@ -294,13 +317,14 @@ pub async fn run_agent(
         MessageStatus::Done
     };
     sqlx::query(
-        "UPDATE messages SET content = ?, tokens_in = ?, tokens_out = ?, tokens_estimated = ?
-         WHERE id = ?",
+        "UPDATE messages SET content = ?, tokens_in = ?, tokens_out = ?, tokens_estimated = ?,
+                resolved_model = ? WHERE id = ?",
     )
     .bind(&final_text)
     .bind(total_in as i64)
     .bind(total_out as i64)
     .bind(any_estimated)
+    .bind(&resolved)
     .bind(&message_id)
     .execute(db)
     .await?;

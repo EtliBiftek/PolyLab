@@ -1,4 +1,5 @@
-//! Debate orchestration: parallel rounds, consensus checks, leader synthesis.
+//! Debate orchestration: sequential rounds (each model sees earlier answers in the
+//! same round), consensus checks, leader synthesis.
 
 use sqlx::SqlitePool;
 use tokio::sync::broadcast;
@@ -25,6 +26,7 @@ struct Ctx {
     hub: broadcast::Sender<String>,
     conversation_id: String,
     debate_id: String,
+    message_id: String,
 }
 
 impl Ctx {
@@ -44,6 +46,8 @@ struct TurnRecord {
     usage: Usage,
     consensus: Option<bool>,
     failed: bool,
+    /// Concrete model id the provider served for this turn (alias resolution).
+    resolved_model: Option<String>,
 }
 
 /// Full debate flow. The leader's synthesis becomes the user-visible assistant
@@ -58,6 +62,7 @@ pub async fn run_debate(
     group_models: &[ModelRow],
     settings: DebateSettings,
     history: &[ChatMessage],
+    web: bool,
     cancel: CancellationToken,
 ) -> anyhow::Result<(String, DebateOutcome)> {
     let conversation_id = conversation.id.clone();
@@ -76,6 +81,21 @@ pub async fn run_debate(
             .unwrap_or_else(|error| format!("(çalışma alanı okunamadı: {error})"));
         base_prompt.push_str("\n\n# Çalışma alanı\n");
         base_prompt.push_str(&context);
+    }
+    base_prompt.push_str("\n\n");
+    base_prompt.push_str(crate::prompts::capability_notice());
+    // Engine-side DuckDuckGo web search: same results for every participant
+    // plus the leader (all providers).
+    if web {
+        let query = history
+            .iter()
+            .rev()
+            .find(|message| message.role == Role::User)
+            .map(|message| message.content.as_str())
+            .unwrap_or("");
+        let results = crate::search::search(query).await;
+        base_prompt.push_str("\n\n# Web arama sonuçları\n");
+        base_prompt.push_str(&crate::search::format_results(query, &results));
     }
 
     // --- participants + leader ------------------------------------------------
@@ -120,7 +140,12 @@ pub async fn run_debate(
     .execute(db)
     .await?;
 
-    let ctx = Ctx { hub, conversation_id: conversation_id.clone(), debate_id: debate_id.clone() };
+    let ctx = Ctx {
+        hub,
+        conversation_id: conversation_id.clone(),
+        debate_id: debate_id.clone(),
+        message_id: message_id.clone(),
+    };
     ctx.emit(ServerEvent::MessageStart {
         conversation_id: conversation_id.clone(),
         message_id: message_id.clone(),
@@ -147,17 +172,22 @@ pub async fn run_debate(
             phase,
         });
 
+        // Sequential turns: models wait for each other. Every participant sees
+        // the answers written earlier in this round (plus all previous rounds),
+        // so the next model can react to what the others already said.
         let mut round_turns: Vec<TurnRecord> = Vec::new();
-        let ctx_ref = &ctx;
-        let cancel_ref = &cancel;
-        let mut futures = Vec::new();
         for participant in &participants {
+            if cancel.is_cancelled() {
+                cancelled = true;
+                break;
+            }
             let (prompt_text, request) = build_turn_request(
                 participant,
                 round,
                 base_prompt.as_str(),
                 prompts,
                 &transcript,
+                &round_turns,
                 &base_prompts,
             );
             let usage_estimate = Usage {
@@ -165,15 +195,7 @@ pub async fn run_debate(
                 tokens_out: 0,
                 estimated: true,
             };
-            futures.push(async move {
-                let result = run_one_turn(ctx_ref, participant, request, round, cancel_ref).await;
-                (usage_estimate, result)
-            });
-        }
-        let results = futures_util::future::join_all(futures).await;
-
-        for (index, (usage_estimate, result)) in results.into_iter().enumerate() {
-            let participant = &participants[index];
+            let result = run_one_turn(&ctx, participant, request, round, &cancel).await;
             let usage = result.usage.unwrap_or_else(|| Usage {
                 tokens_in: usage_estimate.tokens_in,
                 tokens_out: estimate(&result.text),
@@ -212,6 +234,7 @@ pub async fn run_debate(
                 usage,
                 consensus,
                 failed,
+                resolved_model: result.resolved_model,
             });
         }
 
@@ -271,6 +294,7 @@ pub async fn run_debate(
     let mut synthesis_text = String::new();
     let mut synthesis_reasoning = String::new();
     let mut synthesis_usage: Option<Usage> = None;
+    let mut synthesis_resolved: Option<String> = None;
     if synthesis_error.is_none() && !cancelled {
         let leader = participants
             .iter()
@@ -302,10 +326,16 @@ pub async fn run_debate(
                 max_tokens: leader.model.max_tokens.map(|t| t as u32),
                 images: Vec::new(),
                 web: false,
+                reasoning_enabled: leader
+                    .model
+                    .reasoning_enabled
+                    .unwrap_or(leader.model.supports_reasoning),
+                reasoning_effort: leader.model.reasoning_effort.clone(),
             };
             let result = run_one_turn(&ctx, leader, request, round, &cancel).await;
             synthesis_text = result.text.clone();
             synthesis_reasoning = result.reasoning.clone();
+            synthesis_resolved = result.resolved_model.clone();
             synthesis_usage = result.usage.or_else(|| Some(Usage {
                 tokens_in: estimate(&prompt_text),
                 tokens_out: estimate(&result.text),
@@ -334,6 +364,7 @@ pub async fn run_debate(
                     usage,
                     consensus: None,
                     failed: result.error.is_some() || result.cancelled,
+                    resolved_model: result.resolved_model,
                 },
                 &started_at,
             )
@@ -360,15 +391,23 @@ pub async fn run_debate(
         MessageStatus::Done
     };
 
+    // Resolved model (alias resolution) of the leader's synthesis, if the
+    // provider reported it; falls back to the first participant that reported.
+    let resolved_model = synthesis_resolved.clone().or_else(|| {
+        transcript
+            .iter()
+            .find_map(|turn| turn.resolved_model.clone())
+    });
     sqlx::query(
-        "UPDATE messages SET content = ?, reasoning = ?, tokens_in = ?, tokens_out = ?, tokens_estimated = ?
-         WHERE id = ?",
+        "UPDATE messages SET content = ?, reasoning = ?, tokens_in = ?, tokens_out = ?, tokens_estimated = ?,
+                resolved_model = ? WHERE id = ?",
     )
     .bind(&synthesis_text)
     .bind(&synthesis_reasoning)
     .bind(total_in as i64)
     .bind(total_out as i64)
     .bind(any_estimated)
+    .bind(&resolved_model)
     .bind(&message_id)
     .execute(db)
     .await?;
@@ -477,6 +516,16 @@ async fn run_one_turn(
                                     delta,
                                 });
                             }
+                            ChatEvent::ModelResolved(resolved) => {
+                                if result.resolved_model.is_none() {
+                                    result.resolved_model = Some(resolved.clone());
+                                    ctx.emit(ServerEvent::ModelResolved {
+                                        conversation_id: ctx.conversation_id.clone(),
+                                        message_id: ctx.message_id.clone(),
+                                        model_id: resolved,
+                                    });
+                                }
+                            }
                             ChatEvent::Usage { tokens_in, tokens_out } => {
                                 result.usage = Some(Usage { tokens_in, tokens_out, estimated: false });
                             }
@@ -500,7 +549,9 @@ async fn run_one_turn(
     result
 }
 
-/// Builds the request for a participant in a given round.
+/// Builds the request for a participant in a given round. `same_round` holds
+/// the answers written earlier in THIS round, so every model sees what the
+/// previous models said before answering (sequential rounds, shared visibility).
 #[allow(clippy::too_many_arguments)]
 fn build_turn_request(
     participant: &Participant,
@@ -508,6 +559,7 @@ fn build_turn_request(
     base_prompt: &str,
     prompts: &PromptLibrary,
     transcript: &[TurnRecord],
+    same_round: &[TurnRecord],
     base_prompts: &[ChatMessage],
 ) -> (String, ChatRequest) {
     if round == 1 {
@@ -517,6 +569,23 @@ fn build_turn_request(
             content: format!("{base_prompt}\n\n{participant_prompt}"),
         }];
         messages.extend(base_prompts.iter().skip(1).cloned());
+        let peers: Vec<String> = same_round
+            .iter()
+            .filter(|t| t.model_id != participant.model.id && !t.content.trim().is_empty())
+            .map(|t| format!("## {}\n{}", t.anon_label, t.content))
+            .collect();
+        if !peers.is_empty() {
+            if let Some(last_user) = messages
+                .iter_mut()
+                .rev()
+                .find(|message| message.role == Role::User)
+            {
+                last_user.content.push_str(&format!(
+                    "\n\nBU TURDA ŞİMDİYE KADAR DİĞER KATILIMCILARIN SÖYLEDİKLERİ:\n{}\n\nBu cevapları da dikkate al; aynı olan noktaları tekrarlama, farklı gördüklerine katkı yap.",
+                    peers.join("\n\n"),
+                ));
+            }
+        }
         let prompt_text = messages.iter().map(|m| m.content.clone()).collect::<Vec<_>>().join("\n");
         let request = ChatRequest {
             model: participant.model.model_id.clone(),
@@ -525,20 +594,27 @@ fn build_turn_request(
             max_tokens: participant.model.max_tokens.map(|t| t as u32),
             images: Vec::new(),
             web: false,
+            reasoning_enabled: participant
+                .model
+                .reasoning_enabled
+                .unwrap_or(participant.model.supports_reasoning),
+            reasoning_effort: participant.model.reasoning_effort.clone(),
         };
         return (prompt_text, request);
     }
 
-    // critique round: own previous answer + others' (anon), critique prompt
-    let own = transcript
+    // critique round: own previous answer + everyone else's (anon), including
+    // the answers written earlier in this very round.
+    let mut seen: Vec<&TurnRecord> = Vec::new();
+    seen.extend(same_round.iter());
+    seen.extend(transcript.iter().rev());
+    let own = seen
         .iter()
-        .rev()
         .find(|t| t.model_id == participant.model.id)
         .map(|t| t.content.clone())
         .unwrap_or_default();
-    let others: Vec<String> = transcript
+    let others: Vec<String> = seen
         .iter()
-        .rev()
         .filter(|t| t.model_id != participant.model.id)
         .map(|t| format!("## {}\n{}", t.anon_label, t.content))
         .collect();
@@ -567,6 +643,11 @@ fn build_turn_request(
         max_tokens: participant.model.max_tokens.map(|t| t as u32),
         images: Vec::new(),
         web: false,
+        reasoning_enabled: participant
+            .model
+            .reasoning_enabled
+            .unwrap_or(participant.model.supports_reasoning),
+        reasoning_effort: participant.model.reasoning_effort.clone(),
     };
     (prompt_text, request)
 }
@@ -616,8 +697,8 @@ async fn persist_turn(
 ) -> anyhow::Result<()> {
     sqlx::query(
         "INSERT INTO debate_turns (id, debate_id, round, model_id, anon_label, content,
-                reasoning, tokens_in, tokens_out, phase, consensus, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                reasoning, tokens_in, tokens_out, phase, consensus, resolved_model, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(uuid::Uuid::new_v4().to_string())
     .bind(debate_id)
@@ -634,6 +715,7 @@ async fn persist_turn(
         DebatePhase::Synthesis => "synthesis",
     })
     .bind(turn.consensus)
+    .bind(&turn.resolved_model)
     .bind(created_at)
     .execute(db)
     .await?;

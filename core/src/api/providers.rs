@@ -359,6 +359,8 @@ pub struct RemoteModelDto {
     pub display_name: String,
     pub supports_tools: Option<bool>,
     pub context_window: Option<u64>,
+    pub supports_reasoning: Option<bool>,
+    pub reasoning_options: Vec<String>,
     pub added: bool,
 }
 
@@ -392,6 +394,8 @@ pub async fn remote_models(
                     display_name: model.display_name,
                     supports_tools: model.supports_tools,
                     context_window: model.context_window,
+                    supports_reasoning: model.supports_reasoning,
+                    reasoning_options: model.reasoning_options,
                 }).collect()));
             }
             Err(error) => last_error = Some(error.to_string()),

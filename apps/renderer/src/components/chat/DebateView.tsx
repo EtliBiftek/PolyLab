@@ -90,7 +90,7 @@ function TurnBlock({
 
   return (
     <div
-      className={`rounded-xl border bg-surface px-3 py-2.5 transition-colors ${
+      className={`min-w-0 rounded-xl border bg-surface px-3 py-2.5 transition-colors ${
         accent ? "border-accent/25" : "border-border"
       }`}
     >
@@ -145,13 +145,13 @@ function TurnBlock({
               <span aria-hidden>✻</span>
               <span>{t("debate.thinking")}</span>
             </div>
-            <div className="whitespace-pre-wrap text-[12px] leading-relaxed text-txt-2">
+            <div className="whitespace-pre-wrap break-words text-[12px] leading-relaxed text-txt-2">
               {visibleReasoning}
               {!done && <SoftCaret />}
             </div>
           </div>
         )}
-        <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-txt-1">
+        <p className="mt-2 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-txt-1">
           {visibleContent}
           {!done && <SoftCaret />}
         </p>
@@ -334,7 +334,7 @@ export function DebateTranscript({ messageId, models }: { messageId: string; mod
                     <TurnBlock
                       key={turn.id}
                       label={turn.anon_label}
-                      realName={modelName(models, turn.model_id)}
+                      realName={turn.resolved_model ?? modelName(models, turn.model_id)}
                       content={turn.content}
                       reasoning={turn.reasoning ?? ""}
                       tokens={usage(turn.tokens_in, turn.tokens_out)}

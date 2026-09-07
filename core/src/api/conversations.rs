@@ -8,6 +8,14 @@ use super::error::ApiError;
 use crate::state::AppState;
 use crate::storage::{now_rfc3339, Conversation, Message};
 
+/// Message rows are selected with `has_debate` (EXISTS subquery) so the
+/// renderer can keep the debate transcript visible even after the conversation
+/// switches to a single model (point 7).
+const MESSAGE_SELECT: &str = "SELECT m.*, EXISTS(
+    SELECT 1 FROM debates d WHERE d.message_id = m.id
+  ) AS has_debate
+  FROM messages m";
+
 #[derive(Deserialize, Default)]
 pub struct ListQuery {
     pub limit: Option<i64>,
@@ -139,9 +147,9 @@ pub async fn get_one(
         .fetch_optional(&state.db)
         .await?
         .ok_or_else(|| ApiError::not_found(format!("conversation {id} not found")))?;
-    let messages: Vec<Message> = sqlx::query_as(
-        "SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC, rowid ASC",
-    )
+    let messages: Vec<Message> = sqlx::query_as(&format!(
+        "{MESSAGE_SELECT} WHERE m.conversation_id = ? ORDER BY m.created_at ASC, m.rowid ASC"
+    ))
     .bind(&id)
     .fetch_all(&state.db)
     .await?;
@@ -159,9 +167,9 @@ pub async fn messages(
     if exists.is_none() {
         return Err(ApiError::not_found(format!("conversation {id} not found")));
     }
-    let rows: Vec<Message> = sqlx::query_as(
-        "SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC, rowid ASC",
-    )
+    let rows: Vec<Message> = sqlx::query_as(&format!(
+        "{MESSAGE_SELECT} WHERE m.conversation_id = ? ORDER BY m.created_at ASC, m.rowid ASC"
+    ))
     .bind(&id)
     .fetch_all(&state.db)
     .await?;

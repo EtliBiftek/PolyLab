@@ -15,6 +15,7 @@ pub mod fs;
 pub mod git;
 pub mod prompts;
 pub mod providers;
+pub mod search;
 pub mod secrets;
 pub mod state;
 pub mod storage;

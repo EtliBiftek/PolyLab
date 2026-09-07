@@ -52,7 +52,7 @@ export default function App() {
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar />
         <main className="flex min-h-0 flex-1 flex-col">
-          {activeId != null ? (
+          {activeId != null && (messages?.length ?? 0) > 0 ? (
             <>
               <div className="flex-1 overflow-y-auto">
                 <MessageList
@@ -68,6 +68,8 @@ export default function App() {
           ) : (
             <>
               <div className="flex-1 overflow-y-auto">
+                {/* Point 10: the new-chat button lands here — suggestions stay
+                    visible for empty conversations (not only for no selection). */}
                 <EmptyState />
               </div>
               <Composer />

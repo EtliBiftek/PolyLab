@@ -21,9 +21,31 @@ pub enum ClientEvent {
         content: String,
         #[serde(default)]
         attachments: Vec<AttachmentIn>,
-        /// Turn on web search for this turn (OpenRouter web plugin).
+        /// Turn on web search for this turn (engine-side DuckDuckGo).
         #[serde(default)]
         web: bool,
+    },
+    /// Replace a user message's content, drop everything after it and
+    /// regenerate the reply (optionally quoting the previous version).
+    EditMessage {
+        conversation_id: String,
+        message_id: String,
+        content: String,
+        /// Quote the message's previous content in the model request.
+        #[serde(default)]
+        quote: bool,
+        /// Re-run engine-side web search for the edited turn.
+        #[serde(default)]
+        web: bool,
+    },
+    /// Drop an assistant message (and everything after it) and re-generate the
+    /// reply; `model_id` optionally switches the conversation to another model
+    /// (single-model mode).
+    Regenerate {
+        conversation_id: String,
+        message_id: String,
+        #[serde(default)]
+        model_id: Option<String>,
     },
     Cancel {
         conversation_id: String,
@@ -117,6 +139,13 @@ pub enum ServerEvent {
         message_id: String,
         model_id: String,
         delta: String,
+    },
+    /// The concrete model the provider actually served (alias resolution,
+    /// e.g. OpenRouter `:free` routing). Sent before the first token.
+    ModelResolved {
+        conversation_id: String,
+        message_id: String,
+        model_id: String,
     },
     Usage {
         conversation_id: String,
@@ -284,6 +313,34 @@ mod tests {
                 web: false,
             }
         );
+
+        let edit = r#"{"type":"edit_message","conversation_id":"c1","message_id":"m1","content":"yeni","quote":true,"web":true}"#;
+        assert_eq!(
+            parse_client_event(edit).unwrap(),
+            ClientEvent::EditMessage {
+                conversation_id: "c1".into(),
+                message_id: "m1".into(),
+                content: "yeni".into(),
+                quote: true,
+                web: true,
+            }
+        );
+
+        let regen = r#"{"type":"regenerate","conversation_id":"c1","message_id":"m2"}"#;
+        assert_eq!(
+            parse_client_event(regen).unwrap(),
+            ClientEvent::Regenerate {
+                conversation_id: "c1".into(),
+                message_id: "m2".into(),
+                model_id: None,
+            }
+        );
+
+        let regen_model = r#"{"type":"regenerate","conversation_id":"c1","message_id":"m2","model_id":"m9"}"#;
+        assert!(matches!(
+            parse_client_event(regen_model).unwrap(),
+            ClientEvent::Regenerate { model_id: Some(id), .. } if id == "m9"
+        ));
 
         let send_att = r#"{"type":"send_message","conversation_id":"c1","content":"selam",
             "attachments":[{"name":"a.txt","text":"içerik"}]}"#;

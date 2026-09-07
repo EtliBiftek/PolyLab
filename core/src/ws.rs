@@ -94,6 +94,22 @@ async fn handle_client_event(state: &AppState, raw: &str) -> Option<ServerEvent>
             state.engine.dispatch_send(conversation_id, content, attachments, web);
             None
         }
+        Ok(ClientEvent::EditMessage { conversation_id, message_id, content, quote, web }) => {
+            if content.trim().is_empty() {
+                return Some(ServerEvent::Error {
+                    conversation_id: Some(conversation_id),
+                    message_id: Some(message_id),
+                    code: ErrorCode::BadRequest,
+                    detail: "message content is empty".into(),
+                });
+            }
+            state.engine.dispatch_edit(conversation_id, message_id, content, quote, web);
+            None
+        }
+        Ok(ClientEvent::Regenerate { conversation_id, message_id, model_id }) => {
+            state.engine.dispatch_regenerate(conversation_id, message_id, model_id);
+            None
+        }
         Ok(ClientEvent::AgentApprove { approval_id, approved }) => {
             state.engine.resolve_approval(&approval_id, approved);
             None

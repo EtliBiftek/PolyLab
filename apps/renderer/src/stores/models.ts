@@ -34,12 +34,17 @@ interface ModelsState {
   setProviderKey: (id: string, apiKey: string) => Promise<void>;
   test: (id: string) => Promise<TestResult>;
   fetchRemoteModels: (id: string) => Promise<RemoteModel[]>;
-  addModel: (providerId: string, modelId: string) => Promise<void>;
+  addModel: (
+    providerId: string,
+    modelId: string,
+    remote?: Pick<RemoteModel, "supports_reasoning" | "reasoning_options">,
+  ) => Promise<void>;
   removeModel: (id: string) => Promise<void>;
   addGroup: (body: { name: string; description?: string; model_ids: string[] }) => Promise<void>;
   editGroup: (id: string, body: { name?: string; model_ids?: string[] }) => Promise<void>;
   removeGroup: (id: string) => Promise<void>;
   setThink: (id: string, enabled: boolean) => Promise<void>;
+  setReasoningEffort: (id: string, effort: string | null) => Promise<void>;
   patchModel: (
     id: string,
     body: Partial<Pick<Model, "display_name" | "color" | "temperature" | "max_tokens" | "enabled">>,
@@ -101,8 +106,13 @@ export const useModels = create<ModelsState>((set, get) => ({
   test: (id) => testProvider(id),
   fetchRemoteModels: (id) => listRemoteModels(id),
 
-  addModel: async (providerId, modelId) => {
-    await upsertModel({ provider_id: providerId, model_id: modelId });
+  addModel: async (providerId, modelId, remote) => {
+    await upsertModel({
+      provider_id: providerId,
+      model_id: modelId,
+      supports_reasoning: remote?.supports_reasoning ?? undefined,
+      reasoning_options: remote?.reasoning_options,
+    });
     await get().refresh();
   },
 
@@ -125,6 +135,22 @@ export const useModels = create<ModelsState>((set, get) => ({
     });
     try {
       const updated = await updateModel(id, { reasoning_enabled: enabled });
+      set({ models: get().models.map((m) => (m.id === id ? { ...m, ...updated } : m)) });
+    } catch (error) {
+      set({ models: before });
+      throw error;
+    }
+  },
+
+  setReasoningEffort: async (id, effort) => {
+    const before = get().models;
+    set({
+      models: before.map((model) =>
+        model.id === id ? { ...model, reasoning_effort: effort } : model,
+      ),
+    });
+    try {
+      const updated = await updateModel(id, { reasoning_effort: effort });
       set({ models: get().models.map((m) => (m.id === id ? { ...m, ...updated } : m)) });
     } catch (error) {
       set({ models: before });

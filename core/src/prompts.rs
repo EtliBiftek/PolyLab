@@ -53,6 +53,20 @@ impl PromptLibrary {
     }
 }
 
+/// Capability block appended to every system prompt. Standing rule: every
+/// feature PolyLab provides must be advertised to the model in its system
+/// prompt (web search, think levels, attachments, workspace, debate...).
+pub fn capability_notice() -> &'static str {
+    r#"# App capabilities / Uygulama özellikleri
+
+PolyLab provides you with the following features — / PolyLab sana şu yetenekleri sağlar:
+- Web search: when enabled, DuckDuckGo results are given under `# Web arama sonuçları`; use them. / Web araması: etkinleştirildiğinde DuckDuckGo sonuçları `# Web arama sonuçları` bölümünde verilir; bu sonuçları kullan.
+- Think mode: your reasoning is shown in a separate panel; when a level is selected, think at that level. / Think modu: düşünme sürecin ayrı bir alanda gösterilir; seviye seçildiğinde o seviyeye göre düşün.
+- Attachments: users can attach text files to messages; take them into account. / Dosya ekleri: kullanıcı mesajlarına metin dosyaları eklenebilir; bunları dikkate al.
+- Workspace (coding mode): project files and tools are provided; read and modify files. / Çalışma alanı (kodlama modu): proje dosyaları ve araçlar sana verilir; dosyaları okuyup değiştir.
+- Multi-model debate: you work alongside anonymous experts; consider other answers and justify your own. / Çoklu model tartışması: anonim uzmanlarla birlikte çalışırsın; diğer cevapları dikkate al, kendi cevabını gerekçelendir.
+"#}
+
 fn embedded_defaults() -> HashMap<String, String> {
     [
         ("chat", include_str!("../../prompts/chat.md")),

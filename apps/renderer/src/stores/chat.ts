@@ -52,6 +52,7 @@ export interface StreamingMessage {
   content: string;
   reasoning: string;
   status: "streaming" | "done" | "error" | "cancelled";
+  resolvedModel: string | null;
   usage: { tokens_in: number; tokens_out: number; estimated: boolean } | null;
   errorDetail: string | null;
   debate: DebateRoundState[];
@@ -89,6 +90,12 @@ interface ChatState {
     text: string,
     attachments?: Array<{ name: string; text?: string; mime_type?: string; data_base64?: string }>,
   ) => Promise<void>;
+  editMessage: (
+    messageId: string,
+    content: string,
+    quote: boolean,
+  ) => Promise<void>;
+  regenerate: (messageId: string, modelId?: string | null) => Promise<void>;
   cancel: () => void;
   runCommand: (command: string) => void;
   startTerminal: () => void;
@@ -103,6 +110,7 @@ const emptyStreaming = (id: string, mode: ChatMode): StreamingMessage => ({
   content: "",
   reasoning: "",
   status: "streaming",
+  resolvedModel: null,
   usage: null,
   errorDetail: null,
   debate: [],
@@ -125,6 +133,21 @@ export const useChat = create<ChatState>((set, get) => ({
   },
 
   newConversation: async (modelId, groupId) => {
+    const { activeId, messages } = get();
+    // Point 9: an empty conversation is already a "new chat" — don't create a
+    // second one when the user is sitting in a conversation with no messages.
+    // (Undefined = not loaded yet; only [] counts as empty.)
+    if (activeId != null && (messages[activeId]?.length ?? -1) === 0) {
+      const existing = get().conversations.find((c) => c.id === activeId);
+      if (existing != null) {
+        // Keep the user's model selection on the existing empty chat.
+        if (groupId == null && modelId != null && existing.model_id !== modelId) {
+          await updateConversation(existing.id, { model_id: modelId, selection_type: "single" });
+          await get().refresh();
+        }
+        return existing;
+      }
+    }
     const { useSettings } = await import("./settings");
     const mode = useSettings.getState().mode;
     const conversation = await createConversation(
@@ -246,6 +269,8 @@ export const useChat = create<ChatState>((set, get) => ({
             content: trimmed,
             reasoning: null,
             model_id: null,
+            resolved_model: null,
+            has_debate: null,
             tokens_in: null,
             tokens_out: null,
             tokens_estimated: null,
@@ -265,6 +290,56 @@ export const useChat = create<ChatState>((set, get) => ({
       content: trimmed,
       attachments: attachments ?? [],
       web: useSettings.getState().webSearch,
+    });
+  },
+
+  editMessage: async (messageId, content, quote) => {
+    const trimmed = content.trim();
+    if (trimmed.length === 0) return;
+    const { activeId } = get();
+    if (activeId == null) return;
+    const conversationId = activeId;
+    set((state) => {
+      const list = state.messages[conversationId] ?? [];
+      const index = list.findIndex((message) => message.id === messageId);
+      if (index === -1) return {};
+      const edited = list.map((message, i) =>
+        i === index ? { ...message, content: trimmed } : message,
+      );
+      return {
+        messages: { ...state.messages, [conversationId]: edited.slice(0, index + 1) },
+        streaming: { ...state.streaming, [conversationId]: undefined },
+        sending: true,
+      };
+    });
+    const { useSettings } = await import("./settings");
+    wsClient().send("edit_message", {
+      conversation_id: conversationId,
+      message_id: messageId,
+      content: trimmed,
+      quote,
+      web: useSettings.getState().webSearch,
+    });
+  },
+
+  regenerate: async (messageId, modelId = null) => {
+    const { activeId } = get();
+    if (activeId == null) return;
+    const conversationId = activeId;
+    set((state) => {
+      const list = state.messages[conversationId] ?? [];
+      const index = list.findIndex((message) => message.id === messageId);
+      if (index === -1) return {};
+      return {
+        messages: { ...state.messages, [conversationId]: list.slice(0, index) },
+        streaming: { ...state.streaming, [conversationId]: undefined },
+        sending: true,
+      };
+    });
+    wsClient().send("regenerate", {
+      conversation_id: conversationId,
+      message_id: messageId,
+      model_id: modelId,
     });
   },
 
@@ -370,6 +445,18 @@ export const useChat = create<ChatState>((set, get) => ({
         patchStreaming(event.conversation_id, (current) => ({
           ...current,
           reasoning: current.reasoning + event.delta,
+        }));
+      }),
+
+      client.on("model_resolved", (payload) => {
+        const event = payload as {
+          conversation_id: string;
+          message_id: string;
+          model_id: string;
+        };
+        patchStreaming(event.conversation_id, (current) => ({
+          ...current,
+          resolvedModel: event.model_id,
         }));
       }),
 
@@ -629,7 +716,24 @@ export const useChat = create<ChatState>((set, get) => ({
       client.on("error", (payload) => {
         const event = payload as { conversation_id?: string; detail: string };
         if (event.conversation_id == null) return;
-        patchStreaming(event.conversation_id as string, (current) => ({
+        const conversationId = event.conversation_id as string;
+        // Errors before any stream (e.g. edit/regenerate validation) must also
+        // release the composer lock and resync history.
+        if (get().streaming[conversationId] == null) {
+          set((state) => ({
+            sending: false,
+            streaming: { ...state.streaming, [conversationId]: undefined },
+          }));
+          void getConversation(conversationId)
+            .then((detail) =>
+              set((state) => ({
+                messages: { ...state.messages, [conversationId]: detail.messages },
+              })),
+            )
+            .catch(() => undefined);
+          return;
+        }
+        patchStreaming(conversationId, (current) => ({
           ...current,
           status: "error",
           errorDetail: event.detail,

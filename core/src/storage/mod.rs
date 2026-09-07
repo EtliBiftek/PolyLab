@@ -22,6 +22,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (3, include_str!("migrations/0003_model_think_toggle.sql")),
     (4, include_str!("migrations/0004_agent_steps.sql")),
     (5, include_str!("migrations/0005_auto_title.sql")),
+    (6, include_str!("migrations/0006_message_resolution_and_reasoning.sql")),
 ];
 
 /// Opens the pool at `<data_dir>/polylab.db`, creates the schema, returns the pool.
@@ -121,7 +122,7 @@ mod tests {
             .fetch_all(&pool)
             .await
             .unwrap();
-        assert_eq!(versions, vec![1, 2, 3, 4, 5]);
+        assert_eq!(versions, vec![1, 2, 3, 4, 5, 6]);
         pool.close().await;
         let _ = std::fs::remove_dir_all(dir);
     }

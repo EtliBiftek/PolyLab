@@ -23,10 +23,12 @@
   },
   "topbar": {
     "workspace": "PolyLab",
+    "polyChat": "PolyChat",
+    "polyWork": "PolyWork",
     "mode": {
       "chat": "Chat",
       "coding": "Coding",
-      "comingSoon": "{{mode}} mode is coming soon"
+      "toggle": "Switch mode (Chat / Coding)"
     },
     "model": {
       "select": "Select model",
@@ -65,6 +67,11 @@
     "send": "Send",
     "sendHint": "Enter to send · Shift+Enter for a new line",
     "cancel": "Stop",
+    "copy": "Copy",
+    "copied": "Copied",
+    "edit": "Edit",
+    "quoteOld": "Quote the previous message (model focuses on it)",
+    "regenerate": "Regenerate",
     "generating": "Generating… you can cancel with Stop.",
     "attach": "Attach files",
     "usage": "{{in}} in · {{out}} out tokens",
@@ -72,11 +79,16 @@
     "think.onHint": "{name} — think mode ON, click to disable",
     "think.offHint": "{name} — think mode OFF, click to enable",
     "think": {
-      "pickModel": "Pick a model first"
+      "pickModel": "Pick a model first",
+      "auto": "Auto",
+      "levelHint": "{name} — think depth level",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
     },
     "web": {
-      "hint": "Search the web (OpenRouter web plugin)",
-      "unsupported": "Web search is only supported on OpenRouter providers"
+      "hint": "Search the web (DuckDuckGo)",
+      "unsupported": "Web search is not available for this model right now"
     }
   },
   "thinking": {

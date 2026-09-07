@@ -20,6 +20,8 @@ const model = (id: string, display_name: string): Model => ({
   supports_tools: false,
   supports_reasoning: false,
   reasoning_enabled: null,
+  reasoning_options: null,
+  reasoning_effort: null,
   enabled: true,
   provider_kind: "openai_compat",
   provider_name: "Test",

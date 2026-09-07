@@ -30,6 +30,19 @@ function StreamingAnswer({
           <span className="ml-0.5 inline-block animate-pulse">▍</span>
         </>
       )}
+      {(message.resolvedModel != null || message.usage != null) && (
+        <div className="mt-1.5 flex items-center gap-3 text-[11.5px] text-txt-2">
+          {message.resolvedModel != null && <span>{message.resolvedModel}</span>}
+          {message.usage != null && (
+            <span className="tabular-nums">
+              {t("chat.usage", {
+                in: `${message.usage.estimated ? "~" : ""}${message.usage.tokens_in}`,
+                out: `${message.usage.estimated ? "~" : ""}${message.usage.tokens_out}`,
+              })}
+            </span>
+          )}
+        </div>
+      )}
       {message.status === "error" && message.errorDetail != null && (
         <div className="mt-2 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-[12.5px] text-danger">
           {t("chat.providerError")}: {message.errorDetail}

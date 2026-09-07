@@ -150,6 +150,36 @@ impl Provider for OpenAiCompat {
                         .or_else(|| item.get("top_provider"))
                         .and_then(|v| v.get("context_length"))
                         .and_then(Value::as_u64),
+                    supports_reasoning: item
+                        .get("reasoning")
+                        .and_then(|v| v.get("enabled"))
+                        .and_then(Value::as_bool)
+                        .or_else(|| item.get("reasoning").map(|_| true))
+                        .or_else(|| {
+                            // Native OpenAI listings carry no capability flags:
+                            // recognize the reasoning families by model id.
+                            let id = id.to_ascii_lowercase();
+                            (id.starts_with("o1")
+                                || id.starts_with("o3")
+                                || id.starts_with("o4")
+                                || id.contains("gpt-5")
+                                || id.starts_with("gpt-5"))
+                            .then_some(true)
+                        }),
+                    // OpenRouter advertises the effort level; expose the
+                    // standard low/medium/high ladder when it is present.
+                    reasoning_options: item
+                        .get("reasoning")
+                        .and_then(|v| v.get("effort"))
+                        .and_then(Value::as_str)
+                        .map(|_| {
+                            vec![
+                                "low".to_string(),
+                                "medium".to_string(),
+                                "high".to_string(),
+                            ]
+                        })
+                        .unwrap_or_default(),
                 });
             }
         }
@@ -172,6 +202,23 @@ impl Provider for OpenAiCompat {
         if supports_stream_options(self.kind) {
             body["stream_options"] = json!({ "include_usage": true });
         }
+        // Web search is resolved by the engine (DuckDuckGo injection for every
+        // provider) — no provider-side plugin is sent here.
+        // Think: OpenRouter wants `reasoning.effort`, OpenAI-compatible reasoning
+        // models use `reasoning_effort`; "medium" is the provider default level.
+        if request.reasoning_enabled {
+            let effort = request.reasoning_effort.clone().unwrap_or_else(|| "medium".to_string());
+            if self.kind == ProviderKind::Openrouter {
+                body["reasoning"] = json!({ "enabled": true, "effort": effort });
+            } else {
+                body["reasoning_effort"] = json!(effort);
+            }
+        } else if self.kind == ProviderKind::Ollama {
+            // Ollama auto-enables thinking on capable models when the field is
+            // absent (0.12+); "none" is the documented off value, so Think OFF
+            // actually stays off there.
+            body["reasoning_effort"] = json!("none");
+        }
 
         let response = self
             .apply_auth(self.client.post(format!("{}/chat/completions", self.base_url)))
@@ -184,6 +231,7 @@ impl Provider for OpenAiCompat {
         }
 
         let mut think_filter = super::reasoning::ThinkFilter::new();
+        let mut resolved: Option<String> = None;
         let source = response.bytes_stream().eventsource();
 
         Ok(super::stream_util::sse_events(source, move |event, out| {
@@ -203,6 +251,20 @@ impl Provider for OpenAiCompat {
             let Ok(chunk) = serde_json::from_str::<Value>(&event.data) else {
                 return true;
             };
+
+            // Providers report the concrete model they served (alias resolution,
+            // e.g. OpenRouter `:free` routing). `top_provider.model` is the real
+            // backend; fall back to the response `model` field.
+            if resolved.is_none() {
+                let actual = chunk
+                    .pointer("/top_provider/model")
+                    .and_then(Value::as_str)
+                    .or_else(|| chunk.get("model").and_then(Value::as_str));
+                if let Some(model) = actual {
+                    resolved = Some(model.to_string());
+                    out.push(ChatEvent::ModelResolved(model.to_string()));
+                }
+            }
 
             if let Some(delta) = chunk.pointer("/choices/0/delta").and_then(Value::as_object) {
                 if let Some(reasoning) = delta

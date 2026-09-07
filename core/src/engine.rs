@@ -182,9 +182,286 @@ impl ChatEngine {
             .await?;
         }
 
+        self.reply(conversation, content, attachments, web, None, cancel).await
+    }
+
+    /// Entry point for `edit_message`: replaces the stored user message,
+    /// drops every later message and regenerates the reply.
+    pub fn dispatch_edit(
+        self: &Arc<Self>,
+        conversation_id: String,
+        message_id: String,
+        content: String,
+        quote: bool,
+        web: bool,
+    ) {
+        let engine = Arc::clone(self);
+        tokio::spawn(async move {
+            engine.run_edit(conversation_id, message_id, content, quote, web).await;
+        });
+    }
+
+    async fn run_edit(
+        &self,
+        conversation_id: String,
+        message_id: String,
+        content: String,
+        quote: bool,
+        web: bool,
+    ) {
+        let token = CancellationToken::new();
+        {
+            let mut cancels = self.cancels.lock().await;
+            if cancels.contains_key(&conversation_id) {
+                self.emit(ServerEvent::Error {
+                    conversation_id: Some(conversation_id.clone()),
+                    message_id: Some(message_id.clone()),
+                    code: ErrorCode::BadRequest,
+                    detail: "this conversation is already generating".into(),
+                });
+                return;
+            }
+            cancels.insert(conversation_id.clone(), token.clone());
+        }
+        if let Err(error) = self
+            .edit_inner(&conversation_id, &message_id, &content, quote, web, token.clone())
+            .await
+        {
+            tracing::error!(%error, conversation_id, "edit_message failed");
+            self.emit(ServerEvent::Error {
+                conversation_id: Some(conversation_id.clone()),
+                message_id: Some(message_id.clone()),
+                code: ErrorCode::Internal,
+                detail: error.to_string(),
+            });
+        }
+        self.cancels.lock().await.remove(&conversation_id);
+    }
+
+    async fn edit_inner(
+        &self,
+        conversation_id: &str,
+        message_id: &str,
+        content: &str,
+        quote: bool,
+        web: bool,
+        cancel: CancellationToken,
+    ) -> anyhow::Result<()> {
+        if content.trim().is_empty() {
+            anyhow::bail!("message content is empty");
+        }
+        let conversation: Conversation = sqlx::query_as(
+            "SELECT * FROM conversations WHERE id = ?",
+        )
+        .bind(conversation_id)
+        .fetch_optional(&self.db)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("conversation {conversation_id} not found"))?;
+
+        // The target must be a user message in this conversation.
+        let row: Option<(String, Option<String>)> = sqlx::query_as(
+            "SELECT content, attachments_json FROM messages
+             WHERE id = ? AND conversation_id = ? AND role = 'user'",
+        )
+        .bind(message_id)
+        .bind(conversation_id)
+        .fetch_optional(&self.db)
+        .await?;
+        let Some((old_content, attachments_json)) = row else {
+            anyhow::bail!("message {message_id} is not an editable user message");
+        };
+
+        sqlx::query("UPDATE messages SET content = ? WHERE id = ?")
+            .bind(content)
+            .bind(message_id)
+            .execute(&self.db)
+            .await?;
+        // Drop everything after the edited turn (debates cascade via FK).
+        sqlx::query(
+            "DELETE FROM messages WHERE conversation_id = ? AND rowid >
+                (SELECT rowid FROM messages WHERE id = ? AND conversation_id = ?)",
+        )
+        .bind(conversation_id)
+        .bind(message_id)
+        .bind(conversation_id)
+        .execute(&self.db)
+        .await?;
+        // agent_steps has no FK cascade: drop orphaned steps (debates cascade).
+        sqlx::query(
+            "DELETE FROM agent_steps WHERE conversation_id = ? AND
+                message_id NOT IN (SELECT id FROM messages WHERE conversation_id = ?)",
+        )
+        .bind(conversation_id)
+        .bind(conversation_id)
+        .execute(&self.db)
+        .await?;
+
+        let attachments: Vec<AttachmentIn> = attachments_json
+            .as_deref()
+            .and_then(|json| serde_json::from_str(json).ok())
+            .unwrap_or_default();
+        let quote_old = if quote { Some(old_content) } else { None };
+        self.reply(conversation, content.to_string(), attachments, web, quote_old, cancel)
+            .await
+    }
+
+    /// Entry point for `regenerate`: drops the assistant message and everything
+    /// after it, optionally switches the conversation to another model and
+    /// re-runs the reply for the preceding user message.
+    pub fn dispatch_regenerate(
+        self: &Arc<Self>,
+        conversation_id: String,
+        message_id: String,
+        model_id: Option<String>,
+    ) {
+        let engine = Arc::clone(self);
+        tokio::spawn(async move {
+            engine.run_regenerate(conversation_id, message_id, model_id).await;
+        });
+    }
+
+    async fn run_regenerate(
+        &self,
+        conversation_id: String,
+        message_id: String,
+        model_id: Option<String>,
+    ) {
+        let token = CancellationToken::new();
+        {
+            let mut cancels = self.cancels.lock().await;
+            if cancels.contains_key(&conversation_id) {
+                self.emit(ServerEvent::Error {
+                    conversation_id: Some(conversation_id.clone()),
+                    message_id: Some(message_id.clone()),
+                    code: ErrorCode::BadRequest,
+                    detail: "this conversation is already generating".into(),
+                });
+                return;
+            }
+            cancels.insert(conversation_id.clone(), token.clone());
+        }
+        if let Err(error) = self
+            .regenerate_inner(&conversation_id, &message_id, model_id, token.clone())
+            .await
+        {
+            tracing::error!(%error, conversation_id, "regenerate failed");
+            self.emit(ServerEvent::Error {
+                conversation_id: Some(conversation_id.clone()),
+                message_id: Some(message_id.clone()),
+                code: ErrorCode::Internal,
+                detail: error.to_string(),
+            });
+        }
+        self.cancels.lock().await.remove(&conversation_id);
+    }
+
+    async fn regenerate_inner(
+        &self,
+        conversation_id: &str,
+        message_id: &str,
+        model_id: Option<String>,
+        cancel: CancellationToken,
+    ) -> anyhow::Result<()> {
+        let exists: Option<String> = sqlx::query_scalar(
+            "SELECT id FROM messages WHERE id = ? AND conversation_id = ? AND role = 'assistant'",
+        )
+        .bind(message_id)
+        .bind(conversation_id)
+        .fetch_optional(&self.db)
+        .await?;
+        if exists.is_none() {
+            anyhow::bail!("message {message_id} is not a regenerable assistant message");
+        }
+        sqlx::query(
+            "DELETE FROM messages WHERE conversation_id = ? AND rowid >=
+                (SELECT rowid FROM messages WHERE id = ? AND conversation_id = ?)",
+        )
+        .bind(conversation_id)
+        .bind(message_id)
+        .bind(conversation_id)
+        .execute(&self.db)
+        .await?;
+        // agent_steps has no FK cascade: drop orphaned steps (debates cascade).
+        sqlx::query(
+            "DELETE FROM agent_steps WHERE conversation_id = ? AND
+                message_id NOT IN (SELECT id FROM messages WHERE conversation_id = ?)",
+        )
+        .bind(conversation_id)
+        .bind(conversation_id)
+        .execute(&self.db)
+        .await?;
+
+        let mut conversation: Conversation = sqlx::query_as(
+            "SELECT * FROM conversations WHERE id = ?",
+        )
+        .bind(conversation_id)
+        .fetch_optional(&self.db)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("conversation {conversation_id} not found"))?;
+
+        if let Some(model_id) = model_id {
+            let model_exists: Option<String> =
+                sqlx::query_scalar("SELECT id FROM models WHERE id = ? AND enabled = 1")
+                    .bind(&model_id)
+                    .fetch_optional(&self.db)
+                    .await?;
+            if model_exists.is_none() {
+                anyhow::bail!("model {model_id} is not available");
+            }
+            // A group message regenerated with a chosen model becomes single.
+            sqlx::query(
+                "UPDATE conversations SET model_id = ?, selection_type = 'single',
+                        group_id = NULL, updated_at = ? WHERE id = ?",
+            )
+            .bind(&model_id)
+            .bind(storage::now_rfc3339())
+            .bind(conversation_id)
+            .execute(&self.db)
+            .await?;
+            conversation = sqlx::query_as("SELECT * FROM conversations WHERE id = ?")
+                .bind(conversation_id)
+                .fetch_optional(&self.db)
+                .await?
+                .ok_or_else(|| anyhow::anyhow!("conversation {conversation_id} not found"))?;
+        }
+
+        // Reply to the last stored user message.
+        let last_user: Option<(String, Option<String>)> = sqlx::query_as(
+            "SELECT content, attachments_json FROM messages
+             WHERE conversation_id = ? AND role = 'user'
+             ORDER BY created_at DESC, rowid DESC LIMIT 1",
+        )
+        .bind(conversation_id)
+        .fetch_optional(&self.db)
+        .await?;
+        let Some((content, attachments_json)) = last_user else {
+            anyhow::bail!("no user message to reply to");
+        };
+        let attachments: Vec<AttachmentIn> = attachments_json
+            .as_deref()
+            .and_then(|json| serde_json::from_str(json).ok())
+            .unwrap_or_default();
+        self.reply(conversation, content, attachments, false, None, cancel)
+            .await
+    }
+
+    /// Generates the assistant reply for an ALREADY STORED turn (send, edit and
+    /// regenerate converge here). `quote_old` is the user message's previous
+    /// content, injected into the model request when an edit is quoted — the
+    /// stored message keeps only the edited text.
+    #[allow(clippy::too_many_arguments)]
+    async fn reply(
+        &self,
+        conversation: Conversation,
+        content: String,
+        attachments: Vec<AttachmentIn>,
+        web: bool,
+        quote_old: Option<String>,
+        cancel: CancellationToken,
+    ) -> anyhow::Result<()> {
         // --- group send → debate engine (plan §5.2) -----------------------------
         if conversation.selection_type == "group" {
-            return self.run_debate(conversation, cancel).await;
+            return self.run_debate(conversation, web, quote_old, cancel).await;
         }
 
         let model_id = conversation
@@ -221,19 +498,39 @@ impl ChatEngine {
             .bind(conversation_id)
             .fetch_all(&self.db)
             .await?;
-            let history: Vec<ChatMessage> = crate::trim_history(
-                history
-                    .into_iter()
-                    .map(|(role, content)| ChatMessage {
-                        role: match role.as_str() {
-                            "assistant" => Role::Assistant,
-                            _ => Role::User,
-                        },
-                        content,
-                    })
-                    .collect(),
-                HISTORY_TOKEN_BUDGET,
-            );
+            let mut history: Vec<ChatMessage> = history
+                .into_iter()
+                .map(|(role, content)| ChatMessage {
+                    role: match role.as_str() {
+                        "assistant" => Role::Assistant,
+                        _ => Role::User,
+                    },
+                    content,
+                })
+                .collect();
+            // Web search + edit quote apply to the agent too (point 3/4: all
+            // models, every mode — the agent reads the injected user turn).
+            if web || quote_old.is_some() {
+                if let Some(last_user) = history
+                    .iter_mut()
+                    .rev()
+                    .find(|message| matches!(message.role, Role::User))
+                {
+                    if web {
+                        let results = crate::search::search(&content).await;
+                        last_user.content.push_str(&format!(
+                            "\n\n# Web arama sonuçları\n{}\n\nBu sonuçları kullanarak soruyu cevapla ve kaynaklara atıf yap.",
+                            crate::search::format_results(&content, &results)
+                        ));
+                    }
+                    if let Some(quote) = quote_old.as_deref() {
+                        last_user.content.push_str(&format!(
+                            "\n\n# Alıntılanan önceki mesaj\n{quote}\n\nBu mesaj düzenlendi. Alıntılanan önceki haliyle birlikte düzenlenmiş mesaja odaklanarak cevap ver."
+                        ));
+                    }
+                }
+            }
+            let history = crate::trim_history(history, HISTORY_TOKEN_BUDGET);
             return agent::run_agent(
                 &self.db,
                 self.hub.clone(),
@@ -255,9 +552,21 @@ impl ChatEngine {
         } else {
             self.prompts.get("chat")
         };
-        let mut system = vec![base_prompt.to_string()];
+        let mut system = vec![
+            base_prompt.to_string(),
+            crate::prompts::capability_notice().to_string(),
+        ];
         if let Some(extra) = model.system_prompt_override.as_deref().filter(|s| !s.trim().is_empty()) {
             system.push(extra.to_string());
+        }
+        // Web search is engine-side DuckDuckGo (all providers): the engine runs
+        // the search and injects the results, so the model never needs its own
+        // browsing. The injected block is visible only in this request; the
+        // stored user message keeps the plain text.
+        let mut web_results = String::new();
+        if web {
+            let results = crate::search::search(&content).await;
+            web_results = crate::search::format_results(&content, &results);
         }
 
         let history: Vec<(String, String)> = sqlx::query_as(
@@ -296,6 +605,35 @@ impl ChatEngine {
                 }
             }
         }
+        // Engine-side web search: inject DuckDuckGo results into the current
+        // user turn (works on every provider; no provider plugin needed).
+        if !web_results.is_empty() {
+            if let Some(last_user) = messages
+                .iter_mut()
+                .rev()
+                .find(|message| matches!(message.role, Role::User))
+            {
+                last_user.content.push_str(&format!(
+                    "\n\n# Web arama sonuçları\n{web_results}\n\nBu sonuçları kullanarak soruyu cevapla ve kaynaklara atıf yap."
+                ));
+            }
+        }
+        // Edited message: quote the previous version so the model focuses on it.
+        if let Some(quote) = quote_old {
+            if let Some(last_user) = messages
+                .iter_mut()
+                .rev()
+                .find(|message| matches!(message.role, Role::User))
+            {
+                last_user.content.push_str(&format!(
+                    "\n\n# Alıntılanan önceki mesaj\n{quote}\n\nBu mesaj düzenlendi. Alıntılanan önceki haliyle birlikte düzenlenmiş mesaja odaklanarak cevap ver."
+                ));
+            }
+        }
+        // Think (reasoning) toggle: explicit per-model choice, else follow the
+        // capability flag. When off, reasoning deltas are dropped (not shown, not
+        // stored) and no native thinking parameter is sent.
+        let think_mode = model.reasoning_enabled.unwrap_or(model.supports_reasoning);
         let history_budget_tokens = HISTORY_TOKEN_BUDGET;
         let messages = crate::trim_history(messages, history_budget_tokens);
         let request = ChatRequest {
@@ -305,6 +643,12 @@ impl ChatEngine {
             max_tokens: model.max_tokens.map(|t| t as u32),
             images,
             web,
+            reasoning_enabled: think_mode,
+            reasoning_effort: if think_mode {
+                model.reasoning_effort.clone().or_else(|| Some("medium".to_string()))
+            } else {
+                None
+            },
         };
 
         // --- assistant row + start event ---------------------------------------
@@ -326,11 +670,6 @@ impl ChatEngine {
             model_id: model.id.clone(),
             mode: ChatMode::Single,
         });
-
-        // Think (reasoning) toggle: explicit per-model choice, else follow the
-        // capability flag. When off, reasoning deltas are dropped (not shown, not
-        // stored) — providers that think server-side simply hide the panel.
-        let think_mode = model.reasoning_enabled.unwrap_or(model.supports_reasoning);
 
         // --- stream -------------------------------------------------------------
         let prompt_texts: Vec<String> = request.messages.iter().map(|m| m.content.clone()).collect();
@@ -362,6 +701,16 @@ impl ChatEngine {
                                     });
                                 }
                                 ChatEvent::ReasoningDelta(_) => {}
+                                ChatEvent::ModelResolved(resolved) => {
+                                    if result.resolved_model.is_none() {
+                                        result.resolved_model = Some(resolved.clone());
+                                        self.emit(ServerEvent::ModelResolved {
+                                            conversation_id: conversation_id.to_string(),
+                                            message_id: message_id.clone(),
+                                            model_id: resolved,
+                                        });
+                                    }
+                                }
                                 ChatEvent::Usage { tokens_in, tokens_out } => {
                                     result.usage = Some(Usage { tokens_in, tokens_out, estimated: false });
                                 }
@@ -401,13 +750,14 @@ impl ChatEngine {
         let finished_at = storage::now_rfc3339();
         sqlx::query(
             "UPDATE messages SET content = ?, reasoning = ?, tokens_in = ?, tokens_out = ?,
-                    tokens_estimated = ? WHERE id = ?",
+                    tokens_estimated = ?, resolved_model = ? WHERE id = ?",
         )
         .bind(&result.text)
         .bind(&result.reasoning)
         .bind(usage.tokens_in as i64)
         .bind(usage.tokens_out as i64)
         .bind(usage.estimated)
+        .bind(&result.resolved_model)
         .bind(&message_id)
         .execute(&self.db)
         .await?;
@@ -472,6 +822,8 @@ impl ChatEngine {
             max_tokens: Some(48),
             images: Vec::new(),
             web: false,
+            reasoning_enabled: false,
+            reasoning_effort: None,
         };
         let Ok(mut stream) = provider.stream_chat(request).await else { return };
         let mut title = String::new();
@@ -504,6 +856,8 @@ impl ChatEngine {
     async fn run_debate(
         &self,
         conversation: Conversation,
+        web: bool,
+        quote_old: Option<String>,
         cancel: CancellationToken,
     ) -> anyhow::Result<()> {
         let group_id = conversation
@@ -536,7 +890,7 @@ impl ChatEngine {
         .bind(&conversation.id)
         .fetch_all(&self.db)
         .await?;
-        let history: Vec<ChatMessage> = history
+        let mut history: Vec<ChatMessage> = history
             .into_iter()
             .rev()
             .take(MAX_HISTORY_MESSAGES)
@@ -549,6 +903,19 @@ impl ChatEngine {
                 content,
             })
             .collect();
+        // Edited turn: every participant and the leader see the quoted previous
+        // version of the last user message (request-only, not stored).
+        if let Some(quote) = quote_old {
+            if let Some(last_user) = history
+                .iter_mut()
+                .rev()
+                .find(|message| matches!(message.role, Role::User))
+            {
+                last_user.content.push_str(&format!(
+                    "\n\n# Alıntılanan önceki mesaj\n{quote}\n\nBu mesaj düzenlendi. Alıntılanan önceki haliyle birlikte düzenlenmiş mesaja odaklanarak cevap ver."
+                ));
+            }
+        }
 
         let settings = crate::debate::DebateSettings::parse(conversation.debate_settings_json.as_deref());
         crate::debate::rounds::run_debate(
@@ -560,6 +927,7 @@ impl ChatEngine {
             &models,
             settings,
             &history,
+            web,
             cancel,
         )
         .await
@@ -574,4 +942,6 @@ pub(crate) struct StreamResult {
     pub(crate) usage: Option<Usage>,
     pub(crate) error: Option<String>,
     pub(crate) cancelled: bool,
+    /// Concrete model id the provider served (alias resolution), if any.
+    pub(crate) resolved_model: Option<String>,
 }

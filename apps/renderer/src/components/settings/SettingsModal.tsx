@@ -89,7 +89,7 @@ export function SettingsModal() {
       }}
     >
       <div className="flex h-[min(760px,94vh)] w-[min(1020px,96vw)] overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow-pop)]">
-        <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-bg-1/70 p-3">
+        <aside className="hidden w-56 shrink-0 flex-col border-r border-border bg-bg-1/70 p-3 sm:flex">
           <div className="px-2 pb-4 pt-2">
             <div className="text-[15px] font-semibold text-txt-0">{t("settings.title")}</div>
             <div className="mt-1 text-[11.5px] text-txt-2">{t("settings.subtitle")}</div>
@@ -132,7 +132,7 @@ export function SettingsModal() {
               <CloseIcon className="h-4 w-4" />
             </button>
           </header>
-          <div className="min-h-0 flex-1 overflow-y-auto p-5">
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-5">
             {section === "general" && (
               <GeneralSection
                 language={language}
@@ -323,7 +323,7 @@ function ProvidersSection({ onAdd }: { onAdd: () => void }) {
   }, [providers, selectedId]);
   const selected = providers.find((provider) => provider.id === selectedId) ?? null;
   return (
-    <div className="grid min-h-[590px] grid-cols-[270px_minmax(0,1fr)] gap-4">
+    <div className="grid min-h-[590px] grid-cols-1 gap-4 xl:grid-cols-[270px_minmax(0,1fr)]">
       <div className="flex min-h-0 flex-col rounded-xl border border-border bg-bg-1 p-2">
         <div className="flex items-center justify-between px-2 py-2">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-txt-2">
@@ -840,7 +840,11 @@ function CatalogModelRow({
   providerId: string;
   model: RemoteModel;
   localModels: ReturnType<typeof useModels.getState>["models"];
-  addModel: (providerId: string, modelId: string) => Promise<void>;
+  addModel: (
+    providerId: string,
+    modelId: string,
+    remote?: Pick<RemoteModel, "supports_reasoning" | "reasoning_options">,
+  ) => Promise<void>;
   removeModel: (id: string) => Promise<void>;
 }) {
   const { t } = useTranslation();
@@ -854,7 +858,11 @@ function CatalogModelRow({
         setBusy(true);
         try {
           if (local != null) await removeModel(local.id);
-          else await addModel(providerId, model.id);
+          else
+            await addModel(providerId, model.id, {
+              supports_reasoning: model.supports_reasoning,
+              reasoning_options: model.reasoning_options,
+            });
         } finally {
           setBusy(false);
         }
@@ -891,7 +899,7 @@ function ModelEditorRow({
             const value = event.target.value.trim();
             if (value && value !== model.display_name) void patchModel(model.id, { display_name: value });
           }}
-          className="h-8 min-w-[160px] flex-1 rounded-lg border border-border bg-bg-0 px-2.5 text-[11.5px] text-txt-0 outline-none"
+          className="h-8 min-w-0 flex-1 rounded-lg border border-border bg-bg-0 px-2.5 text-[11.5px] text-txt-0 outline-none"
         />
         <label className="flex items-center gap-1.5 text-[10.5px] text-txt-2">
           {t("settings.model.temperature")}

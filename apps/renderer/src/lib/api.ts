@@ -41,6 +41,10 @@ export interface Model {
   supports_reasoning: boolean;
   /** Think toggle: null = auto (follows supports_reasoning). */
   reasoning_enabled: boolean | null;
+  /** Available think levels (e.g. ["low","medium","high"]); empty = single level. */
+  reasoning_options: string[] | null;
+  /** Chosen think level (null = provider default). */
+  reasoning_effort: string | null;
   enabled: boolean;
   provider_kind: string;
   provider_name: string;
@@ -69,6 +73,9 @@ export interface Message {
   content: string;
   reasoning: string | null;
   model_id: string | null;
+  /** Actual resolved model name (alias → real name), point 2. */
+  resolved_model: string | null;
+  has_debate: boolean | null;
   tokens_in: number | null;
   tokens_out: number | null;
   tokens_estimated: boolean | null;
@@ -81,6 +88,8 @@ export interface RemoteModel {
   display_name: string;
   supports_tools: boolean | null;
   context_window: number | null;
+  supports_reasoning: boolean | null;
+  reasoning_options: string[];
   added: boolean;
 }
 
@@ -213,6 +222,7 @@ export function upsertModel(body: {
   supports_reasoning?: boolean;
   supports_vision?: boolean;
   supports_tools?: boolean;
+  reasoning_options?: string[];
 }): Promise<Model> {
   return request<Model>("/api/models", { method: "POST", body: JSON.stringify(body) });
 }
@@ -220,8 +230,16 @@ export function upsertModel(body: {
 export function updateModel(
   id: string,
   body: Partial<
-    Pick<Model, "display_name" | "temperature" | "max_tokens" | "enabled" | "reasoning_enabled">
-  > & { color?: string | null },
+    Pick<
+      Model,
+      | "display_name"
+      | "temperature"
+      | "max_tokens"
+      | "enabled"
+      | "reasoning_enabled"
+      | "reasoning_effort"
+    >
+  > & { color?: string | null; reasoning_options?: string[] | null },
 ): Promise<Model> {
   return request<Model>(`/api/models/${id}`, {
     method: "PATCH",
@@ -345,6 +363,8 @@ export interface DebateTurn {
   model_id: string;
   anon_label: string;
   content: string;
+  /** The concrete model the provider served for this turn (alias resolution). */
+  resolved_model: string | null;
   reasoning: string | null;
   tokens_in: number | null;
   tokens_out: number | null;

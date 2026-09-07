@@ -36,6 +36,7 @@ pub struct UpsertModel {
     pub supports_vision: Option<bool>,
     pub supports_tools: Option<bool>,
     pub supports_reasoning: Option<bool>,
+    pub reasoning_options: Option<Vec<String>>,
 }
 
 #[derive(Deserialize)]
@@ -52,6 +53,11 @@ pub struct UpdateModel {
     pub supports_vision: Option<bool>,
     pub supports_tools: Option<bool>,
     pub supports_reasoning: Option<bool>,
+    /// Available think levels (`Some([])` clears back to the derived default).
+    pub reasoning_options: Option<Vec<String>>,
+    /// Chosen think level. `Some(Some(..))` sets; `Some(None)` clears;
+    /// `None` keeps the current value.
+    pub reasoning_effort: Option<Option<String>>,
     /// Think toggle. `Some(bool)` sets it; `None` keeps the current value.
     pub reasoning_enabled: Option<bool>,
     pub enabled: Option<bool>,
@@ -109,11 +115,25 @@ pub async fn upsert(
         .unwrap_or_else(|| body.model_id.clone());
 
     let id = uuid::Uuid::new_v4().to_string();
-    // Enable-if-exists, insert-if-new.
+    let reasoning_options = body
+        .reasoning_options
+        .clone()
+        .filter(|options| !options.is_empty())
+        .map(|options| serde_json::to_string(&options).unwrap_or_default());
+    // Enable-if-exists (sync catalog capabilities), insert-if-new.
     let result = sqlx::query(
-        "UPDATE models SET enabled = 1, display_name = ? WHERE provider_id = ? AND model_id = ?",
+        "UPDATE models SET enabled = 1, display_name = ?,
+                supports_vision = COALESCE(?, supports_vision),
+                supports_tools = COALESCE(?, supports_tools),
+                supports_reasoning = COALESCE(?, supports_reasoning),
+                reasoning_options = COALESCE(?, reasoning_options)
+         WHERE provider_id = ? AND model_id = ?",
     )
     .bind(&display_name)
+    .bind(body.supports_vision)
+    .bind(body.supports_tools)
+    .bind(body.supports_reasoning)
+    .bind(&reasoning_options)
     .bind(&body.provider_id)
     .bind(&body.model_id)
     .execute(&state.db)
@@ -121,8 +141,8 @@ pub async fn upsert(
     if result.rows_affected() == 0 {
         sqlx::query(
             "INSERT INTO models (id, provider_id, model_id, display_name, supports_vision,
-                                 supports_tools, supports_reasoning, enabled)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 1)",
+                                 supports_tools, supports_reasoning, reasoning_options, enabled)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)",
         )
         .bind(&id)
         .bind(&body.provider_id)
@@ -131,6 +151,7 @@ pub async fn upsert(
         .bind(body.supports_vision.unwrap_or(false))
         .bind(body.supports_tools.unwrap_or(false))
         .bind(body.supports_reasoning.unwrap_or(false))
+        .bind(&reasoning_options)
         .execute(&state.db)
         .await?;
     }
@@ -171,13 +192,19 @@ pub async fn update(
     let supports_vision = body.supports_vision.unwrap_or(row.supports_vision);
     let supports_tools = body.supports_tools.unwrap_or(row.supports_tools);
     let supports_reasoning = body.supports_reasoning.unwrap_or(row.supports_reasoning);
+    let reasoning_options =
+        body.reasoning_options.map(|options| {
+            serde_json::to_string(&options).ok().filter(|json| json != "[]")
+        });
+    let reasoning_effort = body.reasoning_effort.unwrap_or(row.reasoning_effort);
     let reasoning_enabled = body.reasoning_enabled.or(row.reasoning_enabled);
     let enabled = body.enabled.unwrap_or(row.enabled);
 
     sqlx::query(
         "UPDATE models SET display_name = ?, color = ?, temperature = ?, max_tokens = ?,
                 system_prompt_override = ?, supports_vision = ?, supports_tools = ?,
-                supports_reasoning = ?, reasoning_enabled = ?, enabled = ? WHERE id = ?",
+                supports_reasoning = ?, reasoning_options = ?, reasoning_effort = ?,
+                reasoning_enabled = ?, enabled = ? WHERE id = ?",
     )
     .bind(&display_name)
     .bind(&color)
@@ -187,6 +214,8 @@ pub async fn update(
     .bind(supports_vision)
     .bind(supports_tools)
     .bind(supports_reasoning)
+    .bind(&reasoning_options)
+    .bind(&reasoning_effort)
     .bind(reasoning_enabled)
     .bind(enabled)
     .bind(&id)

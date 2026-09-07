@@ -65,11 +65,25 @@ impl Provider for Anthropic {
         if let Some(items) = body["data"].as_array() {
             for item in items {
                 let Some(id) = item["id"].as_str() else { continue };
+                // Extended/adaptive thinking: Claude 3.7+ and the 4.x/5.x lines.
+                // Capability flags are not in /v1/models, so recognize the known
+                // thinking families by id (nothing else advertises reasoning).
+                let id_lower = id.to_ascii_lowercase();
+                let thinking_capable = id_lower.contains("3-7-sonnet")
+                    || id_lower.contains("3-5-sonnet")
+                    || id_lower.contains("claude-4")
+                    || id_lower.contains("claude-5")
+                    || id_lower.contains("claude-sonnet-4")
+                    || id_lower.contains("claude-opus-4")
+                    || id_lower.contains("claude-haiku-4");
                 models.push(RemoteModel {
                     id: id.to_string(),
                     display_name: item["display_name"].as_str().unwrap_or(id).to_string(),
                     supports_tools: None,
                     context_window: None,
+                    supports_reasoning: thinking_capable.then_some(true),
+                    // Anthropic has no named effort ladder — a single think level.
+                    reasoning_options: Vec::new(),
                 });
             }
         }
@@ -125,6 +139,34 @@ impl Provider for Anthropic {
         if let Some(temperature) = request.temperature {
             body["temperature"] = json!(temperature);
         }
+        // Thinking: adaptive (budget-less, effort-based) on Claude 4.6+/5.x,
+        // extended thinking with a token budget on older thinking models.
+        if request.reasoning_enabled {
+            let id_lower = request.model.to_ascii_lowercase();
+            let adaptive = id_lower.contains("4-6")
+                || id_lower.contains("4-7")
+                || id_lower.contains("4-8")
+                || id_lower.contains("claude-5")
+                || id_lower.contains("sonnet-5")
+                || id_lower.contains("opus-5")
+                || id_lower.contains("fable-5");
+            if adaptive {
+                body["thinking"] = json!({ "type": "adaptive" });
+                let effort = request
+                    .reasoning_effort
+                    .as_deref()
+                    .unwrap_or("medium")
+                    .to_string();
+                body["output_config"] = json!({ "effort": effort });
+            } else {
+                let budget = match request.reasoning_effort.as_deref() {
+                    Some("low") => 2048,
+                    Some("high") => 8192,
+                    _ => 4096,
+                };
+                body["thinking"] = json!({ "type": "enabled", "budget_tokens": budget });
+            }
+        }
 
         let response = self
             .auth(self.client.post(format!("{}/v1/messages", self.base_url)))
@@ -143,10 +185,17 @@ impl Provider for Anthropic {
         let source = response.bytes_stream().eventsource();
         let mut tokens_in: Option<u64> = None;
         let mut tokens_out: Option<u64> = None;
+        let mut resolved: Option<String> = None;
 
         Ok(super::stream_util::sse_events(source, move |event, out| {
             let Some(event) = event else { return true };
             let Ok(data) = serde_json::from_str::<Value>(&event.data) else { return true };
+            if resolved.is_none() {
+                if let Some(model) = data.pointer("/message/model").and_then(Value::as_str) {
+                    resolved = Some(model.to_string());
+                    out.push(ChatEvent::ModelResolved(model.to_string()));
+                }
+            }
             match data["type"].as_str().unwrap_or_default() {
                 "message_start" => {
                     tokens_in = data

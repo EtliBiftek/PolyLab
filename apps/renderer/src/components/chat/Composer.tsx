@@ -6,6 +6,7 @@ import { useModels } from "../../stores/models";
 import { useSettings } from "../../stores/settings";
 import { ModelPicker, thinkEnabled } from "../models/ModelPicker";
 import { ArrowUpIcon, GlobeIcon, PaperclipIcon, SparkIcon, SquareIcon } from "../ui/Icons";
+import { ThinkEffortMenu, thinkLevels } from "./ThinkEffortMenu";
 
 export function Composer() {
   const { t } = useTranslation();
@@ -62,7 +63,6 @@ export function Composer() {
   // --- Think + Web toggles next to the model picker -----------------------
   const models = useModels((state) => state.models);
   const setThink = useModels((state) => state.setThink);
-  const groups = useModels((state) => state.groups);
   const sendOnEnter = useSettings((state) => state.sendOnEnter);
   const webSearch = useSettings((state) => state.webSearch);
   const setWebSearch = useSettings((state) => state.setWebSearch);
@@ -74,13 +74,9 @@ export function Composer() {
     (model) => model.id === (activeConversation?.model_id ?? useSettings.getState().lastModelId),
   );
   const thinkOn = selectedModel != null && thinkEnabled(selectedModel);
-  // Web search is served by OpenRouter's web plugin; other providers have no
-  // server-side browsing, so the button stays informative but disabled there.
-  const webCapable = isGroupMode
-    ? groups
-        .find((group) => group.id === activeConversation?.group_id)
-        ?.models.some((model) => model.provider_kind === "openrouter") ?? false
-    : selectedModel?.provider_kind === "openrouter";
+  // Web search is engine-side DuckDuckGo (all providers, all modes) — the
+  // engine searches and injects the results into the prompt.
+  const webCapable = true;
 
   const autoGrow = () => {
     const el = textareaRef.current;
@@ -170,6 +166,9 @@ export function Composer() {
           >
             <SparkIcon className="h-4 w-4" />
           </button>
+          {thinkOn && !isGroupMode && selectedModel != null && thinkLevels(selectedModel).length > 0 && (
+            <ThinkEffortMenu model={selectedModel} />
+          )}
           <button
             type="button"
             onClick={() => setWebSearch(!webSearch)}
