@@ -90,12 +90,15 @@ pub struct AgentStepsQuery {
 #[derive(Serialize)]
 pub struct AgentStepRow {
     pub id: String,
+    pub conversation_id: String,
     pub message_id: String,
     pub seq: i64,
     pub tool: String,
     pub args_json: String,
     pub result: Option<String>,
     pub ok: bool,
+    /// Set for mutating steps (fs_write/fs_delete) that can be undone.
+    pub undo_payload: Option<String>,
 }
 
 impl<'r> sqlx::FromRow<'r, sqlx::sqlite::SqliteRow> for AgentStepRow {
@@ -103,12 +106,14 @@ impl<'r> sqlx::FromRow<'r, sqlx::sqlite::SqliteRow> for AgentStepRow {
         use sqlx::Row as _;
         Ok(AgentStepRow {
             id: row.try_get("id")?,
+            conversation_id: row.try_get("conversation_id")?,
             message_id: row.try_get("message_id")?,
             seq: row.try_get("seq")?,
             tool: row.try_get("tool")?,
             args_json: row.try_get("args_json")?,
             result: row.try_get("result")?,
             ok: row.try_get::<i64, _>("ok")? != 0,
+            undo_payload: row.try_get("undo_payload").ok(),
         })
     }
 }
@@ -119,7 +124,8 @@ pub async fn agent_steps(
     Query(query): Query<AgentStepsQuery>,
 ) -> Result<Json<Vec<AgentStepRow>>, ApiError> {
     let rows: Vec<AgentStepRow> = sqlx::query_as(
-        "SELECT id, message_id, seq, tool, args_json, result, ok FROM agent_steps
+        "SELECT id, conversation_id, message_id, seq, tool, args_json, result, ok, undo_payload
+         FROM agent_steps
          WHERE message_id = ? ORDER BY seq ASC",
     )
     .bind(&query.message_id)
@@ -132,6 +138,30 @@ pub async fn agent_steps(
 pub struct GitCommitBody {
     pub conversation_id: String,
     pub message: String,
+}
+
+#[derive(Deserialize)]
+pub struct AgentUndoBody {
+    pub conversation_id: String,
+    pub message_id: String,
+    pub seq: u32,
+}
+
+/// `POST /api/agent/undo` — restores the file snapshot recorded for one
+/// agent step (fs_write/fs_delete) and clears the undo payload.
+pub async fn undo_agent_step(
+    State(state): State<AppState>,
+    Json(body): Json<AgentUndoBody>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let output = crate::agent::undo_step(
+        &state.db,
+        &body.conversation_id,
+        &body.message_id,
+        body.seq,
+    )
+    .await
+    .map_err(ApiError::internal)?;
+    Ok(Json(json!({ "ok": true, "output": output })))
 }
 
 /// `POST /api/git` — commits all changes in the conversation workspace.

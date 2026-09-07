@@ -44,34 +44,21 @@ function StreamingAnswer({
           )}
         </div>
       )}
-      {message.status === "error" && message.errorDetail != null && (
+      {message.fallback != null && (
+        <div className="mt-2 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-[12.5px] text-warn">
+          {t("chat.fallbackNotice", { from: message.fallback.from, to: message.fallback.to })}
+          {message.fallback.detail != null && (
+            <span className="mt-0.5 block text-[11.5px] text-txt-2">{message.fallback.detail}</span>
+          )}
+        </div>
+      )}
+                  {message.status === "error" && message.errorDetail != null && (
         <div className="mt-2 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-[12.5px] text-danger">
           {t("chat.providerError")}: {message.errorDetail}
         </div>
       )}
     </div>
   );
-}
-
-/** Groups consecutive assistant messages that share a race_id. */
-function groupRaces(messages: Message[], models: Model[]): ReactNode[] {
-  const nodes: ReactNode[] = [];
-  let index = 0;
-  while (index < messages.length) {
-    const message = messages[index];
-    if (message.race_id != null) {
-      const raceId = message.race_id;
-      const group: Message[] = [];
-      while (index < messages.length && messages[index].race_id === raceId) {
-        group.push(messages[index]);
-        index++;
-      }
-      nodes.push(<RaceGroup key={`race-${raceId}`} messages={group} models={models} />);
-    } else {
-      index++;
-    }
-  }
-  return nodes;
 }
 
 export function MessageList({
@@ -118,7 +105,31 @@ export function MessageList({
       ? messages
       : messages.filter((message) => message.content.toLowerCase().includes(needle));
 
-  const raceGroups = useMemo(() => groupRaces(visible, models), [visible, models]);
+  const raceGroups = useMemo(() => {
+    const nodes: ReactNode[] = [];
+    let index = 0;
+    while (index < visible.length) {
+      const message = visible[index];
+      if (message.race_id != null) {
+        const raceId = message.race_id;
+        const group: Message[] = [];
+        while (index < visible.length && visible[index].race_id === raceId) {
+          group.push(visible[index]);
+          index++;
+        }
+        const question = [...messages]
+          .slice(0, Math.max(0, messages.indexOf(group[0])))
+          .reverse()
+          .find((candidate) => candidate.role === "user")?.content;
+        nodes.push(
+          <RaceGroup key={`race-${raceId}`} messages={group} models={models} question={question} />,
+        );
+      } else {
+        index++;
+      }
+    }
+    return nodes;
+  }, [visible, models, messages]);
   const raceStreamGroups = useMemo(() => {
     const byRace = new Map<string, StreamingMessage[]>();
     for (const stream of raceStreams) {

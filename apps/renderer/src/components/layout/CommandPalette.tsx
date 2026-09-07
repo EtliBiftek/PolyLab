@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { searchMessages, type SearchHit } from "../../lib/api";
 import { useChat } from "../../stores/chat";
 import { useModels } from "../../stores/models";
 import { useSettings } from "../../stores/settings";
-import { ChatIcon, CodeIcon, GearIcon, PanelRightIcon, PlusIcon, SearchIcon } from "../ui/Icons";
+import { ChatIcon, CodeIcon, GearIcon, PanelRightIcon, PlusIcon, SearchIcon, TrophyIcon } from "../ui/Icons";
 
 interface Action {
   id: string;
@@ -14,13 +15,14 @@ interface Action {
   run: () => void;
 }
 
-/** Global ⌘K / Ctrl+K command palette: quick actions + conversation jump. */
+/** Global style actions + conversation jump + cross-chat message search. */
 export function CommandPalette() {
   const { t } = useTranslation();
   const open = useSettings((state) => state.paletteOpen);
   const setOpen = useSettings((state) => state.setPaletteOpen);
   const conversations = useChat((state) => state.conversations);
   const openConversation = useChat((state) => state.open);
+  const setSearchQuery = useChat((state) => state.setSearchQuery);
   const activeId = useChat((state) => state.activeId);
   const newConversation = useChat((state) => state.newConversation);
   const lastModelId = useSettings((state) => state.lastModelId);
@@ -29,7 +31,11 @@ export function CommandPalette() {
   const updateMode = useChat((state) => state.updateMode);
   const toggleRightPanel = useSettings((state) => state.toggleRightPanel);
   const setSettingsOpen = useSettings((state) => state.setSettingsOpen);
+  const setComparisonsOpen = useSettings((state) => state.setComparisonsOpen);
+  const models = useModels((state) => state.models);
   const [query, setQuery] = useState("");
+  const [messageHits, setMessageHits] = useState<SearchHit[]>([]);
+  const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Global shortcut; component stays mounted so the listener is stable.
@@ -43,6 +49,24 @@ export function CommandPalette() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [setOpen]);
+
+  // Debounced cross-conversation message search (3+ chars).
+  useEffect(() => {
+    const needle = query.trim();
+    if (needle.length < 3) {
+      setMessageHits([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const timer = setTimeout(() => {
+      void searchMessages(needle, 12)
+        .then((hits) => setMessageHits(hits))
+        .catch(() => setMessageHits([]))
+        .finally(() => setSearching(false));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   useEffect(() => {
     if (open) {
@@ -94,10 +118,19 @@ export function CommandPalette() {
           setOpen(false);
         },
       },
+      {
+        id: "comparisons",
+        label: t("palette.comparisons"),
+        icon: <TrophyIcon className="h-4 w-4" />,
+        run: () => {
+          setComparisonsOpen(true);
+          setOpen(false);
+        },
+      },
     ];
     if (needle.length === 0) return list;
     return list.filter((action) => action.label.toLowerCase().includes(needle));
-  }, [t, needle, mode, lastModelId, newConversation, setOpen, setMode, updateMode, toggleRightPanel, setSettingsOpen]);
+  }, [t, needle, mode, lastModelId, newConversation, setOpen, setMode, updateMode, toggleRightPanel, setSettingsOpen, setComparisonsOpen]);
 
   const conversationHits = useMemo(() => {
     if (needle.length === 0) return [];
@@ -108,20 +141,36 @@ export function CommandPalette() {
 
   if (!open) return null;
 
-  const runAction = (index: number) => {
-    const item = [...actions, ...conversationHits.map((conversation) => ({
-      id: conversation.id,
-      label: conversation.title ?? t("sidebar.untitled"),
-      icon: <ChatIcon className="h-4 w-4" />,
-      run: () => {
-        void openConversation(conversation.id);
-        setOpen(false);
-      },
-    }))][index];
-    item?.run();
-  };
+  const conversationItem = (conversation: (typeof conversations)[number]): Action => ({
+    id: conversation.id,
+    label: conversation.title ?? t("sidebar.untitled"),
+    hint: conversation.mode === "coding" ? t("topbar.polyWork") : t("topbar.polyChat"),
+    icon: <ChatIcon className="h-4 w-4" />,
+    run: () => {
+      void openConversation(conversation.id);
+      setOpen(false);
+    },
+  });
 
-  const totalItems = actions.length + conversationHits.length;
+  const messageItem = (hit: SearchHit): Action => ({
+    id: `msg-${hit.message_id}`,
+    label: hit.snippet,
+    hint: hit.conversation_title ?? "",
+    icon: hit.role === "user" ? <ChatIcon className="h-4 w-4" /> : <TrophyIcon className="h-4 w-4" />,
+    run: () => {
+      void openConversation(hit.conversation_id).then(() => setSearchQuery(query.trim()));
+      setOpen(false);
+    },
+  });
+
+  const items = [
+    ...actions,
+    ...conversationHits.map(conversationItem),
+    ...messageHits.map(messageItem),
+  ];
+
+  const runAction = (index: number) => items[index]?.run();
+  const totalItems = items.length;
 
   return (
     <div
@@ -149,18 +198,18 @@ export function CommandPalette() {
           </kbd>
         </div>
         <div className="max-h-80 overflow-y-auto p-1.5">
-          {totalItems === 0 && (
+          {totalItems === 0 && searching && (
+            <div className="px-3 py-4 text-center text-[13px] text-txt-2">{t("sidebar.searching")}</div>
+          )}
+          {totalItems === 0 && !searching && (
             <div className="px-3 py-4 text-center text-[13px] text-txt-2">{t("palette.noResults")}</div>
           )}
-          {[...actions, ...conversationHits.map((conversation) => ({
-            id: conversation.id,
-            label: conversation.title ?? t("sidebar.untitled"),
-            icon: <ChatIcon className="h-4 w-4" />,
-            run: () => {
-              void openConversation(conversation.id);
-              setOpen(false);
-            },
-          }))].map((item, index) => (
+          {messageHits.length > 0 && (
+            <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-txt-2">
+              {t("palette.messages")}
+            </div>
+          )}
+          {items.map((item, index) => (
             <button
               key={item.id}
               type="button"
@@ -173,6 +222,9 @@ export function CommandPalette() {
                 {item.icon}
               </span>
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              {typeof item.hint === "string" && item.hint.length > 0 && (
+                <span className="max-w-36 shrink-0 truncate text-[10.5px] text-txt-2">{item.hint}</span>
+              )}
               {item.id === activeId && <span className="text-[10.5px] text-accent">●</span>}
             </button>
           ))}

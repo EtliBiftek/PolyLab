@@ -158,6 +158,7 @@ describe("App (Phase 1 shell)", () => {
       attachments_json: null,
       feedback: null,
       race_id: null,
+      fallback_from_model_id: null,
       created_at: "2026-01-01T00:00:00Z",
     };
 

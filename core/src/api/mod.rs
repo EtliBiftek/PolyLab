@@ -1,5 +1,7 @@
 //! REST API under `/api` (contract: docs/EVENTS.md §6).
 
+pub mod audio;
+pub mod comparisons;
 pub mod conversations;
 pub mod error;
 pub mod folders;
@@ -7,7 +9,9 @@ pub mod fs_git;
 pub mod groups;
 pub mod models;
 pub mod providers;
+pub mod search;
 pub mod settings;
+pub mod stats;
 
 use axum::routing::{get, put};
 use axum::Router;
@@ -28,6 +32,10 @@ pub fn router() -> Router<AppState> {
             put(providers::update_key).delete(providers::delete_key),
         )
         .route("/providers/{id}/remote-models", get(providers::remote_models))
+        .route(
+            "/providers/{id}/discover",
+            axum::routing::post(providers::discover),
+        )
         .route("/models", get(models::list).post(models::upsert))
         .route(
             "/models/{id}",
@@ -48,9 +56,31 @@ pub fn router() -> Router<AppState> {
             get(conversations::messages),
         )
         .route(
+            "/conversations/{id}/export",
+            get(conversations::export),
+        )
+        .route(
+            "/conversations/import",
+            axum::routing::post(conversations::import),
+        )
+        .route(
             "/messages/{id}/feedback",
             axum::routing::post(conversations::feedback),
         )
+        .route("/search", get(search::search))
+        .route("/comparisons", get(comparisons::list).post(comparisons::save))
+        .route(
+            "/comparisons/{id}",
+            get(comparisons::get_one).delete(comparisons::delete),
+        )
+        .route(
+            "/comparisons/{id}/winner",
+            axum::routing::patch(comparisons::set_winner),
+        )
+        .route("/stats/cost", get(stats::cost))
+        .route("/audio/transcribe", axum::routing::post(audio::transcribe))
+        .route("/audio/speech", axum::routing::post(audio::speech))
+        .route("/agent/undo", axum::routing::post(fs_git::undo_agent_step))
         .route("/groups", get(groups::list).post(groups::create))
         .route(
             "/groups/{id}",

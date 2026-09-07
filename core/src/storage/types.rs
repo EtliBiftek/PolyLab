@@ -126,6 +126,12 @@ pub struct Conversation {
     pub folder_id: Option<String>,
     pub pinned: bool,
     pub agent_auto_approve: bool,
+    /// Backup model used when the primary provider fails (None = no fallback).
+    pub fallback_model_id: Option<String>,
+    /// Plan mode: the model plans first and summarizes when the run finishes.
+    pub agent_plan_mode: bool,
+    /// Approval profile: "all" | "mutating" | "git" | "never".
+    pub agent_approval_profile: String,
     /// 1 while the title is the cheap auto-generated one (model may replace it).
     pub auto_title: bool,
     pub created_at: String,
@@ -156,6 +162,9 @@ pub struct Message {
     /// Groups the per-model assistant messages of one model-race run.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub race_id: Option<String>,
+    /// Set when a provider fallback answered instead of the requested model.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fallback_from_model_id: Option<String>,
     pub created_at: String,
 }
 
@@ -224,6 +233,38 @@ pub struct DebateDetail {
     pub turns: Vec<DebateTurnRow>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct ComparisonRow {
+    pub id: String,
+    pub conversation_id: String,
+    pub kind: String,
+    pub question: Option<String>,
+    pub winner_entry_id: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ComparisonEntryRow {
+    pub id: String,
+    pub comparison_id: String,
+    pub model_id: String,
+    pub resolved_model: Option<String>,
+    pub content: String,
+    pub reasoning: Option<String>,
+    pub tokens_in: Option<i64>,
+    pub tokens_out: Option<i64>,
+    pub tokens_estimated: Option<bool>,
+    pub cost_usd: Option<f64>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ComparisonDetail {
+    #[serde(flatten)]
+    pub comparison: ComparisonRow,
+    pub entries: Vec<ComparisonEntryRow>,
+}
+
 impl<'r> sqlx::FromRow<'r, SqliteRow> for GroupRow {
     fn from_row(row: &'r SqliteRow) -> Result<Self, sqlx::Error> {
         Ok(GroupRow {
@@ -269,6 +310,39 @@ impl<'r> sqlx::FromRow<'r, SqliteRow> for DebateTurnRow {
             phase: row.try_get("phase")?,
             consensus: opt_bool_col(row, "consensus")?,
             resolved_model: row.try_get("resolved_model").ok(),
+            created_at: row.try_get("created_at")?,
+        })
+    }
+}
+
+impl<'r> sqlx::FromRow<'r, SqliteRow> for ComparisonRow {
+    fn from_row(row: &'r SqliteRow) -> Result<Self, sqlx::Error> {
+        Ok(ComparisonRow {
+            id: row.try_get("id")?,
+            conversation_id: row.try_get("conversation_id")?,
+            kind: row.try_get("kind")?,
+            question: row.try_get("question")?,
+            winner_entry_id: row.try_get("winner_entry_id")?,
+            created_at: row.try_get("created_at")?,
+        })
+    }
+}
+
+impl<'r> sqlx::FromRow<'r, SqliteRow> for ComparisonEntryRow {
+    fn from_row(row: &'r SqliteRow) -> Result<Self, sqlx::Error> {
+        Ok(ComparisonEntryRow {
+            id: row.try_get("id")?,
+            comparison_id: row.try_get("comparison_id")?,
+            model_id: row.try_get("model_id")?,
+            resolved_model: row.try_get("resolved_model").ok(),
+            content: row.try_get("content")?,
+            reasoning: row.try_get("reasoning").ok(),
+            tokens_in: row.try_get("tokens_in").ok(),
+            tokens_out: row.try_get("tokens_out").ok(),
+            tokens_estimated: row
+                .try_get::<Option<i64>, _>("tokens_estimated")?
+                .map(|value| value != 0),
+            cost_usd: row.try_get("cost_usd").ok(),
             created_at: row.try_get("created_at")?,
         })
     }
@@ -327,6 +401,9 @@ impl<'r> sqlx::FromRow<'r, SqliteRow> for Conversation {
             folder_id: row.try_get("folder_id")?,
             pinned: bool_col(row, "pinned")?,
             agent_auto_approve: bool_col(row, "agent_auto_approve")?,
+            fallback_model_id: row.try_get("fallback_model_id").ok(),
+            agent_plan_mode: bool_col(row, "agent_plan_mode")?,
+            agent_approval_profile: row.try_get("agent_approval_profile")?,
             auto_title: bool_col(row, "auto_title")?,
             created_at: row.try_get("created_at")?,
             updated_at: row.try_get("updated_at")?,
@@ -351,6 +428,7 @@ impl<'r> sqlx::FromRow<'r, SqliteRow> for Message {
             has_debate: row.try_get("has_debate").ok(),
             feedback: row.try_get("feedback").ok(),
             race_id: row.try_get("race_id").ok(),
+            fallback_from_model_id: row.try_get("fallback_from_model_id").ok(),
             created_at: row.try_get("created_at")?,
         })
     }

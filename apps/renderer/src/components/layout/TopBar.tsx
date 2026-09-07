@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { updateConversation } from "../../lib/api";
 import { bridge } from "../../lib/backend";
 import { useChat } from "../../stores/chat";
+import { useCost, currentMonthUsd } from "../../stores/cost";
 import { useSettings } from "../../stores/settings";
+import { formatCostUsd } from "../../lib/api";
 import {
   ChatIcon,
   ChevronDownIcon,
@@ -17,11 +19,14 @@ import {
 
 export function TopBar() {
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const [agentMenuOpen, setAgentMenuOpen] = useState(false);
   const { t } = useTranslation();
   const mode = useSettings((state) => state.mode);
   const setMode = useSettings((state) => state.setMode);
   const updateConversationMode = useChat((state) => state.updateMode);
   const setAutoApprove = useChat((state) => state.setAutoApprove);
+  const setPlanMode = useChat((state) => state.setPlanMode);
+  const setApprovalProfile = useChat((state) => state.setApprovalProfile);
   const activeConversation = useChat((state) =>
     state.conversations.find((conversation) => conversation.id === state.activeId),
   );
@@ -34,6 +39,17 @@ export function TopBar() {
   const messageCount = useChat((state) =>
     state.activeId != null ? (state.messages[state.activeId]?.length ?? 0) : 0,
   );
+  const stats = useCost((state) => state.stats);
+  const refreshCost = useCost((state) => state.refresh);
+  const monthlyBudgetUsd = useSettings((state) => state.monthlyBudgetUsd);
+  const requestSettings = useSettings((state) => state.requestSettings);
+  const monthUsd = currentMonthUsd(stats);
+  const overBudget = monthUsd != null && monthlyBudgetUsd != null && monthUsd > monthlyBudgetUsd;
+
+  // Refresh the cost chip once on mount (and each time a message completes).
+  useEffect(() => {
+    void refreshCost();
+  }, [refreshCost, messageCount]);
 
   // Coding workspace folder: the agent fs tools, git and the terminal session
   // are all rooted at the conversation's project_path.
@@ -122,18 +138,63 @@ export function TopBar() {
         </button>
       )}
       {activeConversation?.mode === "coding" && (
-        <label
-          className="mr-2 flex cursor-pointer items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-[11.5px] text-txt-1"
-          title={t("agent.autoApproveHint")}
-        >
-          <input
-            type="checkbox"
-            checked={activeConversation.agent_auto_approve}
-            onChange={(event) => void setAutoApprove(event.target.checked)}
-            className="h-3 w-3 accent-[var(--accent)]"
-          />
-          {t("agent.autoApprove")}
-        </label>
+        <div className="relative mr-2">
+          <button
+            type="button"
+            onClick={() => setAgentMenuOpen((current) => !current)}
+            aria-expanded={agentMenuOpen}
+            title={t("agent.settingsHint")}
+            className={`flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] transition ${
+              activeConversation.agent_plan_mode
+                ? "border-accent/50 bg-accent/10 text-txt-0"
+                : "border-border bg-surface text-txt-1 hover:bg-bg-2"
+            }`}
+          >
+            🔧 {t("agent.settings")}
+          </button>
+          {agentMenuOpen && (
+            <div
+              className="absolute right-0 top-10 z-50 w-64 overflow-hidden rounded-xl border border-border bg-surface py-1.5 shadow-[var(--shadow-pop)]"
+              onMouseLeave={() => setAgentMenuOpen(false)}
+            >
+              <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-[12.5px] text-txt-1">
+                <input
+                  type="checkbox"
+                  checked={activeConversation.agent_plan_mode}
+                  onChange={(event) => void setPlanMode(event.target.checked)}
+                  className="h-3 w-3 accent-[var(--accent)]"
+                />
+                {t("agent.planMode")}
+                <span className="ml-auto text-[10.5px] text-txt-2">🧭</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-[12.5px] text-txt-1">
+                <input
+                  type="checkbox"
+                  checked={activeConversation.agent_auto_approve}
+                  onChange={(event) => void setAutoApprove(event.target.checked)}
+                  className="h-3 w-3 accent-[var(--accent)]"
+                />
+                {t("agent.autoApprove")}
+              </label>
+              <div className="my-1 border-t border-border" />
+              <div className="flex items-center gap-2 px-3 py-1.5 text-[12.5px] text-txt-1">
+                {t("agent.approvalProfile")}
+                <select
+                  value={activeConversation.agent_approval_profile}
+                  onChange={(event) =>
+                    void setApprovalProfile(event.target.value as "all" | "mutating" | "git" | "never")
+                  }
+                  className="ml-auto h-7 rounded-md border border-border bg-bg-0 px-1.5 text-[11.5px] text-txt-0 focus:outline-none"
+                >
+                  <option value="all">{t("agent.profileAll")}</option>
+                  <option value="mutating">{t("agent.profileMutating")}</option>
+                  <option value="git">{t("agent.profileGit")}</option>
+                  <option value="never">{t("agent.profileNever")}</option>
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* In-conversation message search (visible once there is history). */}
@@ -167,6 +228,21 @@ export function TopBar() {
       >
         <SearchIcon className="h-3.5 w-3.5" />
         <kbd className="rounded border border-border bg-bg-2 px-1 py-0.5 text-[9.5px]">⌘K</kbd>
+      </button>
+
+      {/* Monthly cost chip (budget-aware) */}
+      <button
+        type="button"
+        onClick={() => requestSettings("cost")}
+        title={t("settings.cost")}
+        className={`flex h-8 items-center gap-1 rounded-full border px-2.5 text-[11.5px] tabular-nums transition ${
+          overBudget
+            ? "border-danger/50 bg-danger/10 text-danger"
+            : "border-border bg-surface text-txt-2 hover:bg-bg-2 hover:text-txt-0"
+        }`}
+      >
+        {overBudget && <span className="h-1.5 w-1.5 rounded-full bg-danger" />}
+        {monthUsd != null ? `≈${formatCostUsd(monthUsd)}` : "—"}
       </button>
 
       {/* Right panel toggle */}

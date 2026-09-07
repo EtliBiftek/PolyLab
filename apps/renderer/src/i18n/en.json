@@ -20,7 +20,12 @@
     "pin": "Pin",
     "unpin": "Unpin",
     "codingConversations": "Coding chats",
-    "renameHint": "Rename chat"
+    "renameHint": "Rename chat",
+    "exportJson": "Export as JSON",
+    "exportMarkdown": "Export as Markdown",
+    "import": "Import conversation",
+    "searching": "Searching messages…",
+    "noMessageMatches": "No message matches."
   },
   "topbar": {
     "workspace": "PolyLab",
@@ -99,7 +104,12 @@
     "race": {
       "model": "Model",
       "thinking": "thinking…"
-    }
+    },
+    "fallbackBadge": "fell back from {{from}}",
+    "fallbackNotice": "Fallback: {{from}} failed → {{to}} answered",
+    "fallbackPick": "Choose fallback model",
+    "fallbackLabel": "Fallback model",
+    "fallbackNone": "No fallback (show error)"
   },
   "thinking": {
     "title": "Thinking · {{chars}} characters",
@@ -241,7 +251,21 @@
       "existingDesc": "Reusable model sets for debate chats.",
       "noGroups": "No groups yet."
     },
-    "noKeys": "No API keys configured yet."
+    "noKeys": "No API keys configured yet.",
+    "cost": "Cost",
+    "costSubtitle": "Usage cost by month, model and conversation",
+    "monthlyBudget": "Monthly budget (USD)",
+    "budgetHint": "Shows a warning when the current month exceeds this amount. Leave empty to disable.",
+    "statsTotal": "Total",
+    "statsMonthly": "By month",
+    "statsModels": "By model",
+    "statsConversations": "By conversations",
+    "refreshStats": "Refresh",
+    "noCostData": "No usage yet — cost appears after the first reply with model pricing.",
+    "discover": "Discover models",
+    "discovering": "Discovering…",
+    "discovered": "Added {{added}}, refreshed {{existing}}",
+    "discoverHint": "Pull local models from Ollama / LM Studio and fill their capabilities."
   },
   "common": {
     "close": "Close",
@@ -296,7 +320,16 @@
     "reject": "Reject",
     "autoApprove": "Auto-approve",
     "autoApproveHint": "Apply file writes/deletes and commands without asking for approval.",
-    "approvalDiff": "Change diff"
+    "approvalDiff": "Change diff",
+    "settings": "Agent",
+    "settingsHint": "Plan mode, approvals and undo",
+    "planMode": "Plan mode (plan first, summarize at the end)",
+    "approvalProfile": "Approvals",
+    "profileAll": "Every tool",
+    "profileMutating": "Only changes (default)",
+    "profileGit": "Only git commit",
+    "profileNever": "Never ask",
+    "undo": "Undo this step"
   },
   "files": {
     "tab": "Files",
@@ -323,6 +356,54 @@
     "switchCoding": "Switch to PolyWork",
     "togglePanel": "Toggle right panel",
     "settings": "Open settings",
-    "noResults": "No results"
+    "noResults": "No results",
+    "comparisons": "Open comparisons",
+    "compare": "Save race as comparison",
+    "messages": "Messages",
+    "searchMessages": "Search all messages…",
+    "noMessageHits": "No message matches."
+  },
+  "markdown": {
+    "mermaidLoading": "Rendering diagram…",
+    "mermaidError": "Diagram render failed — source shown",
+    "mermaidUnsupported": "Diagram preview unavailable"
+  },
+  "race": {
+    "saved": "Comparison saved.",
+    "saving": "Saving comparison…",
+    "saveFailed": "Could not save the comparison.",
+    "winner": "Winner",
+    "markWinner": "Mark as winner",
+    "winnerLabel": "Selected winner",
+    "collapsed": "collapsed",
+    "showLosers": "Show {{count}} more",
+    "hideLosers": "Hide other answers"
+  },
+  "voice": {
+    "record": "Record voice",
+    "stopRecord": "Stop and transcribe",
+    "recording": "Recording…",
+    "transcribing": "Transcribing…",
+    "speak": "Read aloud",
+    "stopSpeak": "Stop",
+    "transcribeError": "Voice input failed",
+    "speakError": "Speech failed",
+    "keyTitle": "Voice input needs an OpenAI API key",
+    "keyHint": "PolyLab sends your recording to the OpenAI provider to transcribe it. Paste a key below — it is kept in the app's secret store.",
+    "keyPlaceholder": "sk-…",
+    "keySave": "Save key",
+    "keyInvalid": "Enter a key first."
+  },
+  "comparisons": {
+    "title": "Comparisons",
+    "empty": "No saved comparisons yet. Mark a winner in a model race or debate to save one.",
+    "question": "Question",
+    "entries": "Answers",
+    "winner": "Winner",
+    "noWinner": "No winner yet",
+    "delete": "Delete comparison",
+    "deleted": "Deleted",
+    "model": "Model",
+    "cost": "Cost"
   }
 }

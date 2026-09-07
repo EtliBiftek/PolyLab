@@ -8,11 +8,13 @@ import { ApprovalToast } from "../components/chat/AgentView";
 import { Sidebar } from "../components/layout/Sidebar";
 import { TopBar } from "../components/layout/TopBar";
 import { CommandPalette } from "../components/layout/CommandPalette";
+import { ComparisonsModal } from "../components/comparisons/ComparisonsModal";
 import { SettingsModal } from "../components/settings/SettingsModal";
 import { useModels } from "../stores/models";
 import { useChat, type StreamingMessage } from "../stores/chat";
 import { useSettings } from "../stores/settings";
 import { useBackendConnection } from "./useBackendConnection";
+import { useShortcuts } from "../hooks/useShortcuts";
 
 /**
  * Shell: sidebar / conversation area / optional right panel. When a conversation is
@@ -20,6 +22,7 @@ import { useBackendConnection } from "./useBackendConnection";
  */
 export default function App() {
   useBackendConnection();
+  useShortcuts();
 
   const rightPanelOpen = useSettings((state) => state.rightPanelOpen);
   const theme = useSettings((state) => state.theme);
@@ -98,6 +101,7 @@ export default function App() {
         <ApprovalToast approval={pendingApproval} onResolve={resolveApproval} />
       )}
       <SettingsModal />
+      <ComparisonsModal />
     </div>
   );
 }

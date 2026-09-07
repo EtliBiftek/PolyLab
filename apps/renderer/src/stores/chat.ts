@@ -39,6 +39,13 @@ export interface AgentStepState {
   output: string;
   ok: boolean;
   running: boolean;
+  /** Conversation/message ids for the undo endpoint (persisted steps). */
+  conversationId?: string;
+  messageId?: string;
+  /** JSON undo payload presence means the step can be restored. */
+  undoable?: boolean;
+  /** True while an undo request is in flight. */
+  undoing?: boolean;
 }
 
 export interface PendingApproval {
@@ -63,6 +70,8 @@ export interface StreamingMessage {
   errorDetail: string | null;
   /** Set on model-race lanes; used to render side-by-side columns. */
   raceId: string | null;
+  /** Provider fallback notice (shown under the answer). */
+  fallback: { from: string; to: string; detail: string | null } | null;
   debate: DebateRoundState[];
   agentSteps: AgentStepState[];
 }
@@ -109,6 +118,9 @@ interface ChatState {
   setActiveRace: (groupId: string) => Promise<void>;
   updateMode: (mode: "chat" | "coding") => Promise<void>;
   setAutoApprove: (enabled: boolean) => Promise<void>;
+  setPlanMode: (enabled: boolean) => Promise<void>;
+  setApprovalProfile: (profile: "all" | "mutating" | "git" | "never") => Promise<void>;
+  setFallbackModel: (modelId: string | null) => Promise<void>;
   send: (
     text: string,
     attachments?: Array<{ name: string; text?: string; mime_type?: string; data_base64?: string }>,
@@ -145,6 +157,7 @@ const emptyStreaming = (
   usage: null,
   errorDetail: null,
   raceId,
+  fallback: null,
   debate: [],
   agentSteps: [],
 });
@@ -323,6 +336,36 @@ export const useChat = create<ChatState>((set, get) => ({
       ),
     }));
   },
+  setPlanMode: async (enabled) => {
+    const { activeId } = get();
+    if (activeId == null) return;
+    await updateConversation(activeId, { agent_plan_mode: enabled });
+    set((state) => ({
+      conversations: state.conversations.map((conversation) =>
+        conversation.id === activeId ? { ...conversation, agent_plan_mode: enabled } : conversation,
+      ),
+    }));
+  },
+  setApprovalProfile: async (profile) => {
+    const { activeId } = get();
+    if (activeId == null) return;
+    await updateConversation(activeId, { agent_approval_profile: profile });
+    set((state) => ({
+      conversations: state.conversations.map((conversation) =>
+        conversation.id === activeId ? { ...conversation, agent_approval_profile: profile } : conversation,
+      ),
+    }));
+  },
+  setFallbackModel: async (modelId) => {
+    const { activeId } = get();
+    if (activeId == null) return;
+    await updateConversation(activeId, { fallback_model_id: modelId });
+    set((state) => ({
+      conversations: state.conversations.map((conversation) =>
+        conversation.id === activeId ? { ...conversation, fallback_model_id: modelId } : conversation,
+      ),
+    }));
+  },
 
   send: async (text, attachments) => {
     const trimmed = text.trim();
@@ -352,6 +395,7 @@ export const useChat = create<ChatState>((set, get) => ({
             tokens_in: null,
             tokens_out: null,
             tokens_estimated: null,
+            fallback_from_model_id: null,
             attachments_json:
               attachments != null && attachments.length > 0
                 ? JSON.stringify(attachments)
@@ -822,6 +866,24 @@ export const useChat = create<ChatState>((set, get) => ({
         });
       }),
 
+      client.on("fallback_used", (payload) => {
+        const event = payload as {
+          conversation_id: string;
+          message_id: string;
+          from_model: string;
+          to_model: string;
+          detail: string | null;
+        };
+        patchMessage(event.message_id, event.conversation_id, (current) => ({
+          ...current,
+          fallback: {
+            from: event.from_model,
+            to: event.to_model,
+            detail: event.detail ?? null,
+          },
+        }));
+      }),
+
       client.on("usage", (payload) => {
         const event = payload as {
           conversation_id: string;
@@ -836,6 +898,24 @@ export const useChat = create<ChatState>((set, get) => ({
             tokens_in: event.tokens_in,
             tokens_out: event.tokens_out,
             estimated: event.estimated,
+          },
+        }));
+      }),
+
+      client.on("fallback_used", (payload) => {
+        const event = payload as {
+          conversation_id: string;
+          message_id: string;
+          from_model: string;
+          to_model: string;
+          detail: string | null;
+        };
+        patchMessage(event.message_id, event.conversation_id, (current) => ({
+          ...current,
+          fallback: {
+            from: event.from_model,
+            to: event.to_model,
+            detail: event.detail ?? null,
           },
         }));
       }),

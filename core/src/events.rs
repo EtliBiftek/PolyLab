@@ -150,6 +150,15 @@ pub enum ServerEvent {
         message_id: String,
         model_id: String,
     },
+    /// Single-chat fallback: the primary provider failed before any output and
+    /// the conversation's configured fallback model is now producing the reply.
+    FallbackUsed {
+        conversation_id: String,
+        message_id: String,
+        from_model: String,
+        to_model: String,
+        detail: String,
+    },
     Usage {
         conversation_id: String,
         message_id: String,

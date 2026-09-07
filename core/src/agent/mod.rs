@@ -158,8 +158,13 @@ pub async fn run_agent(
     let mut messages = vec![ChatMessage {
         role: Role::System,
         content: format!(
-            "{system_prompt}\n\n{}\n\n# Çalışma alanı\n{overview}",
-            crate::prompts::capability_notice()
+            "{system_prompt}\n\n{}\n\n{}{}\n\n# Çalışma alanı\n{overview}",
+            crate::prompts::capability_notice(),
+            if conversation.agent_plan_mode {
+                "\n\nPlan modu AÇIK: harekete geçmeden önce kısa, numaralı bir plan yaz;\nher adımı uygularken plana atıf et ve görev bitince '## Özet' başlığıyla özetle."
+            } else {
+                ""
+            },
         ),
         ..Default::default()
     }];
@@ -300,7 +305,7 @@ pub async fn run_agent(
                     .to_json(),
                 );
 
-                let (ok, output) = approved_or_execute(
+                let (ok, output, undo) = approved_or_execute(
                     &workspace,
                     conversation,
                     &hub,
@@ -314,8 +319,18 @@ pub async fn run_agent(
                 )
                 .await;
 
-                finish_step(db, &conversation_id, &message_id, step, &call.name, &args_json, &output, ok)
-                    .await?;
+                finish_step(
+                    db,
+                    &conversation_id,
+                    &message_id,
+                    step,
+                    &call.name,
+                    &args_json,
+                    &output,
+                    ok,
+                    undo.as_deref(),
+                )
+                .await?;
                 let _ = hub.send(
                     ServerEvent::AgentToolResult {
                         conversation_id: conversation_id.clone(),
@@ -378,9 +393,20 @@ pub async fn run_agent(
             .to_json(),
         );
 
-        let (ok, output) = run_legacy_tool(&workspace, conversation, &hub, &approvals, &conversation_id, &message_id, step, &tool, &args, &args_json)
+        let (ok, output, undo) = run_legacy_tool(&workspace, conversation, &hub, &approvals, &conversation_id, &message_id, step, &tool, &args, &args_json)
             .await;
-        finish_step(db, &conversation_id, &message_id, step, &tool, &args_json, &output, ok).await?;
+        finish_step(
+            db,
+            &conversation_id,
+            &message_id,
+            step,
+            &tool,
+            &args_json,
+            &output,
+            ok,
+            undo.as_deref(),
+        )
+        .await?;
         let _ = hub.send(
             ServerEvent::AgentToolResult {
                 conversation_id: conversation_id.clone(),
@@ -463,6 +489,7 @@ fn tool_result_text(ok: bool, output: &str) -> String {
 
 /// Legacy ```tool protocol path: parse → approval → execute → result.
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 async fn run_legacy_tool(
     workspace: &std::path::Path,
     conversation: &Conversation,
@@ -474,7 +501,7 @@ async fn run_legacy_tool(
     tool: &str,
     args: &Value,
     args_json: &str,
-) -> (bool, String) {
+) -> (bool, String, Option<String>) {
     approved_or_execute(
         workspace,
         conversation,
@@ -503,11 +530,10 @@ async fn approved_or_execute(
     tool: &str,
     args: &Value,
     args_json: &str,
-) -> (bool, String) {
-    // Approval gate for mutating tools.
-    let needs_approval =
-        matches!(tool, "fs_write" | "fs_delete" | "exec" | "git_commit");
-    if needs_approval && !conversation.agent_auto_approve {
+) -> (bool, String, Option<String>) {
+    // Approval gate: per-conversation profile (all/mutating/git/never); the
+    // legacy auto-approve flag still forces "never ask".
+    if !conversation.agent_auto_approve && needs_approval(conversation, tool) {
         let diff = pending_diff(workspace, tool, args);
         let approved = request_approval(
             hub,
@@ -522,10 +548,40 @@ async fn approved_or_execute(
         if !approved {
             let output = "Kullanıcı bu aracı reddetti. Alternatif bir yol dene ya da sorunu bildir."
                 .to_string();
-            return (false, output);
+            return (false, output, None);
         }
     }
-    execute_tool(workspace, tool, args).await
+    let undo = undo_snapshot(workspace, tool, args);
+    let (ok, output) = execute_tool(workspace, tool, args).await;
+    (ok, output, undo)
+}
+
+/// Whether `tool` needs approval under the conversation's approval profile.
+fn needs_approval(conversation: &Conversation, tool: &str) -> bool {
+    match conversation.agent_approval_profile.as_str() {
+        "all" => true,
+        "git" => tool == "git_commit",
+        "never" => false,
+        // "mutating" (default): file mutations + shell + commit.
+        _ => matches!(tool, "fs_write" | "fs_delete" | "exec" | "git_commit"),
+    }
+}
+
+/// Snapshot for one-click undo of file mutations (JSON payload for
+/// `agent_steps.undo_payload`); `None` for non-file tools.
+fn undo_snapshot(workspace: &std::path::Path, tool: &str, args: &Value) -> Option<String> {
+    if !matches!(tool, "fs_write" | "fs_delete") {
+        return None;
+    }
+    let path = args.get("path").and_then(Value::as_str).unwrap_or("");
+    if path.is_empty() {
+        return None;
+    }
+    let snapshot = match fs::read(workspace, path) {
+        Ok(content) => json!({ "path": path, "existed": true, "content": content }),
+        Err(_) => json!({ "path": path, "existed": false, "content": "" }),
+    };
+    Some(snapshot.to_string())
 }
 
 /// Unified diff of the change `tool` would apply (`None` for non-file tools or
@@ -669,6 +725,7 @@ async fn request_approval(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 async fn finish_step(
     db: &SqlitePool,
     conversation_id: &str,
@@ -678,10 +735,11 @@ async fn finish_step(
     args_json: &str,
     output: &str,
     ok: bool,
+    undo_payload: Option<&str>,
 ) -> anyhow::Result<()> {
     sqlx::query(
-        "INSERT INTO agent_steps (id, conversation_id, message_id, seq, tool, args_json, result, ok, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO agent_steps (id, conversation_id, message_id, seq, tool, args_json, result, ok, undo_payload, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(uuid::Uuid::new_v4().to_string())
     .bind(conversation_id)
@@ -691,10 +749,61 @@ async fn finish_step(
     .bind(args_json)
     .bind(output)
     .bind(ok)
+    .bind(undo_payload)
     .bind(now_rfc3339())
     .execute(db)
     .await?;
     Ok(())
+}
+
+/// One-click undo of a recorded file mutation: restores the snapshot and
+/// clears the payload so the same step cannot be undone twice.
+pub async fn undo_step(
+    db: &SqlitePool,
+    conversation_id: &str,
+    message_id: &str,
+    seq: u32,
+) -> anyhow::Result<String> {
+    let row: Option<(String, String, Option<String>)> = sqlx::query_as(
+        "SELECT tool, args_json, undo_payload FROM agent_steps
+         WHERE conversation_id = ? AND message_id = ? AND seq = ?",
+    )
+    .bind(conversation_id)
+    .bind(message_id)
+    .bind(seq as i64)
+    .fetch_optional(db)
+    .await?;
+    let Some((_tool, args_json, undo_payload)) = row else {
+        anyhow::bail!("step not found");
+    };
+    let payload = undo_payload.ok_or_else(|| anyhow::anyhow!("this step has no undo data"))?;
+    let parsed: Value = serde_json::from_str(&payload)?;
+    let path = parsed.get("path").and_then(Value::as_str).unwrap_or("");
+    let existed = parsed.get("existed").and_then(Value::as_bool).unwrap_or(false);
+    let content = parsed.get("content").and_then(Value::as_str).unwrap_or("");
+    let workspace_row: Option<(Option<String>,)> = sqlx::query_as(
+        "SELECT project_path FROM conversations WHERE id = ?",
+    )
+    .bind(conversation_id)
+    .fetch_optional(db)
+    .await?;
+    let Some((Some(project_path),)) = workspace_row else {
+        anyhow::bail!("conversation has no workspace");
+    };
+    let output = fs::restore(
+        std::path::Path::new(&project_path),
+        path,
+        existed,
+        content,
+    )?;
+    sqlx::query("UPDATE agent_steps SET undo_payload = NULL WHERE conversation_id = ? AND message_id = ? AND seq = ?")
+        .bind(conversation_id)
+        .bind(message_id)
+        .bind(seq as i64)
+        .execute(db)
+        .await?;
+    let _ = args_json;
+    Ok(output)
 }
 
 /// Minimal unified diff for the approval dialog: common prefix/suffix trimming
@@ -809,6 +918,47 @@ mod tests {
     fn diff_handles_identical_and_empty() {
         assert!(unified_diff("a", "x\n", "x\n").contains("(no change)"));
         assert!(unified_diff("a", "", "").contains("(no change)"));
+    }
+
+    #[test]
+    fn approval_profiles_gate_the_right_tools() {
+        let conversation = |profile: &str| Conversation {
+            id: String::new(),
+            title: None,
+            mode: "coding".into(),
+            selection_type: "single".into(),
+            model_id: None,
+            group_id: None,
+            debate_settings_json: None,
+            project_path: None,
+            folder_id: None,
+            pinned: false,
+            agent_auto_approve: false,
+            fallback_model_id: None,
+            agent_plan_mode: false,
+            agent_approval_profile: profile.into(),
+            auto_title: false,
+            created_at: String::new(),
+            updated_at: String::new(),
+        };
+        // Default "mutating": file mutations, shell and commit ask; reads don't.
+        let mutating = conversation("mutating");
+        assert!(needs_approval(&mutating, "fs_write"));
+        assert!(needs_approval(&mutating, "fs_delete"));
+        assert!(needs_approval(&mutating, "exec"));
+        assert!(needs_approval(&mutating, "git_commit"));
+        assert!(!needs_approval(&mutating, "fs_read"));
+        assert!(!needs_approval(&mutating, "git_status"));
+        // "all": every tool asks.
+        let all = conversation("all");
+        assert!(needs_approval(&all, "fs_read"));
+        // "git": only the commit asks.
+        let git_only = conversation("git");
+        assert!(needs_approval(&git_only, "git_commit"));
+        assert!(!needs_approval(&git_only, "fs_write"));
+        // "never": nothing asks.
+        let never = conversation("never");
+        assert!(!needs_approval(&never, "exec"));
     }
 
     #[test]

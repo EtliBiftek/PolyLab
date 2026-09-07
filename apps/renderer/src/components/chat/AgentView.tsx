@@ -1,12 +1,32 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { undoAgentStep } from "../../lib/api";
 import type { AgentStepState, PendingApproval } from "../../stores/chat";
 
 /** Tool chip list for a running/finished agent message. */
-export function AgentSteps({ steps }: { steps: AgentStepState[] }) {
+export function AgentSteps({
+  steps,
+  onUndone,
+}: {
+  steps: AgentStepState[];
+  /** Called after a successful undo so the parent can reload history. */
+  onUndone?: (step: AgentStepState) => void;
+}) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [undoing, setUndoing] = useState<number | null>(null);
+
+  const undoStep = async (step: AgentStepState) => {
+    if (step.conversationId == null || step.messageId == null) return;
+    setUndoing(step.step);
+    try {
+      await undoAgentStep(step.conversationId, step.messageId, step.step);
+      onUndone?.(step);
+    } finally {
+      setUndoing(null);
+    }
+  };
 
   if (steps.length === 0) return null;
 
@@ -36,6 +56,21 @@ export function AgentSteps({ steps }: { steps: AgentStepState[] }) {
               >
                 {step.ok ? "✓" : "✕"}
               </span>
+            )}
+            {!step.running && step.undoable === true && (
+              <button
+                type="button"
+                title={t("agent.undo")}
+                aria-label={t("agent.undo")}
+                disabled={undoing === step.step}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void undoStep(step);
+                }}
+                className="flex h-5 w-6 shrink-0 items-center justify-center rounded text-[11px] text-txt-2 transition hover:bg-bg-2 hover:text-txt-0 disabled:opacity-50"
+              >
+                {undoing === step.step ? "…" : "↩"}
+              </button>
             )}
           </button>
           {expanded === step.step && step.output.length > 0 && (

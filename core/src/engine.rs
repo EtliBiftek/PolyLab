@@ -479,6 +479,16 @@ impl ChatEngine {
             .fetch_optional(&self.db)
             .await?
             .ok_or_else(|| anyhow::anyhow!("model {model_id} is not available"))?;
+        // Backup model for automatic failover (single chat only).
+        let fallback_model: Option<ModelRow> = match conversation.fallback_model_id.as_deref() {
+            Some(id) if id != model.id => {
+                sqlx::query_as("SELECT * FROM models WHERE id = ? AND enabled = 1")
+                    .bind(id)
+                    .fetch_optional(&self.db)
+                    .await?
+            }
+            _ => None,
+        };
         let provider: ProviderRow = sqlx::query_as("SELECT * FROM providers WHERE id = ?")
             .bind(&model.provider_id)
             .fetch_one(&self.db)
@@ -643,6 +653,12 @@ impl ChatEngine {
         // capability flag. When off, reasoning deltas are dropped (not shown, not
         // stored) and no native thinking parameter is sent.
         let think_mode = model.reasoning_enabled.unwrap_or(model.supports_reasoning);
+        let provider_impl = providers::build(kind, provider.base_url.as_deref(), api_key.as_deref())?;
+        // Long conversations: summarize the oldest part instead of silently
+        // dropping it (best effort — the plain trim remains as a safety net).
+        let messages = self
+            .summarize_overflow(messages, provider_impl.as_ref(), &model, &cancel)
+            .await?;
         let history_budget_tokens = HISTORY_TOKEN_BUDGET;
         let messages = crate::trim_history(messages, history_budget_tokens);
         let request = ChatRequest {
@@ -683,67 +699,79 @@ impl ChatEngine {
             race_id: None,
         });
 
-        // --- stream -------------------------------------------------------------
+        // --- stream (primary model, automatic failover) ---------------------------
         let prompt_texts: Vec<String> = request.messages.iter().map(|m| m.content.clone()).collect();
-        let provider_impl = providers::build(kind, provider.base_url.as_deref(), api_key.as_deref())?;
-        let mut result = StreamResult::default();
-        match provider_impl.stream_chat(request).await {
-            Ok(mut stream) => {
-                use futures_util::StreamExt;
-                loop {
-                    tokio::select! {
-                        event = stream.next() => {
-                            let Some(event) = event else { break };
-                            match event {
-                                ChatEvent::TextDelta(delta) => {
-                                    result.text.push_str(&delta);
-                                    self.emit(ServerEvent::Token {
-                                        conversation_id: conversation_id.clone(),
-                                        message_id: message_id.clone(),
-                                        delta,
-                                    });
-                                }
-                                ChatEvent::ReasoningDelta(delta) if think_mode => {
-                                    result.reasoning.push_str(&delta);
-                                    self.emit(ServerEvent::ReasoningToken {
-                                        conversation_id: conversation_id.clone(),
-                                        message_id: message_id.clone(),
-                                        model_id: model.id.clone(),
-                                        delta,
-                                    });
-                                }
-                                ChatEvent::ReasoningDelta(_) => {}
-                                ChatEvent::ModelResolved(resolved) => {
-                                    if result.resolved_model.is_none() {
-                                        result.resolved_model = Some(resolved.clone());
-                                        self.emit(ServerEvent::ModelResolved {
-                                            conversation_id: conversation_id.clone(),
-                                            message_id: message_id.clone(),
-                                            model_id: resolved,
-                                        });
-                                    }
-                                }
-                                ChatEvent::ToolCalls(_) => {
-                                    // Single-chat mode never offers native tools.
-                                }
-                                ChatEvent::Usage { tokens_in, tokens_out } => {
-                                    result.usage = Some(Usage { tokens_in, tokens_out, estimated: false });
-                                }
-                                ChatEvent::Error { detail } => {
-                                    result.error = Some(detail);
-                                    break;
-                                }
-                            }
-                        }
-                        () = cancel.cancelled() => {
-                            result.cancelled = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            Err(error) => {
-                result.error = Some(error.to_string());
+        let retry_request = request.clone();
+        let mut active_provider: Box<dyn providers::Provider> = provider_impl;
+        let mut active_model: &ModelRow = &model;
+        let mut result = self
+            .stream_single(&message_id, &conversation_id, &model, active_provider.as_ref(), request, &cancel)
+            .await;
+        if result.text.is_empty() && result.error.is_some() {
+            if let Some(fallback) = fallback_model.as_ref() {
+                let fallback_provider_row: ProviderRow =
+                    sqlx::query_as("SELECT * FROM providers WHERE id = ?")
+                        .bind(&fallback.provider_id)
+                        .fetch_one(&self.db)
+                        .await?;
+                let fallback_kind = storage::ProviderKind::from_str_loose(&fallback_provider_row.kind)
+                    .ok_or_else(|| anyhow::anyhow!("unknown provider kind {}", fallback_provider_row.kind))?;
+                let fallback_key = self
+                    .secrets
+                    .get(&provider_key(&fallback_provider_row.id))
+                    .unwrap_or_else(|error| {
+                        tracing::warn!(%error, "secret store read failed; continuing without key");
+                        None
+                    });
+                let fallback_provider = providers::build(
+                    fallback_kind,
+                    fallback_provider_row.base_url.as_deref(),
+                    fallback_key.as_deref(),
+                )?;
+                let fallback_think =
+                    fallback.reasoning_enabled.unwrap_or(fallback.supports_reasoning);
+                let mut fallback_request = retry_request;
+                fallback_request.model = fallback.model_id.clone();
+                fallback_request.temperature = fallback.temperature.map(|t| t as f32);
+                fallback_request.max_tokens = fallback.max_tokens.map(|t| t as u32);
+                fallback_request.reasoning_enabled = fallback_think;
+                fallback_request.reasoning_effort = if fallback_think {
+                    fallback.reasoning_effort.clone().or_else(|| Some("medium".to_string()))
+                } else {
+                    None
+                };
+                self.emit(ServerEvent::FallbackUsed {
+                    conversation_id: conversation_id.clone(),
+                    message_id: message_id.clone(),
+                    from_model: model.id.clone(),
+                    to_model: fallback.id.clone(),
+                    detail: format!(
+                        "{} kullanılamadı ({}) — {} devreye girdi",
+                        model.display_name,
+                        result.error.as_deref().unwrap_or("bilinmeyen hata"),
+                        fallback.display_name
+                    ),
+                });
+                // The persisted row belongs to the model that actually answered;
+                // remember which model it fell back from for the UI badge.
+                sqlx::query("UPDATE messages SET model_id = ?, fallback_from_model_id = ? WHERE id = ?")
+                    .bind(&fallback.id)
+                    .bind(&model.id)
+                    .bind(&message_id)
+                    .execute(&self.db)
+                    .await?;
+                active_provider = fallback_provider;
+                active_model = fallback;
+                result = self
+                    .stream_single(
+                        &message_id,
+                        &conversation_id,
+                        fallback,
+                        active_provider.as_ref(),
+                        fallback_request,
+                        &cancel,
+                    )
+                    .await;
             }
         }
 
@@ -805,9 +833,195 @@ impl ChatEngine {
 
         // Replace the cheap auto title with a model-generated one (best effort).
         if status == MessageStatus::Done && conversation.auto_title {
-            self.generate_title(&conversation_id, provider_impl.as_ref(), &model, &content).await;
+            self.generate_title(&conversation_id, active_provider.as_ref(), active_model, &content).await;
         }
         Ok(())
+    }
+
+    /// Runs one provider stream for a single-chat reply, emitting events into
+    /// `message_id`'s stream. Provider failures land in `result.error` — this
+    /// method itself never fails, so callers can decide about fallbacks.
+    async fn stream_single(
+        &self,
+        message_id: &str,
+        conversation_id: &str,
+        model: &ModelRow,
+        provider: &dyn providers::Provider,
+        request: ChatRequest,
+        cancel: &CancellationToken,
+    ) -> StreamResult {
+        let think_mode = model.reasoning_enabled.unwrap_or(model.supports_reasoning);
+        let mut result = StreamResult::default();
+        match provider.stream_chat(request).await {
+            Ok(mut stream) => {
+                use futures_util::StreamExt;
+                loop {
+                    tokio::select! {
+                        event = stream.next() => {
+                            let Some(event) = event else { break };
+                            match event {
+                                ChatEvent::TextDelta(delta) => {
+                                    result.text.push_str(&delta);
+                                    self.emit(ServerEvent::Token {
+                                        conversation_id: conversation_id.to_string(),
+                                        message_id: message_id.to_string(),
+                                        delta,
+                                    });
+                                }
+                                ChatEvent::ReasoningDelta(delta) if think_mode => {
+                                    result.reasoning.push_str(&delta);
+                                    self.emit(ServerEvent::ReasoningToken {
+                                        conversation_id: conversation_id.to_string(),
+                                        message_id: message_id.to_string(),
+                                        model_id: model.id.clone(),
+                                        delta,
+                                    });
+                                }
+                                ChatEvent::ReasoningDelta(_) => {}
+                                ChatEvent::ModelResolved(resolved) => {
+                                    if result.resolved_model.is_none() {
+                                        result.resolved_model = Some(resolved.clone());
+                                        self.emit(ServerEvent::ModelResolved {
+                                            conversation_id: conversation_id.to_string(),
+                                            message_id: message_id.to_string(),
+                                            model_id: resolved,
+                                        });
+                                    }
+                                }
+                                ChatEvent::ToolCalls(_) => {
+                                    // Single-chat mode never offers native tools.
+                                }
+                                ChatEvent::Usage { tokens_in, tokens_out } => {
+                                    result.usage = Some(Usage { tokens_in, tokens_out, estimated: false });
+                                }
+                                ChatEvent::Error { detail } => {
+                                    result.error = Some(detail);
+                                    break;
+                                }
+                            }
+                        }
+                        () = cancel.cancelled() => {
+                            result.cancelled = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            Err(error) => {
+                result.error = Some(error.to_string());
+            }
+        }
+        result
+    }
+
+    /// If the history exceeds the token budget, asks the SAME model to summarize
+    /// the oldest part and replaces it with a system summary message. Best
+    /// effort: any failure returns the messages unchanged (plain trim remains
+    /// the safety net).
+    async fn summarize_overflow(
+        &self,
+        messages: Vec<ChatMessage>,
+        provider: &dyn providers::Provider,
+        model: &ModelRow,
+        cancel: &CancellationToken,
+    ) -> anyhow::Result<Vec<ChatMessage>> {
+        let cut = summarize_cut(&messages, HISTORY_TOKEN_BUDGET);
+        if cut <= 1 {
+            return Ok(messages);
+        }
+        let to_summarize = &messages[1..cut];
+        let prompt = format!(
+            "Aşağıdaki eski sohbet geçmişini Türkçe madde madde özetle. Önemli kararları,              dosya adlarını, model seçimlerini ve sonuçları koru; 300 kelimeyi aşma.\n\n{}",
+            to_summarize
+                .iter()
+                .map(|message| format!("[{}]\n{}", message.role.as_str(), message.content))
+                .collect::<Vec<_>>()
+                .join("\n\n")
+        );
+        let request = ChatRequest {
+            model: model.model_id.clone(),
+            messages: vec![ChatMessage::new(Role::System, prompt)],
+            temperature: Some(0.2),
+            max_tokens: Some(600),
+            images: Vec::new(),
+            web: false,
+            reasoning_enabled: false,
+            reasoning_effort: None,
+            tools: Vec::new(),
+            tool_choice: None,
+        };
+        let mut summary = String::new();
+        match provider.stream_chat(request).await {
+            Ok(mut stream) => {
+                use futures_util::StreamExt;
+                loop {
+                    tokio::select! {
+                        event = stream.next() => {
+                            let Some(event) = event else { break };
+                            if let ChatEvent::TextDelta(delta) = event {
+                                summary.push_str(&delta);
+                            }
+                        }
+                        () = cancel.cancelled() => break,
+                    }
+                }
+            }
+            Err(error) => {
+                tracing::warn!(%error, "history summarization failed; falling back to trimming");
+                return Ok(messages);
+            }
+        }
+        if summary.trim().is_empty() {
+            return Ok(messages);
+        }
+        tracing::info!(summarized = cut - 1, "conversation history summarized");
+        let mut next = Vec::with_capacity(messages.len() - (cut - 1) + 1);
+        next.push(messages[0].clone());
+        next.push(ChatMessage::new(
+            Role::System,
+            format!("# Önceki konuşmanın özeti\n{}", summary.trim()),
+        ));
+        next.extend(messages[cut..].iter().cloned());
+        Ok(next)
+    }
+
+    /// Index of the first oldest message that must be KEPT so system + kept +
+    /// summary fit under `budget`; `1` means nothing needs summarizing. The
+    /// last user turn (the current request) is always kept.
+    /// `messages` is `[system, history...]`.
+    fn summarize_cut(messages: &[ChatMessage], budget: u64) -> usize {
+        if messages.len() < 3 {
+            return 1;
+        }
+        let Some(last_user) = messages.iter().rposition(|m| matches!(m.role, Role::User)) else {
+            return 1;
+        };
+        let total: u64 = messages.iter().map(|m| estimate(&m.content)).sum();
+        if total <= budget {
+            return 1;
+        }
+        const SUMMARY_OVERHEAD: u64 = 200;
+        let mut kept = estimate(&messages[0].content) + SUMMARY_OVERHEAD;
+        let mut cut = last_user;
+        for index in (1..=last_user).rev() {
+            let tokens = estimate(&messages[index].content);
+            if kept + tokens > budget {
+                cut = index + 1;
+                break;
+            }
+            kept += tokens;
+            cut = index;
+        }
+        if cut == 1 {
+            return 1;
+        }
+        // Only summarize when it removes a meaningful chunk (≥3 messages or
+        // ≥512 tokens), avoiding pointless summarization calls.
+        let removable: u64 = messages[1..cut].iter().map(|m| estimate(&m.content)).sum();
+        if cut - 1 < 3 && removable < 512 {
+            return 1;
+        }
+        cut
     }
 
     /// Asks the model for a 3–6 word conversation title; replaces auto titles.
@@ -1333,4 +1547,37 @@ pub(crate) struct StreamResult {
     pub(crate) cancelled: bool,
     /// Concrete model id the provider served (alias resolution), if any.
     pub(crate) resolved_model: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn summarize_cut_keeps_recent_and_targets_old() {
+        // Small history: everything fits under a big budget → no cut.
+        let small: Vec<ChatMessage> = std::iter::once(ChatMessage::new(Role::System, "sys"))
+            .chain((0..10).map(|i| {
+                if i == 9 {
+                    ChatMessage::new(Role::User, "current request")
+                } else {
+                    ChatMessage::new(Role::Assistant, format!("answer {i} ").repeat(60))
+                }
+            }))
+            .collect();
+        assert_eq!(summarize_cut(&small, 16_000), 1);
+
+        // Oversized history: everything but the last user turn is summarized.
+        let big: Vec<ChatMessage> = std::iter::once(ChatMessage::new(Role::System, "sys"))
+            .chain((0..6).map(|i| ChatMessage::new(Role::Assistant, format!("a{i} ").repeat(4000))))
+            .chain(std::iter::once(ChatMessage::new(Role::User, "current request")))
+            .collect();
+        let cut = summarize_cut(&big, 4_000);
+        assert!(cut > 1, "expected a summarization cut, got {cut}");
+        assert!(cut < big.len(), "last user turn must be kept, cut={cut}");
+        assert_eq!(big[cut..].last().unwrap().role, Role::User);
+        // The summary replaces the oldest messages: kept part starts below the
+        // budget and the system message stays first.
+        assert_eq!(big[0].role, Role::System);
+    }
 }

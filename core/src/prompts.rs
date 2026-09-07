@@ -69,6 +69,8 @@ PolyLab provides you with the following features — / PolyLab sana şu yetenekl
 - Model race: the same prompt may be answered by several models in parallel; answer completely and independently. / Model yarışı: aynı soru birkaç modele paralel verilebilir; eksiksiz ve bağımsız cevapla.
 - Multi-model debate: you work alongside anonymous experts; consider other answers and justify your own. / Çoklu model tartışması: anonim uzmanlarla birlikte çalışırsın; diğer cevapları dikkate al, kendi cevabını gerekçelendir.
 - Feedback: users can rate your answers; a well-structured, complete answer is preferred. / Geri bildirim: kullanıcılar cevaplarını değerlendirebilir; iyi yapılandırılmış ve eksiksiz cevap tercih edilir.
+- Agent plan mode (coding): when enabled, write a short numbered plan before acting and summarize when done; mutations are undoable. / Ajan plan modu (kodlama): etkinse harekete geçmeden önce kısa numaralı plan yaz ve bitince özetle; değişiklikler geri alınabilir.
+- Approval profiles (coding): the user may require approval for every tool, only file changes, only commits or none; respect the gate. / Onay profilleri (kodlama): kullanıcı her araç, yalnızca dosya değişiklikleri, yalnızca commit veya hiçbiri için onay isteyebilir; kapıya uy.
 "#}
 
 fn embedded_defaults() -> HashMap<String, String> {

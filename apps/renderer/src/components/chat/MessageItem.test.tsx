@@ -56,6 +56,7 @@ const baseMessage: Message = {
   attachments_json: null,
   feedback: null,
   race_id: null,
+  fallback_from_model_id: null,
   created_at: "2026-09-07T00:00:00Z",
 };
 

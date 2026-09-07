@@ -29,6 +29,9 @@ pub struct CreateConversation {
     pub group_id: Option<String>,
     pub debate_settings: Option<serde_json::Value>,
     pub agent_auto_approve: Option<bool>,
+    pub fallback_model_id: Option<String>,
+    pub agent_plan_mode: Option<bool>,
+    pub agent_approval_profile: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -42,6 +45,9 @@ pub struct UpdateConversation {
     pub group_id: Option<String>,
     pub debate_settings: Option<serde_json::Value>,
     pub agent_auto_approve: Option<bool>,
+    pub fallback_model_id: Option<String>,
+    pub agent_plan_mode: Option<bool>,
+    pub agent_approval_profile: Option<String>,
     pub project_path: Option<String>,
 }
 
@@ -105,11 +111,14 @@ pub async fn create(
         None
     };
     let now = now_rfc3339();
+    let agent_approval_profile = validate_approval_profile(body.agent_approval_profile.as_deref())?
+        .unwrap_or_else(|| "mutating".to_string());
     sqlx::query(
         "INSERT INTO conversations (id, mode, selection_type, model_id, group_id,
                                     debate_settings_json, project_path,
-                                    agent_auto_approve, auto_title, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
+                                    agent_auto_approve, fallback_model_id, agent_plan_mode,
+                                    agent_approval_profile, auto_title, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
     )
     .bind(&id)
     .bind(mode)
@@ -119,6 +128,9 @@ pub async fn create(
     .bind(&debate_settings_json)
     .bind(&project_path)
     .bind(body.agent_auto_approve.unwrap_or(false))
+    .bind(&body.fallback_model_id)
+    .bind(body.agent_plan_mode.unwrap_or(false))
+    .bind(&agent_approval_profile)
     .bind(&now)
     .bind(&now)
     .execute(&state.db)
@@ -233,6 +245,24 @@ pub async fn update(
         (None, existing) => existing,
     };
     let agent_auto_approve = body.agent_auto_approve.unwrap_or(row.agent_auto_approve);
+    let agent_approval_profile =
+        validate_approval_profile(body.agent_approval_profile.as_deref())?
+            .unwrap_or(row.agent_approval_profile);
+    let fallback_model_id = match body.fallback_model_id.as_deref() {
+        Some(fallback) if !fallback.trim().is_empty() => {
+            let exists: Option<String> =
+                sqlx::query_scalar("SELECT id FROM models WHERE id = ?")
+                    .bind(fallback)
+                    .fetch_optional(&state.db)
+                    .await?;
+            if exists.is_none() {
+                return Err(ApiError::not_found(format!("fallback model {fallback} not found")));
+            }
+            Some(fallback.to_string())
+        }
+        _ => row.fallback_model_id,
+    };
+    let agent_plan_mode = body.agent_plan_mode.unwrap_or(row.agent_plan_mode);
     let project_path = body.project_path.clone().or(row.project_path.clone());
     // A user-supplied title is final — model title generation must not touch it.
     let auto_title = !title_was_user_set && row.auto_title;
@@ -240,7 +270,8 @@ pub async fn update(
     sqlx::query(
         "UPDATE conversations SET title = ?, model_id = ?, mode = ?, pinned = ?, folder_id = ?,
                 selection_type = ?, group_id = ?, debate_settings_json = ?,
-                agent_auto_approve = ?, project_path = ?, auto_title = ?, updated_at = ?
+                agent_auto_approve = ?, fallback_model_id = ?, agent_plan_mode = ?,
+                agent_approval_profile = ?, project_path = ?, auto_title = ?, updated_at = ?
          WHERE id = ?",
     )
     .bind(&title)
@@ -252,6 +283,9 @@ pub async fn update(
     .bind(&group_id)
     .bind(&debate_settings_json)
     .bind(agent_auto_approve)
+    .bind(&fallback_model_id)
+    .bind(agent_plan_mode)
+    .bind(&agent_approval_profile)
     .bind(&project_path)
     .bind(auto_title)
     .bind(now_rfc3339())
@@ -278,6 +312,146 @@ pub async fn delete(
         return Err(ApiError::not_found(format!("conversation {id} not found")));
     }
     Ok(Json(serde_json::json!({ "deleted": true })))
+}
+
+/// Validates the agent approval profile; `None` input keeps the current value.
+fn validate_approval_profile(value: Option<&str>) -> Result<Option<String>, ApiError> {
+    match value {
+        None | Some("") => Ok(None),
+        Some("all") | Some("mutating") | Some("git") | Some("never") => {
+            Ok(Some(value.unwrap_or("mutating").to_string()))
+        }
+        Some(other) => {
+            Err(ApiError::bad_request(format!(
+                "unknown approval profile {other} (all|mutating|git|never)"
+            )))
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct ConversationExport {
+    #[serde(flatten)]
+    pub conversation: Conversation,
+    pub messages: Vec<Message>,
+    pub exported_at: String,
+}
+
+/// `GET /api/conversations/{id}/export` — full JSON snapshot for backup/import.
+pub async fn export(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<ConversationExport>, ApiError> {
+    let detail = get_one(State(state), Path(id)).await?;
+    Ok(Json(ConversationExport {
+        conversation: detail.conversation,
+        messages: detail.messages,
+        exported_at: now_rfc3339(),
+    }))
+}
+
+#[derive(Deserialize)]
+pub struct ImportMessage {
+    pub role: String,
+    pub content: String,
+    pub created_at: Option<String>,
+    pub model_id: Option<String>,
+    pub tokens_in: Option<i64>,
+    pub tokens_out: Option<i64>,
+}
+
+#[derive(Deserialize)]
+pub struct ImportPayload {
+    pub title: Option<String>,
+    pub mode: Option<String>,
+    pub model_id: Option<String>,
+    pub messages: Vec<ImportMessage>,
+}
+
+/// `POST /api/conversations/import` — creates a conversation from an export.
+pub async fn import(
+    State(state): State<AppState>,
+    Json(body): Json<ImportPayload>,
+) -> Result<Json<Conversation>, ApiError> {
+    if body.messages.is_empty() {
+        return Err(ApiError::bad_request("import needs at least one message"));
+    }
+    let mode = match body.mode.as_deref() {
+        None | Some("chat") => "chat",
+        Some("coding") => "coding",
+        Some(other) => return Err(ApiError::bad_request(format!("unknown mode {other}"))),
+    };
+    for (index, message) in body.messages.iter().enumerate() {
+        if !matches!(message.role.as_str(), "user" | "assistant") {
+            return Err(ApiError::bad_request(format!(
+                "message {index}: role must be user|assistant"
+            )));
+        }
+        if let Some(model_id) = message.model_id.as_deref() {
+            let exists: Option<String> =
+                sqlx::query_scalar("SELECT id FROM models WHERE id = ?")
+                    .bind(model_id)
+                    .fetch_optional(&state.db)
+                    .await?;
+            if exists.is_none() {
+                return Err(ApiError::not_found(format!(
+                    "message {index}: model {model_id} not found"
+                )));
+            }
+        }
+    }
+    let id = uuid::Uuid::new_v4().to_string();
+    let now = now_rfc3339();
+    let project_path = if mode == "coding" {
+        let path = state.data_dir.join("workspace").join(&id);
+        std::fs::create_dir_all(&path).ok();
+        Some(path.display().to_string())
+    } else {
+        None
+    };
+    sqlx::query(
+        "INSERT INTO conversations (id, mode, selection_type, model_id, project_path,
+                                    auto_title, created_at, updated_at)
+         VALUES (?, ?, 'single', ?, ?, 0, ?, ?)",
+    )
+    .bind(&id)
+    .bind(mode)
+    .bind(&body.model_id)
+    .bind(&project_path)
+    .bind(&now)
+    .bind(&now)
+    .execute(&state.db)
+    .await?;
+    for message in &body.messages {
+        sqlx::query(
+            "INSERT INTO messages (id, conversation_id, role, content, model_id,
+                                   tokens_in, tokens_out, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(uuid::Uuid::new_v4().to_string())
+        .bind(&id)
+        .bind(&message.role)
+        .bind(&message.content)
+        .bind(&message.model_id)
+        .bind(message.tokens_in)
+        .bind(message.tokens_out)
+        .bind(message.created_at.as_deref().unwrap_or(&now))
+        .execute(&state.db)
+        .await?;
+    }
+    // Keep the default title if the user provided none yet (auto_title=0 → user set).
+    if let Some(title) = body.title.as_deref().filter(|t| !t.trim().is_empty()) {
+        sqlx::query("UPDATE conversations SET title = ? WHERE id = ?")
+            .bind(title)
+            .bind(&id)
+            .execute(&state.db)
+            .await?;
+    }
+    let row: Conversation = sqlx::query_as("SELECT * FROM conversations WHERE id = ?")
+        .bind(&id)
+        .fetch_one(&state.db)
+        .await?;
+    Ok(Json(row))
 }
 
 /// Validates a debate settings object (when present) and serializes it for storage.

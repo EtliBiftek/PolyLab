@@ -9,6 +9,7 @@ import {
 } from "../../lib/api";
 import { useChat } from "../../stores/chat";
 import { useSettings } from "../../stores/settings";
+import { undoAgentStep } from "../../lib/api";
 import { MarkdownBody } from "./MarkdownBody";
 import { ThinkingPanel } from "./ThinkingPanel";
 import { AgentSteps } from "./AgentView";
@@ -23,16 +24,19 @@ import {
   ThumbUpIcon,
   ThumbDownIcon,
   SparklesIcon,
+  SpeakerIcon,
 } from "../ui/Icons";
 
 interface AgentStepDto {
   id: string;
+  conversation_id: string;
   message_id: string;
   seq: number;
   tool: string;
   args_json: string;
   result: string | null;
   ok: boolean;
+  undo_payload: string | null;
 }
 
 /** Loads persisted agent steps for a finished assistant message (coding mode). */
@@ -56,6 +60,9 @@ function useAgentSteps(message: Message, coding: boolean): AgentStepState[] {
             output: row.result ?? "",
             ok: row.ok,
             running: false,
+            conversationId: row.conversation_id,
+            messageId: row.message_id,
+            undoable: row.undo_payload != null,
           })),
         );
       })
@@ -65,6 +72,44 @@ function useAgentSteps(message: Message, coding: boolean): AgentStepState[] {
     };
   }, [message.id, message.role, coding]);
   return steps;
+}
+
+/** Reads the answer aloud with the browser speech engine (no API key). */
+function ReadAloudButton({ text }: { text: string }) {
+  const { t } = useTranslation();
+  const language = useSettings((state) => state.language);
+  const [speaking, setSpeaking] = useState(false);
+  useEffect(() => {
+    if (!speaking) return;
+    return () => window.speechSynthesis?.cancel();
+  }, [speaking]);
+  const toggle = () => {
+    if (speaking) {
+      window.speechSynthesis?.cancel();
+      setSpeaking(false);
+      return;
+    }
+    if (typeof window.speechSynthesis === "undefined" || typeof SpeechSynthesisUtterance === "undefined") return;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = language;
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+    setSpeaking(true);
+  };
+  return (
+    <button
+      type="button"
+      aria-label={t("voice.speak")}
+      title={speaking ? t("voice.stopSpeak") : t("voice.speak")}
+      onClick={toggle}
+      className={`flex h-6 items-center gap-0.5 rounded-md px-1 transition ${
+        speaking ? "text-accent" : "text-txt-2 hover:bg-bg-2 hover:text-txt-0"
+      }`}
+    >
+      <SpeakerIcon className="h-3 w-3" />
+    </button>
+  );
 }
 
 function usageLabel(
@@ -263,11 +308,28 @@ export const MessageItem = memo(function MessageItem({
       {(group || message.has_debate === true) && (
         <DebateTranscript messageId={message.id} models={models} />
       )}
-      {steps.length > 0 && <AgentSteps steps={steps} />}
+      {steps.length > 0 && (
+        <AgentSteps
+          steps={steps}
+          onUndone={() => {
+            // File states changed server-side; re-read the conversation.
+            void useChat
+              .getState()
+              .refresh()
+              .then(() => useChat.getState().open(message.conversation_id))
+              .catch(() => undefined);
+          }}
+        />
+      )}
       <MarkdownBody content={message.content} />
-      {(usage != null || modelLabel != null || showTimestamps || cost != null) && (
+      {(usage != null || modelLabel != null || showTimestamps || cost != null || message.fallback_from_model_id != null) && (
         <div className="mt-1.5 flex items-center gap-3 text-[11.5px] text-txt-2">
           {modelLabel != null && <span>{modelLabel}</span>}
+          {message.fallback_from_model_id != null && (
+            <span className="rounded-full border border-warn/40 bg-warn/10 px-1.5 py-0.5 text-[10.5px] text-warn">
+              {t("chat.fallbackBadge", { from: message.fallback_from_model_id })}
+            </span>
+          )}
           {usage != null && <span className="tabular-nums">{usage}</span>}
           {cost != null && <span className="tabular-nums text-txt-2">≈{formatCostUsd(cost)}</span>}
           {showTimestamps && (
@@ -280,6 +342,7 @@ export const MessageItem = memo(function MessageItem({
       {/* Hover actions below the answer (point 4: copy + regenerate). */}
       <div className="mt-1 flex items-center gap-0.5 opacity-0 transition group-hover/message:opacity-100">
         <CopyButton text={message.content} />
+        {message.role === "assistant" && <ReadAloudButton text={message.content} />}
         {!sending && message.role === "assistant" && (
           <button
             type="button"

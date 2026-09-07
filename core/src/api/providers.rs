@@ -1,6 +1,7 @@
 //! Provider CRUD + connection test + remote model listing.
 
 use axum::extract::{Path, State};
+use axum::http::StatusCode;
 use axum::Json;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -8,7 +9,7 @@ use serde_json::json;
 use super::error::ApiError;
 use crate::secrets::provider_key;
 use crate::state::AppState;
-use crate::storage::{now_rfc3339, ProviderKind, ProviderRow};
+use crate::storage::{now_rfc3339, ModelRow, ProviderKind, ProviderRow};
 
 #[derive(Serialize)]
 pub struct ProviderDto {
@@ -402,4 +403,224 @@ pub async fn remote_models(
         }
     }
     Err(ApiError { status: axum::http::StatusCode::BAD_GATEWAY, code: "provider_error", detail: last_error.unwrap_or_else(|| "provider returned no models".into()) })
+}
+
+#[derive(Serialize)]
+pub struct DiscoverResult {
+    pub added: usize,
+    pub existing: usize,
+    pub models: Vec<ModelRow>,
+}
+
+/// Best-effort capability guess for locally served models (handy defaults the
+/// user can later correct in the model editor).
+pub fn discover_capabilities(name: &str) -> (bool, bool) {
+    let lower = name.to_lowercase();
+    let reasoning = [
+        "r1", "think", "reason", "qwq", "deepseek", "kimi", "glm-4.5", "gpt-oss", "qwen3",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle));
+    let tools = [
+        "llama3.1", "llama3.2", "llama3.3", "qwen2.5", "mistral", "gpt-oss", "gemma3",
+        "command-r", "function",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle));
+    (reasoning, tools)
+}
+
+/// `{"models":[{"name":"llama3:8b","model":"llama3:8b",…}]}` (Ollama).
+pub fn parse_ollama_tags(value: &serde_json::Value) -> Vec<(String, String)> {
+    value
+        .get("models")
+        .and_then(serde_json::Value::as_array)
+        .map(|models| {
+            models
+                .iter()
+                .filter_map(|model| {
+                    let full = model
+                        .get("model")
+                        .or_else(|| model.get("name"))
+                        .and_then(serde_json::Value::as_str)?
+                        .to_string();
+                    let short = full
+                        .rsplit('/')
+                        .next()
+                        .unwrap_or(&full)
+                        .trim_end_matches(":latest")
+                        .to_string();
+                    Some((full, short))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// `{"data":[{"id":"llama-3.1-8b",…}]}` (LM Studio /v1/models).
+pub fn parse_lmstudio_models(value: &serde_json::Value) -> Vec<(String, String)> {
+    value
+        .get("data")
+        .and_then(serde_json::Value::as_array)
+        .map(|models| {
+            models
+                .iter()
+                .filter_map(|model| {
+                    let id = model.get("id").and_then(serde_json::Value::as_str)?.to_string();
+                    Some((id.clone(), id))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// `POST /api/providers/{id}/discover` — lists the locally served models
+/// (Ollama `/api/tags`, LM Studio `/v1/models`) and imports them as ModelRows.
+pub async fn discover(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<DiscoverResult>, ApiError> {
+    let provider: ProviderRow = sqlx::query_as("SELECT * FROM providers WHERE id = ?")
+        .bind(&id)
+        .fetch_optional(&state.db)
+        .await?
+        .ok_or_else(|| ApiError::not_found(format!("provider {id} not found")))?;
+    let kind = ProviderKind::from_str_loose(&provider.kind)
+        .ok_or_else(|| ApiError::bad_request(format!("unknown provider kind {}", provider.kind)))?;
+    if !matches!(
+        kind,
+        ProviderKind::Ollama | ProviderKind::Lmstudio
+    ) {
+        return Err(ApiError::bad_request(
+            "model discovery is supported for ollama and lmstudio only".into(),
+        ));
+    }
+    let base = provider
+        .base_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|url| !url.is_empty())
+        .ok_or_else(|| ApiError::bad_request("discovery requires a base_url".into()))?
+        .trim_end_matches('/');
+    let (url, kind_label) = match kind {
+        ProviderKind::Ollama => (format!("{base}/api/tags"), "ollama"),
+        ProviderKind::Lmstudio => (format!("{base}/v1/models"), "lmstudio"),
+        _ => unreachable!(),
+    };
+    let response = reqwest::Client::new()
+        .get(&url)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|error| ApiError::custom(StatusCode::BAD_GATEWAY, "provider_unreachable", format!("{kind_label} sunucusuna ulaşılamadı: {error}")))?;
+    let status = response.status();
+    let value: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|error| ApiError::internal(format!("{kind_label} yanıtı okunamadı: {error}")))?;
+    if !status.is_success() {
+        return Err(ApiError::custom(
+            StatusCode::BAD_GATEWAY,
+            "provider_error",
+            format!("{kind_label} hatası ({status}): {value}"),
+        ));
+    }
+    let entries = match kind {
+        ProviderKind::Ollama => parse_ollama_tags(&value),
+        ProviderKind::Lmstudio => parse_lmstudio_models(&value),
+        _ => unreachable!(),
+    };
+    let mut added = 0;
+    let mut existing = 0;
+    for (model_id, display_name) in entries {
+        let exists: Option<String> = sqlx::query_scalar(
+            "SELECT id FROM models WHERE provider_id = ? AND model_id = ?",
+        )
+        .bind(&provider.id)
+        .bind(&model_id)
+        .fetch_optional(&state.db)
+        .await?;
+        let (supports_reasoning, supports_tools) = discover_capabilities(&display_name);
+        if exists.is_some() {
+            existing += 1;
+            sqlx::query(
+                "UPDATE models SET display_name = ?, supports_reasoning = ?, supports_tools = ?
+                 WHERE provider_id = ? AND model_id = ?",
+            )
+            .bind(&display_name)
+            .bind(supports_reasoning)
+            .bind(supports_tools)
+            .bind(&provider.id)
+            .bind(&model_id)
+            .execute(&state.db)
+            .await?;
+        } else {
+            added += 1;
+            sqlx::query(
+                "INSERT INTO models (id, provider_id, model_id, display_name, supports_reasoning,
+                                     supports_tools, reasoning_options, created_at, enabled)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)",
+            )
+            .bind(uuid::Uuid::new_v4().to_string())
+            .bind(&provider.id)
+            .bind(&model_id)
+            .bind(&display_name)
+            .bind(supports_reasoning)
+            .bind(supports_tools)
+            .bind(if supports_reasoning {
+                Some("[\"low\",\"medium\",\"high\"]".to_string())
+            } else {
+                None
+            })
+            .bind(now_rfc3339())
+            .execute(&state.db)
+            .await?;
+        }
+    }
+    let models: Vec<ModelRow> =
+        sqlx::query_as("SELECT * FROM models WHERE provider_id = ? ORDER BY display_name ASC")
+            .bind(&provider.id)
+            .fetch_all(&state.db)
+            .await?;
+    Ok(Json(DiscoverResult { added, existing, models }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn ollama_tags_are_parsed_and_shorted() {
+        let value = json!({
+            "models": [
+                { "name": "llama3:latest", "model": "llama3:latest" },
+                { "name": "library/qwen2.5-coder:14b", "model": "qwen2.5-coder:14b" },
+                { "name": "deepseek-r1:7b", "model": "deepseek-r1:7b" }
+            ]
+        });
+        let parsed = parse_ollama_tags(&value);
+        assert_eq!(parsed.len(), 3);
+        assert_eq!(parsed[0], ("llama3:latest".to_string(), "llama3".to_string()));
+        assert_eq!(parsed[1].1, "qwen2.5-coder:14b");
+        assert!(parse_ollama_tags(&json!({})).is_empty());
+    }
+
+    #[test]
+    fn lmstudio_models_are_parsed() {
+        let value = json!({ "data": [{ "id": "thebloke/llama-3.1-8b" }] });
+        let parsed = parse_lmstudio_models(&value);
+        assert_eq!(parsed[0].0, "thebloke/llama-3.1-8b");
+        assert!(parse_lmstudio_models(&json!({})).is_empty());
+    }
+
+    #[test]
+    fn capability_heuristics_spot_reasoning_and_tools() {
+        let (reasoning, _) = discover_capabilities("deepseek-r1:7b");
+        assert!(reasoning);
+        let (_, tools) = discover_capabilities("llama3.1:8b");
+        assert!(tools);
+        let (reasoning, tools) = discover_capabilities("hello-garden");
+        assert!(!reasoning && !tools);
+    }
 }

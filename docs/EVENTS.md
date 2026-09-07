@@ -62,7 +62,8 @@ between the renderer and `polylab-core`. When the contract changes, update this 
 | `debate_done` | `conversation_id, debate_id, total_tokens_in, total_tokens_out` | 2 |
 | `agent_tool_start` | `conversation_id, message_id, step, tool, args_json` | 4 |
 | `agent_tool_result` | `conversation_id, message_id, step, tool, ok, output` | 4 |
-| `agent_approval_request` | `conversation_id, message_id, approval_id, tool, args_json, timeout_secs` | 4 |
+| `agent_approval_request` | `conversation_id, message_id, approval_id, tool, args_json, diff?, timeout_secs` | 4 |
+| `fallback_used` | `conversation_id, message_id, from_model, to_model, detail` (single-chat provider fallback) | 11 |
 | `terminal_output` | `conversation_id, seq, chunk` | 5 |
 | `terminal_exit` | `conversation_id, code` | 5 |
 
@@ -95,6 +96,14 @@ Prefixed with `/api` except `/health`:
 | `GET /api/providers/{id}/remote-models` | live model listing with `added` flags | 1 |
 | `GET/POST /api/models`, `GET/PATCH/DELETE /api/models/{id}` | local model catalog | 1 |
 | `GET/POST /api/conversations`, `GET/PATCH/DELETE /api/conversations/{id}` | conversations (`GET {id}` includes messages) | 1 |
+| `GET /api/conversations/{id}/export`, `POST /api/conversations/import` | JSON snapshot export / import | 11 |
+| `GET /api/search?q=&limit=` | message-content search (`SearchHit[]`, snippet window) | 11 |
+| `GET/POST /api/comparisons`, `GET/DELETE /api/comparisons/{id}` | persistent comparison records | 12 |
+| `PATCH /api/comparisons/{id}/winner` | mark the winning entry | 12 |
+| `GET /api/stats/cost` | usage cost by month/model/conversation | 11 |
+| `POST /api/audio/transcribe`, `POST /api/audio/speech` | Whisper STT / TTS via the OpenAI provider | 11 |
+| `POST /api/providers/{id}/discover` | pull local model list from Ollama / LM Studio | 11 |
+| `POST /api/agent/undo` | one-click restore of a snapshotted agent step | 11 |
 | `GET/PUT /api/settings` | key/value settings (JSON values) | 1 |
 | `GET /api/debates?message_id=` | replay full debate for Thinking panel | 2 |
 | file tree/read/search | coding right panel (also as agent tools) | 4 |

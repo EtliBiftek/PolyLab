@@ -141,6 +141,16 @@ pub fn delete(root: &Path, input: &str) -> anyhow::Result<String> {
     Ok(format!("deleted {input}"))
 }
 
+/// Restores a file from an undo snapshot (agent safety): writes `content` back
+/// when the file existed, removes the file when it did not.
+pub fn restore(root: &Path, input: &str, existed: bool, content: &str) -> anyhow::Result<String> {
+    if existed {
+        write(root, input, content)
+    } else {
+        delete(root, input)
+    }
+}
+
 /* --------------------------------------------------- workspace snapshot -- */
 
 const SNAPSHOT_MAX_FILES: usize = 40;
@@ -304,6 +314,26 @@ mod tests {
         assert!(read(&root, "src/new/mod.rs").unwrap().contains("x()"));
         assert!(delete(&root, "src/new/mod.rs").is_ok());
         assert!(read(&root, "src/new/mod.rs").is_err());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn undo_restores_existing_and_deletes_new_files() {
+        let root = setup();
+        // Existing file: overwrite, then restore the previous content.
+        let previous = read(&root, "src/main.rs").unwrap();
+        write(&root, "src/main.rs", "fn main() { /* changed */ }").unwrap();
+        restore(&root, "src/main.rs", true, &previous).unwrap();
+        assert_eq!(read(&root, "src/main.rs").unwrap(), previous);
+
+        // New file: write, then undo removes it again.
+        write(&root, "src/temp.rs", "pub fn temp() {}").unwrap();
+        assert!(read(&root, "src/temp.rs").is_ok());
+        restore(&root, "src/temp.rs", false, "").unwrap();
+        assert!(read(&root, "src/temp.rs").is_err());
+
+        // Path safety still applies on the undo path.
+        assert!(restore(&root, "../escape.txt", true, "x").is_err());
         let _ = std::fs::remove_dir_all(&root);
     }
 

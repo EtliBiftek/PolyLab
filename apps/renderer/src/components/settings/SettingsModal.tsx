@@ -5,6 +5,7 @@ import {
   addProviderKey,
   createProvider,
   deleteProviderKey,
+  discoverProviderModels,
   getConversation,
   listConversations,
   listProviderKeys,
@@ -19,6 +20,7 @@ import { useConnection } from "../../stores/connection";
 import { useModels } from "../../stores/models";
 import { useSettings } from "../../stores/settings";
 import { Button } from "../ui/Button";
+import { CostSection } from "./CostSection";
 import {
   CheckIcon,
   CloseIcon,
@@ -45,7 +47,7 @@ const PROVIDER_KINDS = [
   { id: "custom", base: "", key: false },
 ] as const;
 
-type Section = "general" | "providers" | "groups";
+type Section = "general" | "providers" | "groups" | "cost";
 
 export function SettingsModal() {
   const { t } = useTranslation();
@@ -61,10 +63,18 @@ export function SettingsModal() {
   const groupCount = useModels((state) => state.groups.length);
   const [section, setSection] = useState<Section>("providers");
   const [adding, setAdding] = useState(false);
+  const settingsRequest = useSettings((state) => state.settingsRequest);
 
   useEffect(() => {
     if (open) void refreshModels();
   }, [open, refreshModels]);
+
+  // Honor a requested tab (cost chip / palette action).
+  useEffect(() => {
+    if (!open || settingsRequest == null) return;
+    setSection(settingsRequest);
+    useSettings.setState({ settingsRequest: null });
+  }, [open, settingsRequest]);
 
   if (!open) return null;
 
@@ -73,13 +83,17 @@ export function SettingsModal() {
       ? t("settings.nav.general")
       : section === "providers"
         ? t("settings.nav.providers")
-        : t("settings.nav.groups");
+        : section === "cost"
+          ? t("settings.cost")
+          : t("settings.nav.groups");
   const sectionSubtitle =
     section === "general"
       ? t("settings.generalSubtitle")
       : section === "providers"
         ? t("settings.providersSubtitle")
-        : t("settings.groupsSubtitle");
+        : section === "cost"
+          ? t("settings.costSubtitle")
+          : t("settings.groupsSubtitle");
 
   return (
     <div
@@ -102,6 +116,9 @@ export function SettingsModal() {
           </SettingsNavButton>
           <SettingsNavButton active={section === "groups"} onClick={() => setSection("groups")}>
             {t("settings.nav.groups")}
+          </SettingsNavButton>
+          <SettingsNavButton active={section === "cost"} onClick={() => setSection("cost")}>
+            {t("settings.cost")}
           </SettingsNavButton>
           <div className="mt-auto border-t border-border pt-3">
             <div className="px-2 text-[10.5px] font-semibold uppercase tracking-wider text-txt-2">
@@ -148,6 +165,7 @@ export function SettingsModal() {
                 <ProvidersSection onAdd={() => setAdding(true)} />
               ))}
             {section === "groups" && <GroupsSection />}
+            {section === "cost" && <CostSection />}
           </div>
         </main>
       </div>
@@ -396,6 +414,9 @@ function ProviderDetails({ provider }: { provider: Provider }) {
   const [remoteQuery, setRemoteQuery] = useState("");
   const [loadingRemote, setLoadingRemote] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
+  const [discoverResult, setDiscoverResult] = useState<string | null>(null);
+  const discoverable = provider.kind === "ollama" || provider.kind === "lmstudio";
 
   const loadKeys = async () => {
     try {
@@ -457,6 +478,29 @@ function ProviderDetails({ provider }: { provider: Provider }) {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
+            {discoverable && (
+              <Button
+                variant="subtle"
+                size="sm"
+                disabled={discovering}
+                title={t("settings.discoverHint")}
+                onClick={async () => {
+                  setDiscovering(true);
+                  setDiscoverResult(null);
+                  try {
+                    const result = await discoverProviderModels(provider.id);
+                    await refreshModels();
+                    setDiscoverResult(t("settings.discovered", { added: result.added, existing: result.existing }));
+                  } catch {
+                    setDiscoverResult(t("settings.discovered", { added: 0, existing: 0 }));
+                  } finally {
+                    setDiscovering(false);
+                  }
+                }}
+              >
+                {discovering ? t("settings.discovering") : t("settings.discover")}
+              </Button>
+            )}
             <Button variant="subtle" size="sm" onClick={runTest} disabled={testing}>
               {testing ? t("settings.provider.testing") : t("settings.provider.test")}
             </Button>
@@ -488,6 +532,11 @@ function ProviderDetails({ provider }: { provider: Provider }) {
             </button>
           </div>
         </div>
+        {discoverResult != null && (
+          <div className="mt-3 rounded-lg border border-success/40 bg-success/10 px-3 py-2 text-[12px] text-success">
+            {discoverResult}
+          </div>
+        )}
         {testResult != null && (
           <div
             className={`mt-3 rounded-lg border px-3 py-2 text-[12px] ${

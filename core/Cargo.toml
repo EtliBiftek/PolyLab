@@ -32,8 +32,9 @@ tracing-subscriber = { version = "=0.3.23", default-features = false, features =
 futures-util = "=0.3.33"
 chrono = { version = "=0.4.45", features = ["serde"] }
 sqlx = { version = "=0.8.6", default-features = false, features = ["runtime-tokio", "sqlite"] }
-reqwest = { version = "=0.13.4", default-features = false, features = ["rustls", "json", "stream"] }
+reqwest = { version = "=0.13.4", default-features = false, features = ["rustls", "json", "stream", "multipart"] }
 eventsource-stream = "=0.2.3"
+base64 = "=0.22.1"
 async-trait = "=0.1.91"
 
 [dev-dependencies]

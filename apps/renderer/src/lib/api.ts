@@ -65,6 +65,9 @@ export interface Conversation {
   folder_id: string | null;
   pinned: boolean;
   agent_auto_approve: boolean;
+  fallback_model_id: string | null;
+  agent_plan_mode: boolean;
+  agent_approval_profile: "all" | "mutating" | "git" | "never";
   created_at: string;
   updated_at: string;
 }
@@ -87,6 +90,8 @@ export interface Message {
   feedback: number | null;
   /** Groups the per-model assistant messages of one model-race run. */
   race_id: string | null;
+  /** Set when a provider fallback answered instead of the requested model. */
+  fallback_from_model_id: string | null;
   created_at: string;
 }
 
@@ -272,6 +277,9 @@ export function createConversation(body: {
   selection_type?: "single" | "group" | "race";
   group_id?: string | null;
   debate_settings?: DebateSettings;
+  fallback_model_id?: string | null;
+  agent_plan_mode?: boolean;
+  agent_approval_profile?: Conversation["agent_approval_profile"];
 }): Promise<Conversation> {
   return request<Conversation>("/api/conversations", { method: "POST", body: JSON.stringify(body) });
 }
@@ -296,6 +304,9 @@ export function updateConversation(
     group_id?: string | null;
     debate_settings?: DebateSettings;
     agent_auto_approve?: boolean;
+    fallback_model_id?: string | null;
+    agent_plan_mode?: boolean;
+    agent_approval_profile?: Conversation["agent_approval_profile"];
     project_path?: string;
   },
 ): Promise<Conversation> {
@@ -454,12 +465,15 @@ export function gitOp(conversationId: string, op: "status" | "diff" | "log"): Pr
 
 export interface AgentStep {
   id: string;
+  conversation_id: string;
   message_id: string;
   seq: number;
   tool: string;
   args_json: string;
   result: string | null;
   ok: boolean;
+  /** Present for mutating steps (fs_write/fs_delete) that can be undone. */
+  undo_payload: string | null;
 }
 
 export function listAgentSteps(messageId: string): Promise<AgentStep[]> {
@@ -488,5 +502,193 @@ export function gitCommit(conversationId: string, message: string): Promise<{ ok
   return request<{ ok: boolean; output: string }>("/api/git", {
     method: "POST",
     body: JSON.stringify({ conversation_id: conversationId, message }),
+  });
+}
+
+/* ------------------------------------------------------------- full-text search -- */
+
+export interface SearchHit {
+  message_id: string;
+  conversation_id: string;
+  conversation_title: string | null;
+  role: "user" | "assistant" | "system";
+  snippet: string;
+  model_id: string | null;
+  created_at: string;
+}
+
+export function searchMessages(q: string, limit = 20): Promise<SearchHit[]> {
+  return request<SearchHit[]>(
+    `/api/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+  );
+}
+
+/* ---------------------------------------------------------------- comparisons -- */
+
+export interface ComparisonEntry {
+  id: string;
+  comparison_id: string;
+  model_id: string;
+  resolved_model: string | null;
+  content: string;
+  reasoning: string | null;
+  tokens_in: number | null;
+  tokens_out: number | null;
+  tokens_estimated: boolean | null;
+  cost_usd: number | null;
+  created_at: string;
+}
+
+export interface Comparison {
+  id: string;
+  conversation_id: string;
+  kind: string;
+  question: string | null;
+  winner_entry_id: string | null;
+  created_at: string;
+}
+
+export interface ComparisonDetail extends Comparison {
+  entries: ComparisonEntry[];
+}
+
+export function listComparisons(): Promise<Comparison[]> {
+  return request<Comparison[]>("/api/comparisons");
+}
+
+export function getComparison(id: string): Promise<ComparisonDetail> {
+  return request<ComparisonDetail>(`/api/comparisons/${id}`);
+}
+
+export function saveComparison(body: {
+  conversation_id: string;
+  question?: string | null;
+  kind?: string;
+  winner_entry_id?: string | null;
+  entries: Array<{
+    model_id: string;
+    resolved_model?: string | null;
+    content: string;
+    reasoning?: string | null;
+    tokens_in?: number | null;
+    tokens_out?: number | null;
+    tokens_estimated?: boolean | null;
+    cost_usd?: number | null;
+  }>;
+}): Promise<ComparisonDetail> {
+  return request<ComparisonDetail>("/api/comparisons", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function setComparisonWinner(id: string, entryId: string): Promise<ComparisonDetail> {
+  return request<ComparisonDetail>(`/api/comparisons/${id}/winner`, {
+    method: "PATCH",
+    body: JSON.stringify({ entry_id: entryId }),
+  });
+}
+
+export function deleteComparison(id: string): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/api/comparisons/${id}`, { method: "DELETE" });
+}
+
+/* --------------------------------------------------------------------- cost -- */
+
+export interface CostMonth {
+  month: string;
+  usd: number;
+  tokens_in: number;
+  tokens_out: number;
+}
+
+export interface CostByModel {
+  model_id: string;
+  display_name: string;
+  provider_name: string;
+  usd: number;
+  replies: number;
+}
+
+export interface CostByConversation {
+  conversation_id: string;
+  title: string | null;
+  usd: number;
+}
+
+export interface CostStats {
+  total_usd: number;
+  months: CostMonth[];
+  by_model: CostByModel[];
+  by_conversation: CostByConversation[];
+}
+
+export function getCostStats(): Promise<CostStats> {
+  return request<CostStats>("/api/stats/cost");
+}
+
+/* --------------------------------------------------------------------- voice -- */
+
+export function transcribeAudio(dataBase64: string, mimeType: string, language?: string): Promise<{ text: string }> {
+  return request<{ text: string }>("/api/audio/transcribe", {
+    method: "POST",
+    body: JSON.stringify({ data_base64: dataBase64, mime_type: mimeType, language }),
+  });
+}
+
+export function synthesizeSpeech(text: string, voice?: string): Promise<{ audio_base64: string; mime_type: string }> {
+  return request<{ audio_base64: string; mime_type: string }>("/api/audio/speech", {
+    method: "POST",
+    body: JSON.stringify({ text, voice }),
+  });
+}
+
+/* -------------------------------------------------------------- export/import -- */
+
+export interface ConversationExport {
+  conversation: Conversation;
+  messages: Message[];
+  exported_at: string;
+}
+
+export function exportConversation(id: string): Promise<ConversationExport> {
+  return request<ConversationExport>(`/api/conversations/${id}/export`);
+}
+
+export function importConversation(body: {
+  title?: string | null;
+  mode?: "chat" | "coding";
+  model_id?: string | null;
+  messages: Array<{
+    role: "user" | "assistant";
+    content: string;
+    created_at?: string | null;
+    model_id?: string | null;
+    tokens_in?: number | null;
+    tokens_out?: number | null;
+  }>;
+}): Promise<Conversation> {
+  return request<Conversation>("/api/conversations/import", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+/* ------------------------------------------------------------ agent undo / discover -- */
+
+export function undoAgentStep(
+  conversationId: string,
+  messageId: string,
+  seq: number,
+): Promise<{ ok: boolean; output: string }> {
+  return request<{ ok: boolean; output: string }>("/api/agent/undo", {
+    method: "POST",
+    body: JSON.stringify({ conversation_id: conversationId, message_id: messageId, seq }),
+  });
+}
+
+export function discoverProviderModels(id: string): Promise<{ added: number; existing: number; models: Model[] }> {
+  return request<{ added: number; existing: number; models: Model[] }>(`/api/providers/${id}/discover`, {
+    method: "POST",
   });
 }

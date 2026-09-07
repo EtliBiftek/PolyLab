@@ -20,7 +20,12 @@
     "pin": "Sabitle",
     "unpin": "Sabitlemeyi kaldır",
     "codingConversations": "Kodlama sohbetleri",
-    "renameHint": "Sohbeti yeniden adlandır"
+    "renameHint": "Sohbeti yeniden adlandır",
+    "exportJson": "JSON olarak dışa aktar",
+    "exportMarkdown": "Markdown olarak dışa aktar",
+    "import": "Sohbeti içe aktar",
+    "searching": "Mesajlar aranıyor…",
+    "noMessageMatches": "Eşleşen mesaj yok."
   },
   "topbar": {
     "workspace": "PolyLab",
@@ -99,7 +104,12 @@
     "race": {
       "model": "Model",
       "thinking": "düşünüyor…"
-    }
+    },
+    "fallbackBadge": "{{from}} yerine geçti",
+    "fallbackNotice": "Yedek: {{from}} başarısız oldu → {{to}} yanıtladı",
+    "fallbackPick": "Yedek model seç",
+    "fallbackLabel": "Yedek model",
+    "fallbackNone": "Yedek yok (hatayı göster)"
   },
   "thinking": {
     "title": "Düşünme süreci · {{chars}} karakter",
@@ -241,7 +251,21 @@
       "existingDesc": "Tartışma sohbetleri için yeniden kullanılabilir model setleri.",
       "noGroups": "Henüz grup yok."
     },
-    "noKeys": "Henüz API anahtarı yapılandırılmadı."
+    "noKeys": "Henüz API anahtarı yapılandırılmadı.",
+    "cost": "Maliyet",
+    "costSubtitle": "Aylık, modele ve sohbete göre kullanım maliyeti",
+    "monthlyBudget": "Aylık bütçe (USD)",
+    "budgetHint": "Bu tutarı aşan ay için uyarı gösterir. Boş bırakılırsa kapanır.",
+    "statsTotal": "Toplam",
+    "statsMonthly": "Aylık",
+    "statsModels": "Modele göre",
+    "statsConversations": "Sohbetlere göre",
+    "refreshStats": "Yenile",
+    "noCostData": "Henüz kullanım yok — ilk yanıt ve model fiyatlandırmasından sonra maliyet görünür.",
+    "discover": "Modelleri tara",
+    "discovering": "Taranıyor…",
+    "discovered": "{{added}} eklendi, {{existing}} güncellendi",
+    "discoverHint": "Ollama / LM Studio yerel modellerini çek ve yeteneklerini doldur."
   },
   "common": {
     "close": "Kapat",
@@ -296,7 +320,16 @@
     "reject": "Reddet",
     "autoApprove": "Otomatik onay",
     "autoApproveHint": "Ajanın dosya yazma/silme ve komut çalıştırma adımlarını onay istemeden uygular.",
-    "approvalDiff": "Değişiklik farkı"
+    "approvalDiff": "Değişiklik farkı",
+    "settings": "Ajan",
+    "settingsHint": "Plan modu, onaylar ve geri alma",
+    "planMode": "Plan modu (önce planla, sonda özetle)",
+    "approvalProfile": "Onaylar",
+    "profileAll": "Her araç",
+    "profileMutating": "Sadece değişiklikler (varsayılan)",
+    "profileGit": "Sadece git commit",
+    "profileNever": "Hiç sorma",
+    "undo": "Bu adımı geri al"
   },
   "files": {
     "tab": "Dosyalar",
@@ -323,6 +356,54 @@
     "switchCoding": "PolyWork'e geç",
     "togglePanel": "Sağ paneli aç/kapat",
     "settings": "Ayarları aç",
-    "noResults": "Sonuç yok"
+    "noResults": "Sonuç yok",
+    "comparisons": "Karşılaştırmaları aç",
+    "compare": "Yarışı karşılaştırma olarak kaydet",
+    "messages": "Mesajlar",
+    "searchMessages": "Tüm mesajlarda ara…",
+    "noMessageHits": "Eşleşen mesaj yok."
+  },
+  "markdown": {
+    "mermaidLoading": "Diyagram çiziliyor…",
+    "mermaidError": "Diyagram çizilemedi — kaynak gösteriliyor",
+    "mermaidUnsupported": "Diyagram önizlemesi yok"
+  },
+  "race": {
+    "saved": "Karşılaştırma kaydedildi.",
+    "saving": "Karşılaştırma kaydediliyor…",
+    "saveFailed": "Karşılaştırma kaydedilemedi.",
+    "winner": "Kazanan",
+    "markWinner": "Kazanan olarak işaretle",
+    "winnerLabel": "Seçili kazanan",
+    "collapsed": "gizlendi",
+    "showLosers": "{{count}} tane daha göster",
+    "hideLosers": "Diğer yanıtları gizle"
+  },
+  "voice": {
+    "record": "Ses kaydet",
+    "stopRecord": "Durdur ve çevir",
+    "recording": "Kaydediliyor…",
+    "transcribing": "Çevriliyor…",
+    "speak": "Sesli oku",
+    "stopSpeak": "Durdur",
+    "transcribeError": "Sesli giriş başarısız",
+    "speakError": "Sesli okuma başarısız",
+    "keyTitle": "Sesli giriş için OpenAI API anahtarı gerekli",
+    "keyHint": "PolyLab kaydınızı çevirmek için OpenAI sağlayıcısına gönderir. Aşağıya bir anahtar yapıştırın — uygulamanın gizli deposunda saklanır.",
+    "keyPlaceholder": "sk-…",
+    "keySave": "Anahtarı kaydet",
+    "keyInvalid": "Önce bir anahtar girin."
+  },
+  "comparisons": {
+    "title": "Karşılaştırmalar",
+    "empty": "Henüz kayıtlı karşılaştırma yok. Bir model yarışında ya da münazarada kazananı işaretleyerek kaydedin.",
+    "question": "Soru",
+    "entries": "Yanıtlar",
+    "winner": "Kazanan",
+    "noWinner": "Henüz kazanan yok",
+    "delete": "Karşılaştırmayı sil",
+    "deleted": "Silindi",
+    "model": "Model",
+    "cost": "Maliyet"
   }
 }

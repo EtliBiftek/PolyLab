@@ -12,9 +12,13 @@ interface SettingsState {
   mode: Mode;
   rightPanelOpen: boolean;
   settingsOpen: boolean;
+  /** Section to open when the settings modal is requested (session only). */
+  settingsRequest: "general" | "providers" | "groups" | "cost" | null;
   sidebarCollapsed: boolean;
   /** Command palette (⌘K) visibility. */
   paletteOpen: boolean;
+  /** Persistent model-comparison browser visibility. */
+  comparisonsOpen: boolean;
   /** Model used for the next new conversation (single-model selection). */
   lastModelId: string | null;
   /** Composer: Enter sends the message (Shift+Enter always inserts a newline). */
@@ -23,17 +27,23 @@ interface SettingsState {
   showTimestamps: boolean;
   /** Web search for the next turns (OpenRouter web plugin). */
   webSearch: boolean;
+  /** Monthly usage budget in USD; null = no warning. */
+  monthlyBudgetUsd: number | null;
   setLanguage: (language: AppLanguage) => void;
   setTheme: (theme: Theme) => void;
   setMode: (mode: Mode) => void;
   toggleRightPanel: () => void;
   setSettingsOpen: (open: boolean) => void;
+  /** Opens settings on the given tab (closes on next request). */
+  requestSettings: (section: "general" | "providers" | "groups" | "cost") => void;
   setPaletteOpen: (open: boolean) => void;
+  setComparisonsOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   setLastModelId: (modelId: string | null) => void;
   setSendOnEnter: (enabled: boolean) => void;
   setShowTimestamps: (enabled: boolean) => void;
   setWebSearch: (enabled: boolean) => void;
+  setMonthlyBudgetUsd: (usd: number | null) => void;
 }
 
 export const useSettings = create<SettingsState>()(
@@ -44,12 +54,15 @@ export const useSettings = create<SettingsState>()(
       mode: "chat",
       rightPanelOpen: false,
       settingsOpen: false,
+      settingsRequest: null,
       sidebarCollapsed: false,
       paletteOpen: false,
+      comparisonsOpen: false,
       lastModelId: null,
       sendOnEnter: true,
       showTimestamps: false,
       webSearch: false,
+      monthlyBudgetUsd: null,
       setLanguage: (language) => {
         void i18n.changeLanguage(language);
         set({ language });
@@ -61,12 +74,15 @@ export const useSettings = create<SettingsState>()(
       setMode: (mode) => set({ mode }),
       toggleRightPanel: () => set((state) => ({ rightPanelOpen: !state.rightPanelOpen })),
       setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+      requestSettings: (settingsRequest) => set({ settingsRequest, settingsOpen: true }),
       setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
+      setComparisonsOpen: (comparisonsOpen) => set({ comparisonsOpen }),
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setLastModelId: (lastModelId) => set({ lastModelId }),
       setSendOnEnter: (sendOnEnter) => set({ sendOnEnter }),
       setShowTimestamps: (showTimestamps) => set({ showTimestamps }),
       setWebSearch: (webSearch) => set({ webSearch }),
+      setMonthlyBudgetUsd: (monthlyBudgetUsd) => set({ monthlyBudgetUsd }),
     }),
     {
       name: "polylab-settings",
@@ -79,6 +95,7 @@ export const useSettings = create<SettingsState>()(
         sendOnEnter: state.sendOnEnter,
         showTimestamps: state.showTimestamps,
         webSearch: state.webSearch,
+        monthlyBudgetUsd: state.monthlyBudgetUsd,
       }),
     },
   ),
