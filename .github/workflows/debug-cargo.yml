@@ -6,10 +6,11 @@ on:
       - "arena/01a07595-polylab"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   debug:
+    if: ${{ !contains(github.event.head_commit.message, '[ci-log]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +35,12 @@ jobs:
         working-directory: core
         run: cargo build 2>&1 | tee -a /tmp/cargo-all.log || true
 
-      - name: Emit annotations
+      - name: Upload log to the branch [ci-log]
         run: |
-          echo "::error title=cargo-tail::$(tail -c 12000 /tmp/cargo-all.log | base64 -w0)"
+          mkdir -p ci-debug
+          cp /tmp/cargo-all.log ci-debug/cargo-all.log
+          git config user.email "ci-debug@example.com"
+          git config user.name "ci-debug"
+          git add -f ci-debug/cargo-all.log
+          git commit -m "ci: upload cargo log [ci-log]"
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git HEAD:arena/01a07595-polylab
