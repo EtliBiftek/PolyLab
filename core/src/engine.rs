@@ -459,6 +459,8 @@ impl ChatEngine {
         quote_old: Option<String>,
         cancel: CancellationToken,
     ) -> anyhow::Result<()> {
+        let conversation_id = conversation.id.clone();
+        let now = storage::now_rfc3339();
         // --- group send → debate engine (plan §5.2) -----------------------------
         if conversation.selection_type == "group" {
             return self.run_debate(conversation, web, quote_old, cancel).await;
@@ -495,7 +497,7 @@ impl ChatEngine {
                 "SELECT role, content FROM messages
                  WHERE conversation_id = ? ORDER BY created_at ASC, rowid ASC",
             )
-            .bind(conversation_id)
+            .bind(&conversation_id)
             .fetch_all(&self.db)
             .await?;
             let mut history: Vec<ChatMessage> = history
@@ -573,7 +575,7 @@ impl ChatEngine {
             "SELECT role, content FROM messages
              WHERE conversation_id = ? ORDER BY created_at ASC, rowid ASC",
         )
-        .bind(conversation_id)
+        .bind(&conversation_id)
         .fetch_all(&self.db)
         .await?;
 
@@ -658,14 +660,14 @@ impl ChatEngine {
              VALUES (?, ?, 'assistant', '', ?, ?)",
         )
         .bind(&message_id)
-        .bind(conversation_id)
+        .bind(&conversation_id)
         .bind(&model.id)
         .bind(&now)
         .execute(&self.db)
         .await?;
 
         self.emit(ServerEvent::MessageStart {
-            conversation_id: conversation_id.to_string(),
+            conversation_id: conversation_id.clone(),
             message_id: message_id.clone(),
             model_id: model.id.clone(),
             mode: ChatMode::Single,
@@ -686,7 +688,7 @@ impl ChatEngine {
                                 ChatEvent::TextDelta(delta) => {
                                     result.text.push_str(&delta);
                                     self.emit(ServerEvent::Token {
-                                        conversation_id: conversation_id.to_string(),
+                                        conversation_id: conversation_id.clone(),
                                         message_id: message_id.clone(),
                                         delta,
                                     });
@@ -694,7 +696,7 @@ impl ChatEngine {
                                 ChatEvent::ReasoningDelta(delta) if think_mode => {
                                     result.reasoning.push_str(&delta);
                                     self.emit(ServerEvent::ReasoningToken {
-                                        conversation_id: conversation_id.to_string(),
+                                        conversation_id: conversation_id.clone(),
                                         message_id: message_id.clone(),
                                         model_id: model.id.clone(),
                                         delta,
@@ -705,7 +707,7 @@ impl ChatEngine {
                                     if result.resolved_model.is_none() {
                                         result.resolved_model = Some(resolved.clone());
                                         self.emit(ServerEvent::ModelResolved {
-                                            conversation_id: conversation_id.to_string(),
+                                            conversation_id: conversation_id.clone(),
                                             message_id: message_id.clone(),
                                             model_id: resolved,
                                         });
@@ -763,12 +765,12 @@ impl ChatEngine {
         .await?;
         sqlx::query("UPDATE conversations SET updated_at = ? WHERE id = ?")
             .bind(&finished_at)
-            .bind(conversation_id)
+            .bind(&conversation_id)
             .execute(&self.db)
             .await?;
 
         self.emit(ServerEvent::Usage {
-            conversation_id: conversation_id.to_string(),
+            conversation_id: conversation_id.clone(),
             message_id: message_id.clone(),
             tokens_in: usage.tokens_in,
             tokens_out: usage.tokens_out,
@@ -776,21 +778,21 @@ impl ChatEngine {
         });
         if let Some(detail) = result.error {
             self.emit(ServerEvent::Error {
-                conversation_id: Some(conversation_id.to_string()),
+                conversation_id: Some(conversation_id.clone()),
                 message_id: Some(message_id.clone()),
                 code: ErrorCode::ProviderError,
                 detail,
             });
         }
         self.emit(ServerEvent::MessageDone {
-            conversation_id: conversation_id.to_string(),
+            conversation_id: conversation_id.clone(),
             message_id,
             status,
         });
 
         // Replace the cheap auto title with a model-generated one (best effort).
         if status == MessageStatus::Done && conversation.auto_title {
-            self.generate_title(conversation_id, provider_impl.as_ref(), &model, &content).await;
+            self.generate_title(&conversation_id, provider_impl.as_ref(), &model, &content).await;
         }
         Ok(())
     }
