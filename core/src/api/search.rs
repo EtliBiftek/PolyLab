@@ -16,7 +16,6 @@ pub struct SearchQuery {
     pub limit: Option<i64>,
 }
 
-#[derive(Serialize)]
 /// Raw `messages_fts` join row (keeps the multi-column query readable for clippy).
 type SearchRow = (
     String,
@@ -29,6 +28,7 @@ type SearchRow = (
     f64,
 );
 
+#[derive(Serialize)]
 pub struct SearchHit {
     pub message_id: String,
     pub conversation_id: String,
