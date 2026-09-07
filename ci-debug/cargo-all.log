@@ -1,0 +1,567 @@
+[1m[92m    Updating[0m crates.io index
+[1m[92m     Locking[0m 2 packages to latest compatible versions
+[1m[92m      Adding[0m mime_guess v2.0.5
+[1m[92m      Adding[0m unicase v2.9.0
+[1m[92m   Compiling[0m polylab-core v0.1.0 (/home/runner/work/PolyLab/PolyLab/core)
+[1m[91merror[0m[1m: 3 positional arguments in format string, but there are 2 arguments[0m
+   [1m[94m--> [0msrc/agent/mod.rs:161:33
+    [1m[94m|[0m
+[1m[94m161[0m [1m[94m|[0m   [1m[94m...[0m   "{system_prompt}\n\n{}\n\n{}{}\n\n# Çalışma alanı\n{overview}",
+    [1m[94m|[0m                             [1m[91m^^[0m    [1m[91m^^^^[0m
+[1m[94m162[0m [1m[94m|[0m   [1m[94m...[0m   crate::prompts::capability_notice(),
+    [1m[94m|[0m         [1m[94m-----------------------------------[0m
+[1m[94m163[0m [1m[94m|[0m [1m[94m/[0m [1m[94m...[0m   if conversation.agent_plan_mode {
+[1m[94m164[0m [1m[94m|[0m [1m[94m|[0m [1m[94m...[0m       "\n\nPlan modu AÇIK: harekete geçmeden önce kısa, numaralı bir plan yaz;\nher adımı uygularken plana atıf et ve görev b[1m[94m...[0m
+[1m[94m165[0m [1m[94m|[0m [1m[94m|[0m [1m[94m...[0m   } else {
+[1m[94m166[0m [1m[94m|[0m [1m[94m|[0m [1m[94m...[0m       ""
+[1m[94m167[0m [1m[94m|[0m [1m[94m|[0m [1m[94m...[0m   },
+    [1m[94m|[0m [1m[94m|_______-[0m
+
+[1m[91merror[E0432][0m[1m: unresolved imports `crate::storage::ComparisonDetail`, `crate::storage::ComparisonEntryRow`, `crate::storage::ComparisonRow`[0m
+   [1m[94m--> [0msrc/api/comparisons.rs:11:35
+    [1m[94m|[0m
+[1m[94m 11[0m [1m[94m|[0m use crate::storage::{now_rfc3339, ComparisonDetail, ComparisonEntryRow, ComparisonRow};
+    [1m[94m|[0m                                   [1m[91m^^^^^^^^^^^^^^^^[0m  [1m[91m^^^^^^^^^^^^^^^^^^[0m  [1m[91m^^^^^^^^^^^^^[0m [1m[91mno `ComparisonRow` in `storage`[0m
+    [1m[94m|[0m                                   [1m[91m|[0m                 [1m[91m|[0m
+    [1m[94m|[0m                                   [1m[91m|[0m                 [1m[91mno `ComparisonEntryRow` in `storage`[0m
+    [1m[94m|[0m                                   [1m[91mno `ComparisonDetail` in `storage`[0m
+    [1m[94m|[0m
+[1m[92mnote[0m: struct `crate::storage::types::ComparisonDetail` exists but is inaccessible
+   [1m[94m--> [0msrc/storage/types.rs:262:1
+    [1m[94m|[0m
+[1m[94m262[0m [1m[94m|[0m pub struct ComparisonDetail {
+    [1m[94m|[0m [1m[92m^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[92mnot accessible[0m
+[1m[92mnote[0m: struct `crate::storage::types::ComparisonEntryRow` exists but is inaccessible
+   [1m[94m--> [0msrc/storage/types.rs:247:1
+    [1m[94m|[0m
+[1m[94m247[0m [1m[94m|[0m pub struct ComparisonEntryRow {
+    [1m[94m|[0m [1m[92m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[92mnot accessible[0m
+[1m[92mnote[0m: struct `crate::storage::types::ComparisonRow` exists but is inaccessible
+   [1m[94m--> [0msrc/storage/types.rs:237:1
+    [1m[94m|[0m
+[1m[94m237[0m [1m[94m|[0m pub struct ComparisonRow {
+    [1m[94m|[0m [1m[92m^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[92mnot accessible[0m
+
+[1m[33mwarning[0m[1m: unused import: `Serialize`[0m
+ [1m[94m--> [0msrc/api/comparisons.rs:6:26
+  [1m[94m|[0m
+[1m[94m6[0m [1m[94m|[0m use serde::{Deserialize, Serialize};
+  [1m[94m|[0m                          [1m[33m^^^^^^^^^[0m
+  [1m[94m|[0m
+  [1m[94m= [0m[1mnote[0m: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+[1m[91merror[E0728][0m[1m: `await` is only allowed inside `async` functions and blocks[0m
+  [1m[94m--> [0msrc/api/comparisons.rs:44:10
+   [1m[94m|[0m
+[1m[94m40[0m [1m[94m|[0m fn load_detail(state: &AppState, id: &str) -> Result<ComparisonDetail, ApiError> {
+   [1m[94m|[0m [1m[94m--------------------------------------------------------------------------------[0m [1m[94mthis is not `async`[0m
+[1m[94m...[0m
+[1m[94m44[0m [1m[94m|[0m         .await?
+   [1m[94m|[0m          [1m[91m^^^^^[0m [1m[91monly allowed inside `async` functions and blocks[0m
+
+[1m[91merror[E0728][0m[1m: `await` is only allowed inside `async` functions and blocks[0m
+  [1m[94m--> [0msrc/api/comparisons.rs:51:6
+   [1m[94m|[0m
+[1m[94m40[0m [1m[94m|[0m fn load_detail(state: &AppState, id: &str) -> Result<ComparisonDetail, ApiError> {
+   [1m[94m|[0m [1m[94m--------------------------------------------------------------------------------[0m [1m[94mthis is not `async`[0m
+[1m[94m...[0m
+[1m[94m51[0m [1m[94m|[0m     .await?;
+   [1m[94m|[0m      [1m[91m^^^^^[0m [1m[91monly allowed inside `async` functions and blocks[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+  [1m[94m--> [0msrc/api/audio.rs:89:45
+   [1m[94m|[0m
+[1m[94m89[0m [1m[94m|[0m         .map_err(|error| ApiError::internal(format!("ses sentezi isteği başarısız: {error}")))?;
+   [1m[94m|[0m                                             [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+  [1m[94m--> [0msrc/api/audio.rs:93:39
+   [1m[94m|[0m
+[1m[94m48[0m [1m[94m|[0m   ) -> Result<Json<SpeechResponse>, ApiError> {
+   [1m[94m|[0m        [1m[94m--------------------------------------[0m [1m[94mexpected `anyhow::Error` because of return type[0m
+[1m[94m...[0m
+[1m[94m93[0m [1m[94m|[0m           return Err(ApiError::internal(format!(
+   [1m[94m|[0m [1m[91m _______________________________________^[0m
+[1m[94m94[0m [1m[94m|[0m [1m[91m|[0m             "ses sentezi hatası ({status}): {detail}"
+[1m[94m95[0m [1m[94m|[0m [1m[91m|[0m         )));
+   [1m[94m|[0m [1m[91m|_________^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+   [1m[94m--> [0msrc/api/audio.rs:100:45
+    [1m[94m|[0m
+[1m[94m100[0m [1m[94m|[0m         .map_err(|error| ApiError::internal(format!("ses yanıtı okunamadı: {error}")))?;
+    [1m[94m|[0m                                             [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+   [1m[94m--> [0msrc/api/audio.rs:170:45
+    [1m[94m|[0m
+[1m[94m170[0m [1m[94m|[0m         .map_err(|error| ApiError::internal(format!("ses tanıma isteği başarısız: {error}")))?;
+    [1m[94m|[0m                                             [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+   [1m[94m--> [0msrc/api/audio.rs:175:45
+    [1m[94m|[0m
+[1m[94m175[0m [1m[94m|[0m         .map_err(|error| ApiError::internal(format!("ses tanıma yanıtı okunamadı: {error}")))?;
+    [1m[94m|[0m                                             [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+   [1m[94m--> [0msrc/api/audio.rs:177:39
+    [1m[94m|[0m
+[1m[94m117[0m [1m[94m|[0m   ) -> Result<Json<TranscribeResponse>, ApiError> {
+    [1m[94m|[0m        [1m[94m------------------------------------------[0m [1m[94mexpected `anyhow::Error` because of return type[0m
+[1m[94m...[0m
+[1m[94m177[0m [1m[94m|[0m           return Err(ApiError::internal(format!(
+    [1m[94m|[0m [1m[91m _______________________________________^[0m
+[1m[94m178[0m [1m[94m|[0m [1m[91m|[0m             "ses tanıma hatası ({status}): {}",
+[1m[94m179[0m [1m[94m|[0m [1m[91m|[0m             value.get("error").and_then(|e| e["message"].as_str()).unwrap_or("bilinmeyen hata")
+[1m[94m180[0m [1m[94m|[0m [1m[91m|[0m         )));
+    [1m[94m|[0m [1m[91m|_________^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0507][0m[1m: cannot move out of dereference of `Json<ConversationDetail>`[0m
+   [1m[94m--> [0msrc/api/conversations.rs:347:23
+    [1m[94m|[0m
+[1m[94m347[0m [1m[94m|[0m         conversation: detail.conversation,
+    [1m[94m|[0m                       [1m[91m^^^^^^^^^^^^^^^^^^^[0m [1m[91mmove occurs because value has type `Conversation`, which does not implement the `Copy` trait[0m
+    [1m[94m|[0m
+[1m[96mhelp[0m: consider cloning the value if the performance cost is acceptable
+    [1m[94m|[0m
+[1m[94m347[0m [1m[94m| [0m        conversation: detail.conversation[92m.clone()[0m,
+    [1m[94m|[0m                                          [92m++++++++[0m
+
+[1m[91merror[E0507][0m[1m: cannot move out of dereference of `Json<ConversationDetail>`[0m
+   [1m[94m--> [0msrc/api/conversations.rs:348:19
+    [1m[94m|[0m
+[1m[94m348[0m [1m[94m|[0m         messages: detail.messages,
+    [1m[94m|[0m                   [1m[91m^^^^^^^^^^^^^^^[0m [1m[91mmove occurs because value has type `Vec<storage::types::Message>`, which does not implement the `Copy` trait[0m
+    [1m[94m|[0m
+[1m[96mhelp[0m: consider cloning the value if the performance cost is acceptable
+    [1m[94m|[0m
+[1m[94m348[0m [1m[94m| [0m        messages: detail.messages[92m.clone()[0m,
+    [1m[94m|[0m                                  [92m++++++++[0m
+
+[1m[91merror[E0507][0m[1m: cannot move out of dereference of `axum::Json<ConversationDetail>`[0m
+   [1m[94m--> [0msrc/api/conversations.rs:347:23
+    [1m[94m|[0m
+[1m[94m347[0m [1m[94m|[0m         conversation: detail.conversation,
+    [1m[94m|[0m                       [1m[91m^^^^^^^^^^^^^^^^^^^[0m [1m[91mmove occurs because value has type `storage::types::Conversation`, which does not implement the `Copy` trait[0m
+    [1m[94m|[0m
+[1m[96mhelp[0m: consider cloning the value if the performance cost is acceptable
+    [1m[94m|[0m
+[1m[94m347[0m [1m[94m| [0m        conversation: detail.conversation[92m.clone()[0m,
+    [1m[94m|[0m                                          [92m++++++++[0m
+
+[1m[91merror[E0507][0m[1m: cannot move out of dereference of `axum::Json<ConversationDetail>`[0m
+   [1m[94m--> [0msrc/api/conversations.rs:348:19
+    [1m[94m|[0m
+[1m[94m348[0m [1m[94m|[0m         messages: detail.messages,
+    [1m[94m|[0m                   [1m[91m^^^^^^^^^^^^^^^[0m [1m[91mmove occurs because value has type `Vec<storage::types::Message>`, which does not implement the `Copy` trait[0m
+    [1m[94m|[0m
+[1m[96mhelp[0m: consider cloning the value if the performance cost is acceptable
+    [1m[94m|[0m
+[1m[94m348[0m [1m[94m| [0m        messages: detail.messages[92m.clone()[0m,
+    [1m[94m|[0m                                  [92m++++++++[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+   [1m[94m--> [0msrc/api/providers.rs:520:45
+    [1m[94m|[0m
+[1m[94m520[0m [1m[94m|[0m         .map_err(|error| ApiError::internal(format!("{kind_label} yanıtı okunamadı: {error}")))?;
+    [1m[94m|[0m                                             [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0425][0m[1m: cannot find function `summarize_cut` in this scope[0m
+   [1m[94m--> [0msrc/engine.rs:928:19
+    [1m[94m|[0m
+[1m[94m928[0m [1m[94m|[0m         let cut = summarize_cut(&messages, HISTORY_TOKEN_BUDGET);
+    [1m[94m|[0m                   [1m[91m^^^^^^^^^^^^^[0m [1m[91mnot found in this scope[0m
+    [1m[94m|[0m
+[1m[96mhelp[0m: consider using the associated function on `Self`
+    [1m[94m|[0m
+[1m[94m928[0m [1m[94m| [0m        let cut = [92mSelf::[0msummarize_cut(&messages, HISTORY_TOKEN_BUDGET);
+    [1m[94m|[0m                   [92m++++++[0m
+
+[1m[91merror[E0425][0m[1m: cannot find function `summarize_cut` in this scope[0m
+    [1m[94m--> [0msrc/engine.rs:1568:20
+     [1m[94m|[0m
+[1m[94m1568[0m [1m[94m|[0m         assert_eq!(summarize_cut(&small, 16_000), 1);
+     [1m[94m|[0m                    [1m[91m^^^^^^^^^^^^^[0m [1m[91mnot found in this scope[0m
+
+[1m[91merror[E0425][0m[1m: cannot find function `summarize_cut` in this scope[0m
+    [1m[94m--> [0msrc/engine.rs:1575:19
+     [1m[94m|[0m
+[1m[94m1575[0m [1m[94m|[0m         let cut = summarize_cut(&big, 4_000);
+     [1m[94m|[0m                   [1m[91m^^^^^^^^^^^^^[0m [1m[91mnot found in this scope[0m
+
+[1mSome errors have detailed explanations: E0308, E0425, E0432, E0507, E0728.[0m
+[1mFor more information about an error, try `rustc --explain E0308`.[0m
+[1m[33mwarning[0m: `polylab-core` (lib) generated 1 warning
+[1m[91merror[0m: could not compile `polylab-core` (lib) due to 14 previous errors; 1 warning emitted
+[1m[33mwarning[0m: build failed, waiting for other jobs to finish...
+[1m[33mwarning[0m: `polylab-core` (lib test) generated 1 warning (1 duplicate)
+[1m[91merror[0m: could not compile `polylab-core` (lib test) due to 16 previous errors; 1 warning emitted
+[1m[92m    Checking[0m polylab-core v0.1.0 (/home/runner/work/PolyLab/PolyLab/core)
+[1m[91merror[0m[1m: 3 positional arguments in format string, but there are 2 arguments[0m
+   [1m[94m--> [0msrc/agent/mod.rs:161:33
+    [1m[94m|[0m
+[1m[94m161[0m [1m[94m|[0m   [1m[94m...[0m   "{system_prompt}\n\n{}\n\n{}{}\n\n# Çalışma alanı\n{overview}",
+    [1m[94m|[0m                             [1m[91m^^[0m    [1m[91m^^^^[0m
+[1m[94m162[0m [1m[94m|[0m   [1m[94m...[0m   crate::prompts::capability_notice(),
+    [1m[94m|[0m         [1m[94m-----------------------------------[0m
+[1m[94m163[0m [1m[94m|[0m [1m[94m/[0m [1m[94m...[0m   if conversation.agent_plan_mode {
+[1m[94m164[0m [1m[94m|[0m [1m[94m|[0m [1m[94m...[0m       "\n\nPlan modu AÇIK: harekete geçmeden önce kısa, numaralı bir plan yaz;\nher adımı uygularken plana atıf et ve görev b[1m[94m...[0m
+[1m[94m165[0m [1m[94m|[0m [1m[94m|[0m [1m[94m...[0m   } else {
+[1m[94m166[0m [1m[94m|[0m [1m[94m|[0m [1m[94m...[0m       ""
+[1m[94m167[0m [1m[94m|[0m [1m[94m|[0m [1m[94m...[0m   },
+    [1m[94m|[0m [1m[94m|_______-[0m
+
+[1m[91merror[E0432][0m[1m: unresolved imports `crate::storage::ComparisonDetail`, `crate::storage::ComparisonEntryRow`, `crate::storage::ComparisonRow`[0m
+   [1m[94m--> [0msrc/api/comparisons.rs:11:35
+    [1m[94m|[0m
+[1m[94m 11[0m [1m[94m|[0m use crate::storage::{now_rfc3339, ComparisonDetail, ComparisonEntryRow, ComparisonRow};
+    [1m[94m|[0m                                   [1m[91m^^^^^^^^^^^^^^^^[0m  [1m[91m^^^^^^^^^^^^^^^^^^[0m  [1m[91m^^^^^^^^^^^^^[0m [1m[91mno `ComparisonRow` in `storage`[0m
+    [1m[94m|[0m                                   [1m[91m|[0m                 [1m[91m|[0m
+    [1m[94m|[0m                                   [1m[91m|[0m                 [1m[91mno `ComparisonEntryRow` in `storage`[0m
+    [1m[94m|[0m                                   [1m[91mno `ComparisonDetail` in `storage`[0m
+    [1m[94m|[0m
+[1m[92mnote[0m: struct `crate::storage::types::ComparisonDetail` exists but is inaccessible
+   [1m[94m--> [0msrc/storage/types.rs:262:1
+    [1m[94m|[0m
+[1m[94m262[0m [1m[94m|[0m pub struct ComparisonDetail {
+    [1m[94m|[0m [1m[92m^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[92mnot accessible[0m
+[1m[92mnote[0m: struct `crate::storage::types::ComparisonEntryRow` exists but is inaccessible
+   [1m[94m--> [0msrc/storage/types.rs:247:1
+    [1m[94m|[0m
+[1m[94m247[0m [1m[94m|[0m pub struct ComparisonEntryRow {
+    [1m[94m|[0m [1m[92m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[92mnot accessible[0m
+[1m[92mnote[0m: struct `crate::storage::types::ComparisonRow` exists but is inaccessible
+   [1m[94m--> [0msrc/storage/types.rs:237:1
+    [1m[94m|[0m
+[1m[94m237[0m [1m[94m|[0m pub struct ComparisonRow {
+    [1m[94m|[0m [1m[92m^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[92mnot accessible[0m
+
+[1m[91merror[0m[1m: duplicated attribute[0m
+   [1m[94m--> [0msrc/agent/mod.rs:492:9
+    [1m[94m|[0m
+[1m[94m492[0m [1m[94m|[0m #[allow(clippy::too_many_arguments)]
+    [1m[94m|[0m         [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+[1m[92mnote[0m: first defined here
+   [1m[94m--> [0msrc/agent/mod.rs:491:9
+    [1m[94m|[0m
+[1m[94m491[0m [1m[94m|[0m #[allow(clippy::too_many_arguments)]
+    [1m[94m|[0m         [1m[92m^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1m[96mhelp[0m: remove this attribute
+   [1m[94m--> [0msrc/agent/mod.rs:492:9
+    [1m[94m|[0m
+[1m[94m492[0m [1m[94m|[0m #[allow(clippy::too_many_arguments)]
+    [1m[94m|[0m         [1m[96m^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m= [0m[1mhelp[0m: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#duplicated_attributes
+    [1m[94m= [0m[1mnote[0m: `-D clippy::duplicated-attributes` implied by `-D warnings`
+    [1m[94m= [0m[1mhelp[0m: to override `-D warnings` add `#[allow(clippy::duplicated_attributes)]`
+
+[1m[91merror[0m[1m: duplicated attribute[0m
+   [1m[94m--> [0msrc/agent/mod.rs:728:9
+    [1m[94m|[0m
+[1m[94m728[0m [1m[94m|[0m #[allow(clippy::too_many_arguments)]
+    [1m[94m|[0m         [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m|[0m
+[1m[92mnote[0m: first defined here
+   [1m[94m--> [0msrc/agent/mod.rs:727:9
+    [1m[94m|[0m
+[1m[94m727[0m [1m[94m|[0m #[allow(clippy::too_many_arguments)]
+    [1m[94m|[0m         [1m[92m^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1m[96mhelp[0m: remove this attribute
+   [1m[94m--> [0msrc/agent/mod.rs:728:9
+    [1m[94m|[0m
+[1m[94m728[0m [1m[94m|[0m #[allow(clippy::too_many_arguments)]
+    [1m[94m|[0m         [1m[96m^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+    [1m[94m= [0m[1mhelp[0m: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#duplicated_attributes
+
+[1m[91merror[0m[1m: unused import: `Serialize`[0m
+ [1m[94m--> [0msrc/api/comparisons.rs:6:26
+  [1m[94m|[0m
+[1m[94m6[0m [1m[94m|[0m use serde::{Deserialize, Serialize};
+  [1m[94m|[0m                          [1m[91m^^^^^^^^^[0m
+  [1m[94m|[0m
+  [1m[94m= [0m[1mnote[0m: `-D unused-imports` implied by `-D warnings`
+  [1m[94m= [0m[1mhelp[0m: to override `-D warnings` add `#[allow(unused_imports)]`
+
+[1m[91merror[E0728][0m[1m: `await` is only allowed inside `async` functions and blocks[0m
+  [1m[94m--> [0msrc/api/comparisons.rs:44:10
+   [1m[94m|[0m
+[1m[94m40[0m [1m[94m|[0m fn load_detail(state: &AppState, id: &str) -> Result<ComparisonDetail, ApiError> {
+   [1m[94m|[0m [1m[94m--------------------------------------------------------------------------------[0m [1m[94mthis is not `async`[0m
+[1m[94m...[0m
+[1m[94m44[0m [1m[94m|[0m         .await?
+   [1m[94m|[0m          [1m[91m^^^^^[0m [1m[91monly allowed inside `async` functions and blocks[0m
+
+[1m[91merror[E0728][0m[1m: `await` is only allowed inside `async` functions and blocks[0m
+  [1m[94m--> [0msrc/api/comparisons.rs:51:6
+   [1m[94m|[0m
+[1m[94m40[0m [1m[94m|[0m fn load_detail(state: &AppState, id: &str) -> Result<ComparisonDetail, ApiError> {
+   [1m[94m|[0m [1m[94m--------------------------------------------------------------------------------[0m [1m[94mthis is not `async`[0m
+[1m[94m...[0m
+[1m[94m51[0m [1m[94m|[0m     .await?;
+   [1m[94m|[0m      [1m[91m^^^^^[0m [1m[91monly allowed inside `async` functions and blocks[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+  [1m[94m--> [0msrc/api/audio.rs:89:45
+   [1m[94m|[0m
+[1m[94m89[0m [1m[94m|[0m         .map_err(|error| ApiError::internal(format!("ses sentezi isteği başarısız: {error}")))?;
+   [1m[94m|[0m                                             [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+  [1m[94m--> [0msrc/api/audio.rs:93:39
+   [1m[94m|[0m
+[1m[94m48[0m [1m[94m|[0m   ) -> Result<Json<SpeechResponse>, ApiError> {
+   [1m[94m|[0m        [1m[94m--------------------------------------[0m [1m[94mexpected `anyhow::Error` because of return type[0m
+[1m[94m...[0m
+[1m[94m93[0m [1m[94m|[0m           return Err(ApiError::internal(format!(
+   [1m[94m|[0m [1m[91m _______________________________________^[0m
+[1m[94m94[0m [1m[94m|[0m [1m[91m|[0m             "ses sentezi hatası ({status}): {detail}"
+[1m[94m95[0m [1m[94m|[0m [1m[91m|[0m         )));
+   [1m[94m|[0m [1m[91m|_________^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+   [1m[94m--> [0msrc/api/audio.rs:100:45
+    [1m[94m|[0m
+[1m[94m100[0m [1m[94m|[0m         .map_err(|error| ApiError::internal(format!("ses yanıtı okunamadı: {error}")))?;
+    [1m[94m|[0m                                             [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+   [1m[94m--> [0msrc/api/audio.rs:170:45
+    [1m[94m|[0m
+[1m[94m170[0m [1m[94m|[0m         .map_err(|error| ApiError::internal(format!("ses tanıma isteği başarısız: {error}")))?;
+    [1m[94m|[0m                                             [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+   [1m[94m--> [0msrc/api/audio.rs:175:45
+    [1m[94m|[0m
+[1m[94m175[0m [1m[94m|[0m         .map_err(|error| ApiError::internal(format!("ses tanıma yanıtı okunamadı: {error}")))?;
+    [1m[94m|[0m                                             [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+   [1m[94m--> [0msrc/api/audio.rs:177:39
+    [1m[94m|[0m
+[1m[94m117[0m [1m[94m|[0m   ) -> Result<Json<TranscribeResponse>, ApiError> {
+    [1m[94m|[0m        [1m[94m------------------------------------------[0m [1m[94mexpected `anyhow::Error` because of return type[0m
+[1m[94m...[0m
+[1m[94m177[0m [1m[94m|[0m           return Err(ApiError::internal(format!(
+    [1m[94m|[0m [1m[91m _______________________________________^[0m
+[1m[94m178[0m [1m[94m|[0m [1m[91m|[0m             "ses tanıma hatası ({status}): {}",
+[1m[94m179[0m [1m[94m|[0m [1m[91m|[0m             value.get("error").and_then(|e| e["message"].as_str()).unwrap_or("bilinmeyen hata")
+[1m[94m180[0m [1m[94m|[0m [1m[91m|[0m         )));
+    [1m[94m|[0m [1m[91m|_________^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0507][0m[1m: cannot move out of dereference of `axum::Json<api::conversations::ConversationDetail>`[0m
+   [1m[94m--> [0msrc/api/conversations.rs:347:23
+    [1m[94m|[0m
+[1m[94m347[0m [1m[94m|[0m         conversation: detail.conversation,
+    [1m[94m|[0m                       [1m[91m^^^^^^^^^^^^^^^^^^^[0m [1m[91mmove occurs because value has type `storage::types::Conversation`, which does not implement the `Copy` trait[0m
+    [1m[94m|[0m
+[1m[96mhelp[0m: consider cloning the value if the performance cost is acceptable
+    [1m[94m|[0m
+[1m[94m347[0m [1m[94m| [0m        conversation: detail.conversation[92m.clone()[0m,
+    [1m[94m|[0m                                          [92m++++++++[0m
+
+[1m[91merror[E0507][0m[1m: cannot move out of dereference of `axum::Json<api::conversations::ConversationDetail>`[0m
+   [1m[94m--> [0msrc/api/conversations.rs:348:19
+    [1m[94m|[0m
+[1m[94m348[0m [1m[94m|[0m         messages: detail.messages,
+    [1m[94m|[0m                   [1m[91m^^^^^^^^^^^^^^^[0m [1m[91mmove occurs because value has type `std::vec::Vec<storage::types::Message>`, which does not implement the `Copy` trait[0m
+    [1m[94m|[0m
+[1m[96mhelp[0m: consider cloning the value if the performance cost is acceptable
+    [1m[94m|[0m
+[1m[94m348[0m [1m[94m| [0m        messages: detail.messages[92m.clone()[0m,
+    [1m[94m|[0m                                  [92m++++++++[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+   [1m[94m--> [0msrc/api/providers.rs:520:45
+    [1m[94m|[0m
+[1m[94m520[0m [1m[94m|[0m         .map_err(|error| ApiError::internal(format!("{kind_label} yanıtı okunamadı: {error}")))?;
+    [1m[94m|[0m                                             [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0425][0m[1m: cannot find function `summarize_cut` in this scope[0m
+   [1m[94m--> [0msrc/engine.rs:928:19
+    [1m[94m|[0m
+[1m[94m928[0m [1m[94m|[0m         let cut = summarize_cut(&messages, HISTORY_TOKEN_BUDGET);
+    [1m[94m|[0m                   [1m[91m^^^^^^^^^^^^^[0m [1m[91mnot found in this scope[0m
+    [1m[94m|[0m
+[1m[96mhelp[0m: consider using the associated function on `Self`
+    [1m[94m|[0m
+[1m[94m928[0m [1m[94m| [0m        let cut = [92mSelf::[0msummarize_cut(&messages, HISTORY_TOKEN_BUDGET);
+    [1m[94m|[0m                   [92m++++++[0m
+
+[1m[91merror[E0425][0m[1m: cannot find function `summarize_cut` in this scope[0m
+    [1m[94m--> [0msrc/engine.rs:1568:20
+     [1m[94m|[0m
+[1m[94m1568[0m [1m[94m|[0m         assert_eq!(summarize_cut(&small, 16_000), 1);
+     [1m[94m|[0m                    [1m[91m^^^^^^^^^^^^^[0m [1m[91mnot found in this scope[0m
+
+[1m[91merror[E0425][0m[1m: cannot find function `summarize_cut` in this scope[0m
+    [1m[94m--> [0msrc/engine.rs:1575:19
+     [1m[94m|[0m
+[1m[94m1575[0m [1m[94m|[0m         let cut = summarize_cut(&big, 4_000);
+     [1m[94m|[0m                   [1m[91m^^^^^^^^^^^^^[0m [1m[91mnot found in this scope[0m
+
+[1mSome errors have detailed explanations: E0308, E0425, E0432, E0507, E0728.[0m
+[1mFor more information about an error, try `rustc --explain E0308`.[0m
+[1m[91merror[0m: could not compile `polylab-core` (lib) due to 17 previous errors
+[1m[33mwarning[0m: build failed, waiting for other jobs to finish...
+[1m[91merror[0m: could not compile `polylab-core` (lib test) due to 19 previous errors
+[1m[92m   Compiling[0m polylab-core v0.1.0 (/home/runner/work/PolyLab/PolyLab/core)
+[1m[91merror[0m[1m: 3 positional arguments in format string, but there are 2 arguments[0m
+   [1m[94m--> [0msrc/agent/mod.rs:161:33
+    [1m[94m|[0m
+[1m[94m161[0m [1m[94m|[0m   [1m[94m...[0m   "{system_prompt}\n\n{}\n\n{}{}\n\n# Çalışma alanı\n{overview}",
+    [1m[94m|[0m                             [1m[91m^^[0m    [1m[91m^^^^[0m
+[1m[94m162[0m [1m[94m|[0m   [1m[94m...[0m   crate::prompts::capability_notice(),
+    [1m[94m|[0m         [1m[94m-----------------------------------[0m
+[1m[94m163[0m [1m[94m|[0m [1m[94m/[0m [1m[94m...[0m   if conversation.agent_plan_mode {
+[1m[94m164[0m [1m[94m|[0m [1m[94m|[0m [1m[94m...[0m       "\n\nPlan modu AÇIK: harekete geçmeden önce kısa, numaralı bir plan yaz;\nher adımı uygularken plana atıf et ve görev b[1m[94m...[0m
+[1m[94m165[0m [1m[94m|[0m [1m[94m|[0m [1m[94m...[0m   } else {
+[1m[94m166[0m [1m[94m|[0m [1m[94m|[0m [1m[94m...[0m       ""
+[1m[94m167[0m [1m[94m|[0m [1m[94m|[0m [1m[94m...[0m   },
+    [1m[94m|[0m [1m[94m|_______-[0m
+
+[1m[91merror[E0432][0m[1m: unresolved imports `crate::storage::ComparisonDetail`, `crate::storage::ComparisonEntryRow`, `crate::storage::ComparisonRow`[0m
+   [1m[94m--> [0msrc/api/comparisons.rs:11:35
+    [1m[94m|[0m
+[1m[94m 11[0m [1m[94m|[0m use crate::storage::{now_rfc3339, ComparisonDetail, ComparisonEntryRow, ComparisonRow};
+    [1m[94m|[0m                                   [1m[91m^^^^^^^^^^^^^^^^[0m  [1m[91m^^^^^^^^^^^^^^^^^^[0m  [1m[91m^^^^^^^^^^^^^[0m [1m[91mno `ComparisonRow` in `storage`[0m
+    [1m[94m|[0m                                   [1m[91m|[0m                 [1m[91m|[0m
+    [1m[94m|[0m                                   [1m[91m|[0m                 [1m[91mno `ComparisonEntryRow` in `storage`[0m
+    [1m[94m|[0m                                   [1m[91mno `ComparisonDetail` in `storage`[0m
+    [1m[94m|[0m
+[1m[92mnote[0m: struct `crate::storage::types::ComparisonDetail` exists but is inaccessible
+   [1m[94m--> [0msrc/storage/types.rs:262:1
+    [1m[94m|[0m
+[1m[94m262[0m [1m[94m|[0m pub struct ComparisonDetail {
+    [1m[94m|[0m [1m[92m^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[92mnot accessible[0m
+[1m[92mnote[0m: struct `crate::storage::types::ComparisonEntryRow` exists but is inaccessible
+   [1m[94m--> [0msrc/storage/types.rs:247:1
+    [1m[94m|[0m
+[1m[94m247[0m [1m[94m|[0m pub struct ComparisonEntryRow {
+    [1m[94m|[0m [1m[92m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[92mnot accessible[0m
+[1m[92mnote[0m: struct `crate::storage::types::ComparisonRow` exists but is inaccessible
+   [1m[94m--> [0msrc/storage/types.rs:237:1
+    [1m[94m|[0m
+[1m[94m237[0m [1m[94m|[0m pub struct ComparisonRow {
+    [1m[94m|[0m [1m[92m^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[92mnot accessible[0m
+
+[1m[33mwarning[0m[1m: unused import: `Serialize`[0m
+ [1m[94m--> [0msrc/api/comparisons.rs:6:26
+  [1m[94m|[0m
+[1m[94m6[0m [1m[94m|[0m use serde::{Deserialize, Serialize};
+  [1m[94m|[0m                          [1m[33m^^^^^^^^^[0m
+  [1m[94m|[0m
+  [1m[94m= [0m[1mnote[0m: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+[1m[91merror[E0728][0m[1m: `await` is only allowed inside `async` functions and blocks[0m
+  [1m[94m--> [0msrc/api/comparisons.rs:44:10
+   [1m[94m|[0m
+[1m[94m40[0m [1m[94m|[0m fn load_detail(state: &AppState, id: &str) -> Result<ComparisonDetail, ApiError> {
+   [1m[94m|[0m [1m[94m--------------------------------------------------------------------------------[0m [1m[94mthis is not `async`[0m
+[1m[94m...[0m
+[1m[94m44[0m [1m[94m|[0m         .await?
+   [1m[94m|[0m          [1m[91m^^^^^[0m [1m[91monly allowed inside `async` functions and blocks[0m
+
+[1m[91merror[E0728][0m[1m: `await` is only allowed inside `async` functions and blocks[0m
+  [1m[94m--> [0msrc/api/comparisons.rs:51:6
+   [1m[94m|[0m
+[1m[94m40[0m [1m[94m|[0m fn load_detail(state: &AppState, id: &str) -> Result<ComparisonDetail, ApiError> {
+   [1m[94m|[0m [1m[94m--------------------------------------------------------------------------------[0m [1m[94mthis is not `async`[0m
+[1m[94m...[0m
+[1m[94m51[0m [1m[94m|[0m     .await?;
+   [1m[94m|[0m      [1m[91m^^^^^[0m [1m[91monly allowed inside `async` functions and blocks[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+  [1m[94m--> [0msrc/api/audio.rs:89:45
+   [1m[94m|[0m
+[1m[94m89[0m [1m[94m|[0m         .map_err(|error| ApiError::internal(format!("ses sentezi isteği başarısız: {error}")))?;
+   [1m[94m|[0m                                             [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+  [1m[94m--> [0msrc/api/audio.rs:93:39
+   [1m[94m|[0m
+[1m[94m48[0m [1m[94m|[0m   ) -> Result<Json<SpeechResponse>, ApiError> {
+   [1m[94m|[0m        [1m[94m--------------------------------------[0m [1m[94mexpected `anyhow::Error` because of return type[0m
+[1m[94m...[0m
+[1m[94m93[0m [1m[94m|[0m           return Err(ApiError::internal(format!(
+   [1m[94m|[0m [1m[91m _______________________________________^[0m
+[1m[94m94[0m [1m[94m|[0m [1m[91m|[0m             "ses sentezi hatası ({status}): {detail}"
+[1m[94m95[0m [1m[94m|[0m [1m[91m|[0m         )));
+   [1m[94m|[0m [1m[91m|_________^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+   [1m[94m--> [0msrc/api/audio.rs:100:45
+    [1m[94m|[0m
+[1m[94m100[0m [1m[94m|[0m         .map_err(|error| ApiError::internal(format!("ses yanıtı okunamadı: {error}")))?;
+    [1m[94m|[0m                                             [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+   [1m[94m--> [0msrc/api/audio.rs:170:45
+    [1m[94m|[0m
+[1m[94m170[0m [1m[94m|[0m         .map_err(|error| ApiError::internal(format!("ses tanıma isteği başarısız: {error}")))?;
+    [1m[94m|[0m                                             [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+   [1m[94m--> [0msrc/api/audio.rs:175:45
+    [1m[94m|[0m
+[1m[94m175[0m [1m[94m|[0m         .map_err(|error| ApiError::internal(format!("ses tanıma yanıtı okunamadı: {error}")))?;
+    [1m[94m|[0m                                             [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+   [1m[94m--> [0msrc/api/audio.rs:177:39
+    [1m[94m|[0m
+[1m[94m117[0m [1m[94m|[0m   ) -> Result<Json<TranscribeResponse>, ApiError> {
+    [1m[94m|[0m        [1m[94m------------------------------------------[0m [1m[94mexpected `anyhow::Error` because of return type[0m
+[1m[94m...[0m
+[1m[94m177[0m [1m[94m|[0m           return Err(ApiError::internal(format!(
+    [1m[94m|[0m [1m[91m _______________________________________^[0m
+[1m[94m178[0m [1m[94m|[0m [1m[91m|[0m             "ses tanıma hatası ({status}): {}",
+[1m[94m179[0m [1m[94m|[0m [1m[91m|[0m             value.get("error").and_then(|e| e["message"].as_str()).unwrap_or("bilinmeyen hata")
+[1m[94m180[0m [1m[94m|[0m [1m[91m|[0m         )));
+    [1m[94m|[0m [1m[91m|_________^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0507][0m[1m: cannot move out of dereference of `Json<ConversationDetail>`[0m
+   [1m[94m--> [0msrc/api/conversations.rs:347:23
+    [1m[94m|[0m
+[1m[94m347[0m [1m[94m|[0m         conversation: detail.conversation,
+    [1m[94m|[0m                       [1m[91m^^^^^^^^^^^^^^^^^^^[0m [1m[91mmove occurs because value has type `Conversation`, which does not implement the `Copy` trait[0m
+    [1m[94m|[0m
+[1m[96mhelp[0m: consider cloning the value if the performance cost is acceptable
+    [1m[94m|[0m
+[1m[94m347[0m [1m[94m| [0m        conversation: detail.conversation[92m.clone()[0m,
+    [1m[94m|[0m                                          [92m++++++++[0m
+
+[1m[91merror[E0507][0m[1m: cannot move out of dereference of `Json<ConversationDetail>`[0m
+   [1m[94m--> [0msrc/api/conversations.rs:348:19
+    [1m[94m|[0m
+[1m[94m348[0m [1m[94m|[0m         messages: detail.messages,
+    [1m[94m|[0m                   [1m[91m^^^^^^^^^^^^^^^[0m [1m[91mmove occurs because value has type `Vec<storage::types::Message>`, which does not implement the `Copy` trait[0m
+    [1m[94m|[0m
+[1m[96mhelp[0m: consider cloning the value if the performance cost is acceptable
+    [1m[94m|[0m
+[1m[94m348[0m [1m[94m| [0m        messages: detail.messages[92m.clone()[0m,
+    [1m[94m|[0m                                  [92m++++++++[0m
+
+[1m[91merror[E0308][0m[1m: mismatched types[0m
+   [1m[94m--> [0msrc/api/providers.rs:520:45
+    [1m[94m|[0m
+[1m[94m520[0m [1m[94m|[0m         .map_err(|error| ApiError::internal(format!("{kind_label} yanıtı okunamadı: {error}")))?;
+    [1m[94m|[0m                                             [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m [1m[91mexpected `Error`, found `String`[0m
+
+[1m[91merror[E0425][0m[1m: cannot find function `summarize_cut` in this scope[0m
+   [1m[94m--> [0msrc/engine.rs:928:19
+    [1m[94m|[0m
+[1m[94m928[0m [1m[94m|[0m         let cut = summarize_cut(&messages, HISTORY_TOKEN_BUDGET);
+    [1m[94m|[0m                   [1m[91m^^^^^^^^^^^^^[0m [1m[91mnot found in this scope[0m
+    [1m[94m|[0m
+[1m[96mhelp[0m: consider using the associated function on `Self`
+    [1m[94m|[0m
+[1m[94m928[0m [1m[94m| [0m        let cut = [92mSelf::[0msummarize_cut(&messages, HISTORY_TOKEN_BUDGET);
+    [1m[94m|[0m                   [92m++++++[0m
+
+[1mSome errors have detailed explanations: E0308, E0425, E0432, E0507, E0728.[0m
+[1mFor more information about an error, try `rustc --explain E0308`.[0m
+[1m[33mwarning[0m: `polylab-core` (lib) generated 1 warning
+[1m[91merror[0m: could not compile `polylab-core` (lib) due to 14 previous errors; 1 warning emitted
