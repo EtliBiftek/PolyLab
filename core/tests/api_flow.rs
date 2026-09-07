@@ -341,6 +341,8 @@ async fn openai_compat_stream_normalizes_reasoning_and_usage() {
         }],
         temperature: None,
         max_tokens: None,
+        reasoning_enabled: false,
+        reasoning_effort: None,
     };
     let mut stream = provider.stream_chat(request).await.unwrap();
     let mut text = String::new();
