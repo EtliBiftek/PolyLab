@@ -1565,14 +1565,14 @@ mod tests {
                 }
             }))
             .collect();
-        assert_eq!(Engine::summarize_cut(&small, 16_000), 1);
+        assert_eq!(ChatEngine::summarize_cut(&small, 16_000), 1);
 
         // Oversized history: everything but the last user turn is summarized.
         let big: Vec<ChatMessage> = std::iter::once(ChatMessage::new(Role::System, "sys"))
             .chain((0..6).map(|i| ChatMessage::new(Role::Assistant, format!("a{i} ").repeat(4000))))
             .chain(std::iter::once(ChatMessage::new(Role::User, "current request")))
             .collect();
-        let cut = Engine::summarize_cut(&big, 4_000);
+        let cut = ChatEngine::summarize_cut(&big, 4_000);
         assert!(cut > 1, "expected a summarization cut, got {cut}");
         assert!(cut < big.len(), "last user turn must be kept, cut={cut}");
         assert_eq!(big[cut..].last().unwrap().role, Role::User);

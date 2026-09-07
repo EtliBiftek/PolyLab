@@ -105,7 +105,7 @@ pub async fn save(
         .execute(&state.db)
         .await?;
     }
-    Ok(Json(load_detail(&state, &id)?))
+    Ok(Json(load_detail(&state, &id).await?))
 }
 
 /// `GET /api/comparisons` — newest first.
@@ -123,7 +123,7 @@ pub async fn get_one(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Json<ComparisonDetail>, ApiError> {
-    Ok(Json(load_detail(&state, &id)?))
+    Ok(Json(load_detail(&state, &id).await?))
 }
 
 /// `PATCH /api/comparisons/{id}/winner` — marks the winning entry.
@@ -150,7 +150,7 @@ pub async fn set_winner(
         .bind(&id)
         .execute(&state.db)
         .await?;
-    Ok(Json(load_detail(&state, &id)?))
+    Ok(Json(load_detail(&state, &id).await?))
 }
 
 /// `DELETE /api/comparisons/{id}`

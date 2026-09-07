@@ -492,7 +492,7 @@ pub async fn discover(
         ProviderKind::Ollama | ProviderKind::Lmstudio
     ) {
         return Err(ApiError::bad_request(
-            "model discovery is supported for ollama and lmstudio only".into(),
+            "model discovery is supported for ollama and lmstudio only",
         ));
     }
     let base = provider
@@ -500,7 +500,7 @@ pub async fn discover(
         .as_deref()
         .map(str::trim)
         .filter(|url| !url.is_empty())
-        .ok_or_else(|| ApiError::bad_request("discovery requires a base_url".into()))?
+        .ok_or_else(|| ApiError::bad_request("discovery requires a base_url"))?
         .trim_end_matches('/');
     let (url, kind_label) = match kind {
         ProviderKind::Ollama => (format!("{base}/api/tags"), "ollama"),

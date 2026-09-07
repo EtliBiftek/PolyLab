@@ -48,10 +48,10 @@ pub async fn speech(
 ) -> Result<Json<SpeechResponse>, ApiError> {
     let text = body.text.trim();
     if text.is_empty() {
-        return Err(ApiError::bad_request("text must not be empty".into()));
+        return Err(ApiError::bad_request("text must not be empty"));
     }
     if text.chars().count() > 4000 {
-        return Err(ApiError::bad_request("text too long (4000 chars max)".into()));
+        return Err(ApiError::bad_request("text too long (4000 chars max)"));
     }
     let provider: ProviderRow = sqlx::query_as(
         "SELECT * FROM providers WHERE kind = 'openai' AND enabled = 1
@@ -61,14 +61,14 @@ pub async fn speech(
     .await?
     .ok_or_else(|| {
         ApiError::bad_request(
-            "ses sentezi için etkin bir 'openai' sağlayıcısı ve API anahtarı gerekli".into(),
+            "ses sentezi için etkin bir 'openai' sağlayıcısı ve API anahtarı gerekli",
         )
     })?;
     let api_key = state
         .secrets
         .get(&provider_key(&provider.id))
         .map_err(ApiError::internal)?
-        .ok_or_else(|| ApiError::bad_request("openai sağlayıcısında API anahtarı yok".into()))?;
+        .ok_or_else(|| ApiError::bad_request("openai sağlayıcısında API anahtarı yok"))?;
     let base = provider
         .base_url
         .as_deref()
@@ -99,7 +99,7 @@ pub async fn speech(
         .await
         .map_err(|error| ApiError::internal(format!("ses yanıtı okunamadı: {error}")))?;
     if bytes.len() > 10 * 1024 * 1024 {
-        return Err(ApiError::bad_request("ses çıktısı çok büyük".into()));
+        return Err(ApiError::bad_request("ses çıktısı çok büyük"));
     }
     Ok(Json(SpeechResponse {
         audio_base64: base64::Engine::encode(
@@ -123,18 +123,18 @@ pub async fn transcribe(
     .await?
     .ok_or_else(|| {
         ApiError::bad_request(
-            "ses tanıma için etkin bir 'openai' sağlayıcısı ve API anahtarı gerekli".into(),
+            "ses tanıma için etkin bir 'openai' sağlayıcısı ve API anahtarı gerekli",
         )
     })?;
     let api_key = state
         .secrets
         .get(&provider_key(&provider.id))
         .map_err(ApiError::internal)?
-        .ok_or_else(|| ApiError::bad_request("openai sağlayıcısında API anahtarı yok".into()))?;
+        .ok_or_else(|| ApiError::bad_request("openai sağlayıcısında API anahtarı yok"))?;
     let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &body.data_base64)
         .map_err(|error| ApiError::bad_request(format!("geçersiz ses verisi: {error}")))?;
     if bytes.len() > 25 * 1024 * 1024 {
-        return Err(ApiError::bad_request("ses kaydı çok büyük (25 MB sınırı)".into()));
+        return Err(ApiError::bad_request("ses kaydı çok büyük (25 MB sınırı)"));
     }
 
     let base = provider
