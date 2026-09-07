@@ -3,121 +3,211 @@
 [1m[92m      Adding[0m mime_guess v2.0.5
 [1m[92m      Adding[0m unicase v2.9.0
 [1m[92m   Compiling[0m polylab-core v0.1.0 (/home/runner/work/PolyLab/PolyLab/core)
-[1m[92m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 14.81s
-[1m[92m     Running[0m unittests src/lib.rs (target/debug/deps/polylab_core-9c5b532a581049d1)
-
-running 66 tests
-test agent::tests::approval_profiles_gate_the_right_tools ... ok
-test agent::tests::diff_handles_identical_and_empty ... ok
-test agent::tests::diff_shows_change_and_new_file ... ok
-test agent::tests::parses_tool_block ... ok
-test agent::tests::takes_last_tool_block_and_rejects_plain_text ... ok
-test agent::tests::tool_specs_cover_legacy_tools ... ok
-test api::providers::tests::capability_heuristics_spot_reasoning_and_tools ... ok
-test api::providers::tests::lmstudio_models_are_parsed ... ok
-test api::providers::tests::ollama_tags_are_parsed_and_shorted ... ok
-test api::search::tests::fts_phrase_quotes_and_escapes ... ok
-test api::search::tests::snippet_handles_missing_match_and_short_text ... ok
-test api::search::tests::snippet_wraps_the_match ... ok
-test auth::tests::constant_time_eq_basics ... ok
-test auth::tests::query_param_parses ... ok
-test config::tests::session_tokens_are_unique ... ok
-test config::tests::config_from_env_parses_port_and_token ... ok
-test debate::consensus::tests::no_vote_is_none ... ok
-test debate::consensus::tests::parses_yes_and_no ... ok
-test debate::consensus::tests::takes_last_vote_line ... ok
-test debate::consensus::tests::unanimous_logic ... ok
-test auth::tests::health_requires_token ... ok
-test auth::tests::query_token_only_works_for_ws ... ok
-test debate::leader::tests::explicit_leader_wins_when_present ... ok
-test debate::tests::settings_parse_and_clamp ... ok
-test engine::tests::summarize_cut_keeps_recent_and_targets_old ... ok
-test events::tests::client_events_round_trip ... ok
-test events::tests::server_events_use_snake_case_types ... ok
-test events::tests::unknown_client_event_is_rejected ... ok
-test fs::tests::list_read_write_delete_roundtrip ... ok
-test fs::tests::resolve_blocks_escape ... ok
-test fs::tests::resolve_blocks_symlink_escape ... ok
-test fs::tests::snapshot_inlines_text_files_and_skips_noise ... ok
-test fs::tests::snapshot_reports_over_budget_files ... ok
-test fs::tests::snapshot_skips_symlinks_that_escape ... ok
-test fs::tests::undo_restores_existing_and_deletes_new_files ... ok
-test git::tests::diff_works_in_repo_without_commits ... ok
-test debate::leader::tests::ties_pick_first_in_group_order ... ok
-test prompts::tests::all_prompts_load_non_empty ... ok
-test debate::leader::tests::reasoning_beats_cloud_only ... ok
-test git::tests::status_and_diff_and_commit ... ok
-test providers::anthropic::tests::images_become_image_blocks_on_the_last_user_turn ... ok
-test providers::gemini::tests::split_data_uri_matches_native_shape ... ok
-test providers::gemini::tests::images_become_inline_data_on_the_last_user_turn ... ok
-test providers::openai_compat::tests::build_messages_appends_images_to_the_last_user_turn ... ok
-test providers::openai_compat::tests::build_messages_serializes_native_tool_calls_and_results ... ok
-test providers::openai_compat::tests::build_messages_without_images_keeps_plain_content ... ok
-test providers::openai_compat::tests::default_base_urls ... ok
-test providers::openai_compat::tests::base_url_can_override_and_trailing_slash_is_trimmed ... ok
-test providers::openai_compat::tests::message_helper ... ok
-test providers::openai_compat::tests::tool_choice_named_and_none_serialize ... ok
-test providers::reasoning::tests::angle_brackets_outside_are_not_held_back_forever ... ok
-test providers::reasoning::tests::case_insensitive_and_multiple_blocks ... ok
-test providers::reasoning::tests::full_block_is_split ... ok
-test providers::reasoning::tests::no_tags_passes_through ... ok
-test providers::reasoning::tests::stray_close_tag_outside_is_dropped ... ok
-test providers::reasoning::tests::tag_char_by_char ... ok
-test providers::reasoning::tests::tag_split_across_chunks ... ok
-test providers::reasoning::tests::unterminated_block_counts_as_reasoning ... ok
-test search::tests::decodes_entities_and_capss_results ... ok
-test search::tests::format_renders_a_usable_prompt_block ... ok
-test search::tests::parses_titles_urls_and_snippets ... ok
-test providers::anthropic::tests::base_url_default_and_trim ... ok
-test tokens::tests::estimate_is_monotonic_and_reasonable ... ok
-test storage::tests::migrations_create_the_phase1_tables ... ok
-test providers::openai_compat::tests::list_models_sorts_by_id ... ok
-test debate::leader::tests::labels_are_assigned_and_reshuffled ... ok
-
-test result: ok. 66 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.70s
-
-[1m[92m     Running[0m unittests src/main.rs (target/debug/deps/polylab_core-7f39ddef0a182de3)
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-[1m[92m     Running[0m tests/api_flow.rs (target/debug/deps/api_flow-138ea5f235ecc96a)
-
-running 5 tests
-test openai_compat_stream_normalizes_reasoning_and_usage ... ok
-test provider_delete_removes_models_and_keeps_conversations ... ok
-test settings_round_trip ... ok
-test unauthorized_without_token ... ok
-test full_single_model_flow ... FAILED
-
-failures:
-
----- full_single_model_flow stdout ----
-
-thread 'full_single_model_flow' (2655) panicked at tests/api_flow.rs:209:9:
-missing usage in ["message_start", "reasoning_token", "token", "reasoning_token", "token", "token", "error"]
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-
-
-failures:
-    full_single_model_flow
-
-test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
-
-[1m[91merror[0m: test failed, to rerun pass `--test api_flow`
-[1m[92m    Checking[0m polylab-core v0.1.0 (/home/runner/work/PolyLab/PolyLab/core)
-[1m[91merror[0m[1m: very complex type used. Consider factoring parts into `type` definitions[0m
-  [1m[94m--> [0msrc/api/search.rs:70:15
+[1m[91merror[E0774][0m[1m: `derive` may only be applied to `struct`s, `enum`s and `union`s[0m
+  [1m[94m--> [0msrc/api/search.rs:19:1
    [1m[94m|[0m
-[1m[94m70[0m [1m[94m|[0m     let rows: Vec<(String, String, Option<String>, String, String, Option<String>, String, f64)> =
-   [1m[94m|[0m               [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-   [1m[94m|[0m
-   [1m[94m= [0m[1mhelp[0m: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#type_complexity
-   [1m[94m= [0m[1mnote[0m: `-D clippy::type-complexity` implied by `-D warnings`
-   [1m[94m= [0m[1mhelp[0m: to override `-D warnings` add `#[allow(clippy::type_complexity)]`
+[1m[94m19[0m [1m[94m|[0m   #[derive(Serialize)]
+   [1m[94m|[0m   [1m[91m^^^^^^^^^^^^^^^^^^^^[0m [1m[91mnot applicable here[0m
+[1m[94m20[0m [1m[94m|[0m   /// Raw `messages_fts` join row (keeps the multi-column query readable for clippy).
+[1m[94m21[0m [1m[94m|[0m [1m[94m/[0m type SearchRow = (
+[1m[94m22[0m [1m[94m|[0m [1m[94m|[0m     String,
+[1m[94m23[0m [1m[94m|[0m [1m[94m|[0m     String,
+[1m[94m24[0m [1m[94m|[0m [1m[94m|[0m     Option<String>,
+[1m[94m...[0m  [1m[94m|[0m
+[1m[94m29[0m [1m[94m|[0m [1m[94m|[0m     f64,
+[1m[94m30[0m [1m[94m|[0m [1m[94m|[0m );
+   [1m[94m|[0m [1m[94m|__-[0m [1m[94mnot a `struct`, `enum` or `union`[0m
 
-[1m[91merror[0m: could not compile `polylab-core` (lib) due to 1 previous error
+[1m[33mwarning[0m[1m: unused import: `Serialize`[0m
+ [1m[94m--> [0msrc/api/search.rs:8:26
+  [1m[94m|[0m
+[1m[94m8[0m [1m[94m|[0m use serde::{Deserialize, Serialize};
+  [1m[94m|[0m                          [1m[33m^^^^^^^^^[0m
+  [1m[94m|[0m
+  [1m[94m= [0m[1mnote[0m: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+[1m[91merror[E0277][0m[1m: the trait bound `fn(State<AppState>, Query<SearchQuery>) -> ... {search}: Handler<_, _>` is not satisfied[0m
+   [1m[94m--> [0msrc/api/mod.rs:70:31
+    [1m[94m|[0m
+[1m[94m 70[0m [1m[94m|[0m         .route("/search", get(search::search))
+    [1m[94m|[0m                           [1m[94m---[0m [1m[91m^^^^^^^^^^^^^^[0m [1m[91mthe trait `Handler<_, _>` is not implemented for fn item `fn(State<AppState>, Query<SearchQuery>) -> ... {search}`[0m
+    [1m[94m|[0m                           [1m[94m|[0m
+    [1m[94m|[0m                           [1m[94mrequired by a bound introduced by this call[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: Consider using `#[axum::debug_handler]` to improve the error message
+[1m[92mnote[0m: required by a bound in `axum::routing::get`
+   [1m[94m--> [0m/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/axum-0.8.9/src/routing/method_routing.rs:167:16
+    [1m[94m|[0m
+[1m[94m167[0m [1m[94m|[0m             H: Handler<T, S>,
+    [1m[94m|[0m                [1m[92m^^^^^^^^^^^^^[0m [1m[92mrequired by this bound in `get`[0m
+[1m[94m...[0m
+[1m[94m441[0m [1m[94m|[0m top_level_handler_fn!(get, GET);
+    [1m[94m|[0m [1m[94m-------------------------------[0m
+    [1m[94m|[0m [1m[94m|[0m                     [1m[94m|[0m
+    [1m[94m|[0m [1m[94m|[0m                     [1m[94mrequired by a bound in this function[0m
+    [1m[94m|[0m [1m[94min this macro invocation[0m
+    [1m[94m= [0m[1mnote[0m: the full name for the type has been written to '/home/runner/work/PolyLab/PolyLab/core/target/debug/deps/polylab_core-71549a427cb6f09b.long-type-12427516492202052232.txt'
+    [1m[94m= [0m[1mnote[0m: consider using `--verbose` to print the full type name to the console
+    [1m[94m= [0m[1mnote[0m: this error originates in the macro `top_level_handler_fn` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1m[91merror[E0277][0m[1m: the trait bound `fn(State<AppState>, Query<SearchQuery>) -> ... {search}: Handler<_, _>` is not satisfied[0m
+   [1m[94m--> [0msrc/api/mod.rs:70:31
+    [1m[94m|[0m
+[1m[94m 70[0m [1m[94m|[0m         .route("/search", get(search::search))
+    [1m[94m|[0m                           [1m[94m---[0m [1m[91m^^^^^^^^^^^^^^[0m [1m[91mthe trait `Handler<_, _>` is not implemented for fn item `fn(State<AppState>, Query<SearchQuery>) -> ... {search}`[0m
+    [1m[94m|[0m                           [1m[94m|[0m
+    [1m[94m|[0m                           [1m[94mrequired by a bound introduced by this call[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: Consider using `#[axum::debug_handler]` to improve the error message
+[1m[92mnote[0m: required by a bound in `axum::routing::get`
+   [1m[94m--> [0m/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/axum-0.8.9/src/routing/method_routing.rs:167:16
+    [1m[94m|[0m
+[1m[94m167[0m [1m[94m|[0m             H: Handler<T, S>,
+    [1m[94m|[0m                [1m[92m^^^^^^^^^^^^^[0m [1m[92mrequired by this bound in `get`[0m
+[1m[94m...[0m
+[1m[94m441[0m [1m[94m|[0m top_level_handler_fn!(get, GET);
+    [1m[94m|[0m [1m[94m-------------------------------[0m
+    [1m[94m|[0m [1m[94m|[0m                     [1m[94m|[0m
+    [1m[94m|[0m [1m[94m|[0m                     [1m[94mrequired by a bound in this function[0m
+    [1m[94m|[0m [1m[94min this macro invocation[0m
+    [1m[94m= [0m[1mnote[0m: the full name for the type has been written to '/home/runner/work/PolyLab/PolyLab/core/target/debug/deps/polylab_core-9c5b532a581049d1.long-type-2428932095061176611.txt'
+    [1m[94m= [0m[1mnote[0m: consider using `--verbose` to print the full type name to the console
+    [1m[94m= [0m[1mnote[0m: this error originates in the macro `top_level_handler_fn` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1mSome errors have detailed explanations: E0277, E0774.[0m
+[1mFor more information about an error, try `rustc --explain E0277`.[0m
+[1m[33mwarning[0m: `polylab-core` (lib) generated 1 warning
+[1m[91merror[0m: could not compile `polylab-core` (lib) due to 2 previous errors; 1 warning emitted
 [1m[33mwarning[0m: build failed, waiting for other jobs to finish...
-[1m[91merror[0m: could not compile `polylab-core` (lib test) due to 1 previous error
-[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 0.17s
+[1m[33mwarning[0m: `polylab-core` (lib test) generated 1 warning (1 duplicate)
+[1m[91merror[0m: could not compile `polylab-core` (lib test) due to 2 previous errors; 1 warning emitted
+[1m[92m    Checking[0m polylab-core v0.1.0 (/home/runner/work/PolyLab/PolyLab/core)
+[1m[91merror[E0774][0m[1m: `derive` may only be applied to `struct`s, `enum`s and `union`s[0m
+  [1m[94m--> [0msrc/api/search.rs:19:1
+   [1m[94m|[0m
+[1m[94m19[0m [1m[94m|[0m   #[derive(Serialize)]
+   [1m[94m|[0m   [1m[91m^^^^^^^^^^^^^^^^^^^^[0m [1m[91mnot applicable here[0m
+[1m[94m20[0m [1m[94m|[0m   /// Raw `messages_fts` join row (keeps the multi-column query readable for clippy).
+[1m[94m21[0m [1m[94m|[0m [1m[94m/[0m type SearchRow = (
+[1m[94m22[0m [1m[94m|[0m [1m[94m|[0m     String,
+[1m[94m23[0m [1m[94m|[0m [1m[94m|[0m     String,
+[1m[94m24[0m [1m[94m|[0m [1m[94m|[0m     Option<String>,
+[1m[94m...[0m  [1m[94m|[0m
+[1m[94m29[0m [1m[94m|[0m [1m[94m|[0m     f64,
+[1m[94m30[0m [1m[94m|[0m [1m[94m|[0m );
+   [1m[94m|[0m [1m[94m|__-[0m [1m[94mnot a `struct`, `enum` or `union`[0m
+
+[1m[91merror[0m[1m: unused import: `Serialize`[0m
+ [1m[94m--> [0msrc/api/search.rs:8:26
+  [1m[94m|[0m
+[1m[94m8[0m [1m[94m|[0m use serde::{Deserialize, Serialize};
+  [1m[94m|[0m                          [1m[91m^^^^^^^^^[0m
+  [1m[94m|[0m
+  [1m[94m= [0m[1mnote[0m: `-D unused-imports` implied by `-D warnings`
+  [1m[94m= [0m[1mhelp[0m: to override `-D warnings` add `#[allow(unused_imports)]`
+
+[1m[91merror[E0277][0m[1m: the trait bound `fn(State<AppState>, Query<SearchQuery>) -> ... {search}: Handler<_, _>` is not satisfied[0m
+   [1m[94m--> [0msrc/api/mod.rs:70:31
+    [1m[94m|[0m
+[1m[94m 70[0m [1m[94m|[0m         .route("/search", get(search::search))
+    [1m[94m|[0m                           [1m[94m---[0m [1m[91m^^^^^^^^^^^^^^[0m [1m[91mthe trait `axum::handler::Handler<_, _>` is not implemented for fn item `fn(State<AppState>, Query<SearchQuery>) -> ... {search}`[0m
+    [1m[94m|[0m                           [1m[94m|[0m
+    [1m[94m|[0m                           [1m[94mrequired by a bound introduced by this call[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: Consider using `#[axum::debug_handler]` to improve the error message
+[1m[92mnote[0m: required by a bound in `axum::routing::get`
+   [1m[94m--> [0m/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/axum-0.8.9/src/routing/method_routing.rs:167:16
+    [1m[94m|[0m
+[1m[94m167[0m [1m[94m|[0m             H: Handler<T, S>,
+    [1m[94m|[0m                [1m[92m^^^^^^^^^^^^^[0m [1m[92mrequired by this bound in `get`[0m
+[1m[94m...[0m
+[1m[94m441[0m [1m[94m|[0m top_level_handler_fn!(get, GET);
+    [1m[94m|[0m [1m[94m-------------------------------[0m
+    [1m[94m|[0m [1m[94m|[0m                     [1m[94m|[0m
+    [1m[94m|[0m [1m[94m|[0m                     [1m[94mrequired by a bound in this function[0m
+    [1m[94m|[0m [1m[94min this macro invocation[0m
+    [1m[94m= [0m[1mnote[0m: the full name for the type has been written to '/home/runner/work/PolyLab/PolyLab/core/target/debug/deps/polylab_core-367a508a758faa24.long-type-5431759160176057221.txt'
+    [1m[94m= [0m[1mnote[0m: consider using `--verbose` to print the full type name to the console
+    [1m[94m= [0m[1mnote[0m: this error originates in the macro `top_level_handler_fn` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1m[91merror[E0277][0m[1m: the trait bound `fn(State<AppState>, Query<SearchQuery>) -> ... {search}: Handler<_, _>` is not satisfied[0m
+   [1m[94m--> [0msrc/api/mod.rs:70:31
+    [1m[94m|[0m
+[1m[94m 70[0m [1m[94m|[0m         .route("/search", get(search::search))
+    [1m[94m|[0m                           [1m[94m---[0m [1m[91m^^^^^^^^^^^^^^[0m [1m[91mthe trait `axum::handler::Handler<_, _>` is not implemented for fn item `fn(State<AppState>, Query<SearchQuery>) -> ... {search}`[0m
+    [1m[94m|[0m                           [1m[94m|[0m
+    [1m[94m|[0m                           [1m[94mrequired by a bound introduced by this call[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: Consider using `#[axum::debug_handler]` to improve the error message
+[1m[92mnote[0m: required by a bound in `axum::routing::get`
+   [1m[94m--> [0m/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/axum-0.8.9/src/routing/method_routing.rs:167:16
+    [1m[94m|[0m
+[1m[94m167[0m [1m[94m|[0m             H: Handler<T, S>,
+    [1m[94m|[0m                [1m[92m^^^^^^^^^^^^^[0m [1m[92mrequired by this bound in `get`[0m
+[1m[94m...[0m
+[1m[94m441[0m [1m[94m|[0m top_level_handler_fn!(get, GET);
+    [1m[94m|[0m [1m[94m-------------------------------[0m
+    [1m[94m|[0m [1m[94m|[0m                     [1m[94m|[0m
+    [1m[94m|[0m [1m[94m|[0m                     [1m[94mrequired by a bound in this function[0m
+    [1m[94m|[0m [1m[94min this macro invocation[0m
+    [1m[94m= [0m[1mnote[0m: the full name for the type has been written to '/home/runner/work/PolyLab/PolyLab/core/target/debug/deps/polylab_core-03fe5fcbbc565637.long-type-3138885624871635851.txt'
+    [1m[94m= [0m[1mnote[0m: consider using `--verbose` to print the full type name to the console
+    [1m[94m= [0m[1mnote[0m: this error originates in the macro `top_level_handler_fn` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1mSome errors have detailed explanations: E0277, E0774.[0m
+[1mFor more information about an error, try `rustc --explain E0277`.[0m
+[1m[91merror[0m: could not compile `polylab-core` (lib) due to 3 previous errors
+[1m[33mwarning[0m: build failed, waiting for other jobs to finish...
+[1m[91merror[0m: could not compile `polylab-core` (lib test) due to 3 previous errors
+[1m[92m   Compiling[0m polylab-core v0.1.0 (/home/runner/work/PolyLab/PolyLab/core)
+[1m[91merror[E0774][0m[1m: `derive` may only be applied to `struct`s, `enum`s and `union`s[0m
+  [1m[94m--> [0msrc/api/search.rs:19:1
+   [1m[94m|[0m
+[1m[94m19[0m [1m[94m|[0m   #[derive(Serialize)]
+   [1m[94m|[0m   [1m[91m^^^^^^^^^^^^^^^^^^^^[0m [1m[91mnot applicable here[0m
+[1m[94m20[0m [1m[94m|[0m   /// Raw `messages_fts` join row (keeps the multi-column query readable for clippy).
+[1m[94m21[0m [1m[94m|[0m [1m[94m/[0m type SearchRow = (
+[1m[94m22[0m [1m[94m|[0m [1m[94m|[0m     String,
+[1m[94m23[0m [1m[94m|[0m [1m[94m|[0m     String,
+[1m[94m24[0m [1m[94m|[0m [1m[94m|[0m     Option<String>,
+[1m[94m...[0m  [1m[94m|[0m
+[1m[94m29[0m [1m[94m|[0m [1m[94m|[0m     f64,
+[1m[94m30[0m [1m[94m|[0m [1m[94m|[0m );
+   [1m[94m|[0m [1m[94m|__-[0m [1m[94mnot a `struct`, `enum` or `union`[0m
+
+[1m[33mwarning[0m[1m: unused import: `Serialize`[0m
+ [1m[94m--> [0msrc/api/search.rs:8:26
+  [1m[94m|[0m
+[1m[94m8[0m [1m[94m|[0m use serde::{Deserialize, Serialize};
+  [1m[94m|[0m                          [1m[33m^^^^^^^^^[0m
+  [1m[94m|[0m
+  [1m[94m= [0m[1mnote[0m: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+[1m[91merror[E0277][0m[1m: the trait bound `fn(State<AppState>, Query<SearchQuery>) -> ... {search}: Handler<_, _>` is not satisfied[0m
+   [1m[94m--> [0msrc/api/mod.rs:70:31
+    [1m[94m|[0m
+[1m[94m 70[0m [1m[94m|[0m         .route("/search", get(search::search))
+    [1m[94m|[0m                           [1m[94m---[0m [1m[91m^^^^^^^^^^^^^^[0m [1m[91mthe trait `Handler<_, _>` is not implemented for fn item `fn(State<AppState>, Query<SearchQuery>) -> ... {search}`[0m
+    [1m[94m|[0m                           [1m[94m|[0m
+    [1m[94m|[0m                           [1m[94mrequired by a bound introduced by this call[0m
+    [1m[94m|[0m
+    [1m[94m= [0m[1mnote[0m: Consider using `#[axum::debug_handler]` to improve the error message
+[1m[92mnote[0m: required by a bound in `axum::routing::get`
+   [1m[94m--> [0m/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/axum-0.8.9/src/routing/method_routing.rs:167:16
+    [1m[94m|[0m
+[1m[94m167[0m [1m[94m|[0m             H: Handler<T, S>,
+    [1m[94m|[0m                [1m[92m^^^^^^^^^^^^^[0m [1m[92mrequired by this bound in `get`[0m
+[1m[94m...[0m
+[1m[94m441[0m [1m[94m|[0m top_level_handler_fn!(get, GET);
+    [1m[94m|[0m [1m[94m-------------------------------[0m
+    [1m[94m|[0m [1m[94m|[0m                     [1m[94m|[0m
+    [1m[94m|[0m [1m[94m|[0m                     [1m[94mrequired by a bound in this function[0m
+    [1m[94m|[0m [1m[94min this macro invocation[0m
+    [1m[94m= [0m[1mnote[0m: the full name for the type has been written to '/home/runner/work/PolyLab/PolyLab/core/target/debug/deps/polylab_core-71549a427cb6f09b.long-type-14491771963589687671.txt'
+    [1m[94m= [0m[1mnote[0m: consider using `--verbose` to print the full type name to the console
+    [1m[94m= [0m[1mnote[0m: this error originates in the macro `top_level_handler_fn` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+[1mSome errors have detailed explanations: E0277, E0774.[0m
+[1mFor more information about an error, try `rustc --explain E0277`.[0m
+[1m[33mwarning[0m: `polylab-core` (lib) generated 1 warning
+[1m[91merror[0m: could not compile `polylab-core` (lib) due to 2 previous errors; 1 warning emitted
